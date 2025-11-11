@@ -85,12 +85,6 @@ const main = async () => {
     path.join(archiveDir, 'WORKSPACE-Context.md')
   );
 
-  // Copy the config directory
-  fs.cpSync(
-    path.join(workspaceMcpServerDir, 'config'),
-    path.join(archiveDir, 'config'),
-    { recursive: true }
-  );
 
   // Create the archive
   const output = fs.createWriteStream(path.join(releaseDir, archiveName));
