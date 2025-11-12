@@ -59,42 +59,16 @@ describe('DocsService', () => {
 
         // Create DocsService instance
         docsService = new DocsService(mockAuthManager, mockDriveService);
+
+        const mockAuthClient = { access_token: 'test-token' };
+        mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
     });
 
     afterEach(() => {
         jest.restoreAllMocks();
     });
 
-    describe('initialize', () => {
-        it('should initialize Docs and Drive API clients', async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-            await docsService.initialize();
-
-            expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-            expect(google.docs).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v1',
-                    auth: mockAuthClient,
-                })
-            );
-            expect(google.drive).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v3',
-                    auth: mockAuthClient,
-                })
-            );
-        });
-    });
-
     describe('create', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should create a blank document', async () => {
             const mockDoc = {
                 data: {
@@ -168,12 +142,6 @@ describe('DocsService', () => {
     });
 
     describe('insertText', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should insert text into a document', async () => {
             const mockResponse = {
                 data: {
@@ -213,12 +181,6 @@ describe('DocsService', () => {
     });
 
     describe('find', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should find documents with a given query', async () => {
             const mockResponse = {
                 data: {
@@ -271,12 +233,6 @@ describe('DocsService', () => {
     });
 
     describe('move', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should move a document to a folder', async () => {
             mockDriveService.findFolder.mockResolvedValue({
                 content: [{ type: 'text', text: JSON.stringify([{ id: 'test-folder-id', name: 'Test Folder' }]) }],
@@ -306,12 +262,6 @@ describe('DocsService', () => {
     });
 
     describe('getText', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should extract text from a document', async () => {
             const mockDoc = {
                 data: {
@@ -350,12 +300,6 @@ describe('DocsService', () => {
     });
 
     describe('appendText', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should append text to a document', async () => {
             const mockDoc = {
                 data: {
@@ -397,12 +341,6 @@ describe('DocsService', () => {
     });
 
     describe('replaceText', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await docsService.initialize();
-        });
-
         it('should replace text in a document', async () => {
             // Mock the document get call that finds occurrences
             mockDocsAPI.documents.get.mockResolvedValue({

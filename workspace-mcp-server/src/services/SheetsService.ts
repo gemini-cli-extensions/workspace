@@ -12,19 +12,19 @@ import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
 
 export class SheetsService {
-    private sheets: sheets_v4.Sheets;
-    private drive: drive_v3.Drive;
-
     constructor(private authManager: AuthManager) {
-        this.sheets = {} as sheets_v4.Sheets;
-        this.drive = {} as drive_v3.Drive;
     }
 
-    public async initialize(): Promise<void> {
-        const auth: Auth.OAuth2Client = await this.authManager.getAuthenticatedClient();
+    private async getSheetsClient(): Promise<sheets_v4.Sheets> {
+        const auth = await this.authManager.getAuthenticatedClient();
         const options = { ...gaxiosOptions, auth };
-        this.sheets = google.sheets({ version: 'v4', ...options });
-        this.drive = google.drive({ version: 'v3', ...options });
+        return google.sheets({ version: 'v4', ...options });
+    }
+
+    private async getDriveClient(): Promise<drive_v3.Drive> {
+        const auth = await this.authManager.getAuthenticatedClient();
+        const options = { ...gaxiosOptions, auth };
+        return google.drive({ version: 'v3', ...options });
     }
 
     public getText = async ({ spreadsheetId, format = 'text' }: { spreadsheetId: string, format?: 'text' | 'csv' | 'json' }) => {
@@ -32,8 +32,9 @@ export class SheetsService {
         try {
             const id = extractDocId(spreadsheetId) || spreadsheetId;
             
+            const sheets = await this.getSheetsClient();
             // Get spreadsheet metadata
-            const spreadsheet = await this.sheets.spreadsheets.get({
+            const spreadsheet = await sheets.spreadsheets.get({
                 spreadsheetId: id,
                 includeGridData: false,
             });
@@ -54,7 +55,7 @@ export class SheetsService {
                 if (!sheetName) continue;
                 
                 try {
-                    const response = await this.sheets.spreadsheets.values.get({
+                    const response = await sheets.spreadsheets.values.get({
                         spreadsheetId: id,
                         range: `'${sheetName}'`,
                     });
@@ -132,7 +133,8 @@ export class SheetsService {
         try {
             const id = extractDocId(spreadsheetId) || spreadsheetId;
             
-            const response = await this.sheets.spreadsheets.values.get({
+            const sheets = await this.getSheetsClient();
+            const response = await sheets.spreadsheets.values.get({
                 spreadsheetId: id,
                 range: range,
             });
@@ -167,7 +169,8 @@ export class SheetsService {
             const q = buildDriveSearchQuery(MIME_TYPES.SPREADSHEET, query);
             logToFile(`[SheetsService] Executing Drive API query: ${q}`);
 
-            const res = await this.drive.files.list({
+            const drive = await this.getDriveClient();
+            const res = await drive.files.list({
                 pageSize: pageSize,
                 fields: 'nextPageToken, files(id, name)',
                 q: q,
@@ -205,7 +208,8 @@ export class SheetsService {
         try {
             const id = extractDocId(spreadsheetId) || spreadsheetId;
             
-            const spreadsheet = await this.sheets.spreadsheets.get({
+            const sheets = await this.getSheetsClient();
+            const spreadsheet = await sheets.spreadsheets.get({
                 spreadsheetId: id,
                 includeGridData: false,
             });

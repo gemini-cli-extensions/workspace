@@ -76,6 +76,25 @@ export class AuthManager {
         };
         const oAuth2Client = new google.auth.OAuth2(options);
 
+        oAuth2Client.on('tokens', async (tokens) => {
+            logToFile('Tokens refreshed event received');
+            if (tokens.refresh_token) {
+                logToFile('New refresh token received in event');
+            }
+            
+            try {
+                const current = await OAuthCredentialStorage.loadCredentials();
+                const merged = {
+                    ...current,
+                    ...tokens
+                };
+                await OAuthCredentialStorage.saveCredentials(merged);
+                logToFile('Credentials saved after refresh');
+            } catch (e) {
+                logToFile(`Error saving refreshed credentials: ${e}`);
+            }
+        });
+
         logToFile('No valid cached client, checking for saved credentials...');
         if (await this.loadCachedCredentials(oAuth2Client)) {
             logToFile('Loaded saved credentials, caching and returning client');
@@ -104,6 +123,13 @@ export class AuthManager {
         await OAuthCredentialStorage.saveCredentials(oAuth2Client.credentials);
         this.client = oAuth2Client;
         return this.client;
+    }
+
+    public async clearAuth(): Promise<void> {
+        logToFile('Clearing authentication...');
+        this.client = null;
+        await OAuthCredentialStorage.clearCredentials();
+        logToFile('Authentication cleared.');
     }
 
     private async getAvailablePort(): Promise<number> {

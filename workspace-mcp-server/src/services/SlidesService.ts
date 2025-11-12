@@ -12,19 +12,19 @@ import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
 
 export class SlidesService {
-    private slides: slides_v1.Slides;
-    private drive: drive_v3.Drive;
-
     constructor(private authManager: AuthManager) {
-        this.slides = {} as slides_v1.Slides;
-        this.drive = {} as drive_v3.Drive;
     }
 
-    public async initialize(): Promise<void> {
-        const auth: Auth.OAuth2Client = await this.authManager.getAuthenticatedClient();
+    private async getSlidesClient(): Promise<slides_v1.Slides> {
+        const auth = await this.authManager.getAuthenticatedClient();
         const options = { ...gaxiosOptions, auth };
-        this.slides = google.slides({ version: 'v1', ...options });
-        this.drive = google.drive({ version: 'v3', ...options });
+        return google.slides({ version: 'v1', ...options });
+    }
+
+    private async getDriveClient(): Promise<drive_v3.Drive> {
+        const auth = await this.authManager.getAuthenticatedClient();
+        const options = { ...gaxiosOptions, auth };
+        return google.drive({ version: 'v3', ...options });
     }
 
     public getText = async ({ presentationId }: { presentationId: string }) => {
@@ -32,8 +32,9 @@ export class SlidesService {
         try {
             const id = extractDocId(presentationId) || presentationId;
             
+            const slides = await this.getSlidesClient();
             // Get the presentation with all necessary fields
-            const presentation = await this.slides.presentations.get({
+            const presentation = await slides.presentations.get({
                 presentationId: id,
                 fields: 'title,slides(pageElements(shape(text,shapeProperties),table(tableRows(tableCells(text)))))',
             });
@@ -121,7 +122,8 @@ export class SlidesService {
             const q = buildDriveSearchQuery(MIME_TYPES.PRESENTATION, query);
             logToFile(`[SlidesService] Executing Drive API query: ${q}`);
 
-            const res = await this.drive.files.list({
+            const drive = await this.getDriveClient();
+            const res = await drive.files.list({
                 pageSize: pageSize,
                 fields: 'nextPageToken, files(id, name)',
                 q: q,
@@ -159,7 +161,8 @@ export class SlidesService {
         try {
             const id = extractDocId(presentationId) || presentationId;
             
-            const presentation = await this.slides.presentations.get({
+            const slides = await this.getSlidesClient();
+            const presentation = await slides.presentations.get({
                 presentationId: id,
                 fields: 'presentationId,title,slides(objectId),pageSize,notesMaster,masters,layouts',
             });

@@ -10,27 +10,19 @@ import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 
 export class ChatService {
-    private chat: chat_v1.Chat;
-    private people: people_v1.People;
-    private authClient: Auth.OAuth2Client;
-
     constructor(private authManager: AuthManager) {
-        this.chat = {} as chat_v1.Chat;
-        this.people = {} as people_v1.People;
-        this.authClient = {} as Auth.OAuth2Client;
     }
 
-    public async initialize(): Promise<void> {
-        this.authClient = await this.authManager.getAuthenticatedClient();
-        const options = { ...gaxiosOptions, auth: this.authClient };
-        this.chat = google.chat({
-            version: 'v1',
-            ...options,
-        });
-        this.people = google.people({
-            version: 'v1',
-            ...options,
-        });
+    private async getChatClient(): Promise<chat_v1.Chat> {
+        const auth = await this.authManager.getAuthenticatedClient();
+        const options = { ...gaxiosOptions, auth };
+        return google.chat({ version: 'v1', ...options });
+    }
+
+    private async getPeopleClient(): Promise<people_v1.People> {
+        const auth = await this.authManager.getAuthenticatedClient();
+        const options = { ...gaxiosOptions, auth };
+        return google.people({ version: 'v1', ...options });
     }
 
     private async _setupDmSpace(email: string): Promise<chat_v1.Schema$Space> {
@@ -39,7 +31,8 @@ export class ChatService {
             type: 'HUMAN',
         };
 
-        const setupResponse = await this.chat.spaces.setup({
+        const chat = await this.getChatClient();
+        const setupResponse = await chat.spaces.setup({
             requestBody: {
                 space: {
                     spaceType: 'DIRECT_MESSAGE',
@@ -62,7 +55,8 @@ export class ChatService {
     public listSpaces = async () => {
         logToFile('Listing chat spaces');
         try {
-            const res = await this.chat.spaces.list({});
+            const chat = await this.getChatClient();
+            const res = await chat.spaces.list({});
             const spaces = res.data.spaces || [];
             logToFile(`Successfully listed ${spaces.length} chat spaces.`);
             return {
@@ -93,7 +87,8 @@ export class ChatService {
     public sendMessage = async ({ spaceName, message }: { spaceName: string, message: string }) => {
         logToFile(`Sending message to space: ${spaceName}`);
         try {
-            const response = await this.chat.spaces.messages.create({
+            const chat = await this.getChatClient();
+            const response = await chat.spaces.messages.create({
                 parent: spaceName,
                 requestBody: {
                     text: message,
@@ -128,13 +123,14 @@ export class ChatService {
     public findSpaceByName = async ({ displayName }: { displayName: string }) => {
         logToFile(`Finding space with display name: ${displayName}`);
         try {
+            const chat = await this.getChatClient();
             // The Chat API's spaces.list method does not support filtering by
             // displayName on the server. We must fetch all spaces and filter locally.
             let pageToken: string | undefined = undefined;
             let allSpaces: chat_v1.Schema$Space[] = [];
 
             do {
-                const res: any = await this.chat.spaces.list({ pageToken });
+                const res: any = await chat.spaces.list({ pageToken });
                 const spaces = res.data.spaces || [];
                 allSpaces = allSpaces.concat(spaces);
                 pageToken = res.data.nextPageToken || undefined;
@@ -183,8 +179,10 @@ export class ChatService {
     public getMessages = async ({ spaceName, unreadOnly, pageSize, pageToken }: { spaceName: string, unreadOnly?: boolean, pageSize?: number, pageToken?: string }) => {
         logToFile(`Listing messages for space: ${spaceName}`);
         try {
+            const chat = await this.getChatClient();
             if (unreadOnly) {
-                const person = await this.people.people.get({
+                const people = await this.getPeopleClient();
+                const person = await people.people.get({
                     resourceName: 'people/me',
                     personFields: 'metadata',
                 });
@@ -196,7 +194,7 @@ export class ChatService {
                 }
                 const userMemberName = `users/${userId}`;
 
-                const membersRes = await this.chat.spaces.members.list({
+                const membersRes = await chat.spaces.members.list({
                     parent: spaceName,
                 });
                 // Type assertion needed due to incomplete type definitions
@@ -209,13 +207,13 @@ export class ChatService {
                     logToFile(`No last read time found for user in space: ${spaceName}`);
                     // This can happen if the user has never read messages in the space.
                     // In this case, all messages are unread.
-                    const res = await this.chat.spaces.messages.list({ parent: spaceName, pageSize, pageToken });
+                    const res = await chat.spaces.messages.list({ parent: spaceName, pageSize, pageToken });
                     const messages = res.data.messages || [];
                     logToFile(`Successfully listed ${messages.length} unread messages for space: ${spaceName}`);
                     return { content: [{ type: "text" as const, text: JSON.stringify({ messages, nextPageToken: res.data.nextPageToken }) }] };
                 }
 
-                const res = await this.chat.spaces.messages.list({
+                const res = await chat.spaces.messages.list({
                     parent: spaceName,
                     filter: `createTime > "${lastReadTime}"`,
                     pageSize,
@@ -232,7 +230,7 @@ export class ChatService {
                 };
 
             } else {
-                const res = await this.chat.spaces.messages.list({
+                const res = await chat.spaces.messages.list({
                     parent: spaceName,
                     pageSize,
                     pageToken,
@@ -275,8 +273,9 @@ export class ChatService {
                 throw new Error('Could not determine the space name for the DM.');
             }
 
+            const chat = await this.getChatClient();
             // Send the message to the DM space.
-            const messageResponse = await this.chat.spaces.messages.create({
+            const messageResponse = await chat.spaces.messages.create({
                 parent: spaceName,
                 requestBody: {
                     text: message,
@@ -342,7 +341,8 @@ export class ChatService {
     public listThreads = async ({ spaceName, pageSize, pageToken }: { spaceName: string, pageSize?: number, pageToken?: string }) => {
         logToFile(`Listing threads for space: ${spaceName}`);
         try {
-            const res = await this.chat.spaces.messages.list({
+            const chat = await this.getChatClient();
+            const res = await chat.spaces.messages.list({
                 parent: spaceName,
                 pageSize,
                 pageToken,
@@ -396,7 +396,8 @@ export class ChatService {
                 },
             }));
 
-            const response = await this.chat.spaces.setup({
+            const chat = await this.getChatClient();
+            const response = await chat.spaces.setup({
                 requestBody: {
                     space: {
                         spaceType: 'SPACE',

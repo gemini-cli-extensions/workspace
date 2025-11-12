@@ -51,42 +51,16 @@ describe('SheetsService', () => {
 
         // Create SheetsService instance
         sheetsService = new SheetsService(mockAuthManager);
+
+        const mockAuthClient = { access_token: 'test-token' };
+        mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
     });
 
     afterEach(() => {
         jest.restoreAllMocks();
     });
 
-    describe('initialize', () => {
-        it('should initialize Sheets and Drive API clients', async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-            await sheetsService.initialize();
-
-            expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-            expect(google.sheets).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v4',
-                    auth: mockAuthClient,
-                })
-            );
-            expect(google.drive).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v3',
-                    auth: mockAuthClient,
-                })
-            );
-        });
-    });
-
     describe('getText', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await sheetsService.initialize();
-        });
-
         it('should extract text from a spreadsheet in default format', async () => {
             const mockSpreadsheet = {
                 data: {
@@ -257,12 +231,6 @@ describe('SheetsService', () => {
     });
 
     describe('getRange', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await sheetsService.initialize();
-        });
-
         it('should get values from a specific range', async () => {
             const mockRangeData = {
                 data: {
@@ -326,12 +294,6 @@ describe('SheetsService', () => {
     });
 
     describe('find', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await sheetsService.initialize();
-        });
-
         it('should find spreadsheets by query', async () => {
             const mockResponse = {
                 data: {
@@ -384,12 +346,6 @@ describe('SheetsService', () => {
     });
 
     describe('getMetadata', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await sheetsService.initialize();
-        });
-
         it('should retrieve spreadsheet metadata', async () => {
             const mockSpreadsheet = {
                 data: {

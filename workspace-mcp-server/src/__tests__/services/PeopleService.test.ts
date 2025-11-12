@@ -31,6 +31,7 @@ describe('PeopleService', () => {
         mockPeopleAPI = {
             people: {
                 get: jest.fn(),
+                searchDirectoryPeople: jest.fn(),
             },
         };
 
@@ -39,37 +40,17 @@ describe('PeopleService', () => {
 
         // Create PeopleService instance
         peopleService = new PeopleService(mockAuthManager);
+
+        const mockAuthClient = { access_token: 'test-token' };
+        mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
     });
 
     afterEach(() => {
         jest.restoreAllMocks();
     });
 
-    describe('initialize', () => {
-        it('should initialize People API client', async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-            await peopleService.initialize();
-
-            expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-            expect(google.people).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v1',
-                    auth: mockAuthClient,
-                })
-            );
-        });
-    });
-
     describe('getUserProfile', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await peopleService.initialize();
-        });
-
-        it('should return a user profile', async () => {
+        it('should return a user profile by userId', async () => {
             const mockUser = {
                 data: {
                     resourceName: 'people/110001608645105799644',
@@ -92,11 +73,75 @@ describe('PeopleService', () => {
             expect(JSON.parse(result.content[0].text)).toEqual({ results: [{ person: mockUser.data }] });
         });
 
+        it('should return a user profile by email', async () => {
+            const mockUser = {
+                data: {
+                    results: [
+                        {
+                            person: {
+                                resourceName: 'people/110001608645105799644',
+                                names: [{
+                                    displayName: 'Test User',
+                                }],
+                                emailAddresses: [{
+                                    value: 'test@example.com',
+                                }],
+                            }
+                        }
+                    ]
+                },
+            };
+            mockPeopleAPI.people.searchDirectoryPeople.mockResolvedValue(mockUser);
+
+            const result = await peopleService.getUserProfile({ email: 'test@example.com' });
+
+            expect(mockPeopleAPI.people.searchDirectoryPeople).toHaveBeenCalledWith({
+                query: 'test@example.com',
+                readMask: 'names,emailAddresses',
+                sources: ['DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT', 'DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE'],
+            });
+            expect(JSON.parse(result.content[0].text)).toEqual(mockUser.data);
+        });
+
         it('should handle errors during getUserProfile', async () => {
             const apiError = new Error('API Error');
             mockPeopleAPI.people.get.mockRejectedValue(apiError);
 
             const result = await peopleService.getUserProfile({ userId: '110001608645105799644' });
+
+            expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
+        });
+    });
+
+    describe('getMe', () => {
+        it('should return the authenticated user\'s profile', async () => {
+            const mockMe = {
+                data: {
+                    resourceName: 'people/me',
+                    names: [{
+                        displayName: 'Me',
+                    }],
+                    emailAddresses: [{
+                        value: 'me@example.com',
+                    }],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockMe);
+
+            const result = await peopleService.getMe();
+
+            expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
+                resourceName: 'people/me',
+                personFields: 'names,emailAddresses',
+            });
+            expect(JSON.parse(result.content[0].text)).toEqual(mockMe.data);
+        });
+
+        it('should handle errors during getMe', async () => {
+            const apiError = new Error('API Error');
+            mockPeopleAPI.people.get.mockRejectedValue(apiError);
+
+            const result = await peopleService.getMe();
 
             expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
         });

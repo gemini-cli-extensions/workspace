@@ -11,16 +11,13 @@ import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 
 export class PeopleService {
-    private people: people_v1.People;
-
     constructor(private authManager: AuthManager) {
-        this.people = {} as people_v1.People;
     }
 
-    public async initialize(): Promise<void> {
-        const auth: Auth.OAuth2Client = await this.authManager.getAuthenticatedClient();
+    private async getPeopleClient(): Promise<people_v1.People> {
+        const auth = await this.authManager.getAuthenticatedClient();
         const options = { ...gaxiosOptions, auth };
-        this.people = google.people({ version: 'v1', ...options });
+        return google.people({ version: 'v1', ...options });
     }
 
     public getUserProfile = async ({ userId, email, name }: { userId?: string, email?: string, name?: string }) => {
@@ -29,9 +26,10 @@ export class PeopleService {
             if (!userId && !email && !name) {
                 throw new Error('Either userId, email, or name must be provided.');
             }
+            const people = await this.getPeopleClient();
             if (userId) {
                 const resourceName = userId.startsWith('people/') ? userId : `people/${userId}`;
-                const res = await this.people.people.get({
+                const res = await people.people.get({
                     resourceName,
                     personFields: 'names,emailAddresses',
                 });
@@ -44,7 +42,7 @@ export class PeopleService {
                 };
             } else if (email || name) {
                 const query = email || name;
-                const res = await this.people.people.searchDirectoryPeople({
+                const res = await people.people.searchDirectoryPeople({
                     query,
                     readMask: 'names,emailAddresses',
                     sources: ['DIRECTORY_SOURCE_TYPE_DOMAIN_CONTACT', 'DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE'],
@@ -74,7 +72,8 @@ export class PeopleService {
     public getMe = async () => {
         logToFile(`[PeopleService] Starting getMe`);
         try {
-            const res = await this.people.people.get({
+            const people = await this.getPeopleClient();
+            const res = await people.people.get({
                 resourceName: 'people/me',
                 personFields: 'names,emailAddresses',
             });

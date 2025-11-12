@@ -49,35 +49,16 @@ describe('CalendarService', () => {
 
     // Create CalendarService instance
     calendarService = new CalendarService(mockAuthManager);
+
+    const mockAuthClient = { access_token: 'test-token' };
+    mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  describe('initialize', () => {
-    it('should initialize the Calendar API client', async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient);
-
-      await calendarService.initialize();
-
-      expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-      expect(google.calendar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          version: 'v3',
-          auth: mockAuthClient,
-        })
-      );
-    });
-  });
-
   describe('listCalendars', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient);
-    });
-
     it('should list all calendars', async () => {
       const mockCalendars = [
         { id: 'primary', summary: 'Primary Calendar' },
@@ -137,8 +118,6 @@ describe('CalendarService', () => {
 
   describe('createEvent', () => {
     beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient);
       mockCalendarAPI.calendarList.list.mockResolvedValue({
         data: {
           items: [{ id: 'primary-calendar-id', primary: true }],
@@ -232,8 +211,6 @@ describe('CalendarService', () => {
 
   describe('listEvents', () => {
     beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient);
       mockCalendarAPI.calendarList.list.mockResolvedValue({
         data: {
           items: [{ id: 'primary-calendar-id', primary: true }],

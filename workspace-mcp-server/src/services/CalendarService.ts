@@ -11,7 +11,6 @@ import { iso8601DateTimeSchema, emailArraySchema } from '../utils/validation';
 import { z } from 'zod';
 
 export class CalendarService {
-  private calendar: calendar_v3.Calendar | null = null;
   private primaryCalendarId: string | null = null;
 
   constructor(private authManager: any) {
@@ -37,16 +36,7 @@ export class CalendarService {
     };
   }
 
-  async initialize() {
-    logToFile('Initializing CalendarService...');
-    this.calendar = await this.getCalendar();
-    logToFile('CalendarService initialized.');
-  }
-
   private async getCalendar(): Promise<calendar_v3.Calendar> {
-    if (this.calendar) {
-      return this.calendar;
-    }
     logToFile('Getting authenticated client for calendar...');
     const auth = await this.authManager.getAuthenticatedClient();
     logToFile('Got auth client, creating calendar instance...');

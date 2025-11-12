@@ -23,24 +23,22 @@ const URL_PATTERNS = [
 ];
 
 export class DriveService {
-    private drive: drive_v3.Drive;
-
     constructor(private authManager: AuthManager) {
-        this.drive = {} as drive_v3.Drive;
     }
 
-    public async initialize(): Promise<void> {
-        const auth: Auth.OAuth2Client = await this.authManager.getAuthenticatedClient();
+    private async getDriveClient(): Promise<drive_v3.Drive> {
+        const auth = await this.authManager.getAuthenticatedClient();
         const options = { ...gaxiosOptions, auth };
-        this.drive = google.drive({ version: 'v3', ...options });
+        return google.drive({ version: 'v3', ...options });
     }
 
     public findFolder = async ({ folderName }: { folderName: string }) => {
         logToFile(`Searching for folder with name: ${folderName}`);
         try {
+            const drive = await this.getDriveClient();
             const query = `mimeType='application/vnd.google-apps.folder' and name = '${folderName}'`;
             logToFile(`Executing Drive API query: ${query}`);
-            const res = await this.drive.files.list({
+            const res = await drive.files.list({
                 q: query,
                 fields: 'files(id, name)',
                 spaces: 'drive',
@@ -69,6 +67,7 @@ export class DriveService {
     }
 
     public search = async ({ query, pageSize = 10, pageToken, corpus, unreadOnly, sharedWithMe }: { query?: string, pageSize?: number, pageToken?: string, corpus?: string, unreadOnly?: boolean, sharedWithMe?: boolean }) => {
+        const drive = await this.getDriveClient();
         let q = query;
         let isProcessed = false;
 
@@ -94,7 +93,7 @@ export class DriveService {
 
                 if (urlType === 'unknown') {
                     try {
-                        const file = await this.drive.files.get({ fileId, fields: 'mimeType' });
+                        const file = await drive.files.get({ fileId, fields: 'mimeType' });
                         if (file.data.mimeType === 'application/vnd.google-apps.folder') {
                             isFolder = true;
                         }
@@ -109,7 +108,7 @@ export class DriveService {
                 } else {
                     logToFile(`Extracted File ID from URL: ${fileId}, using files.get`);
                     try {
-                        const res = await this.drive.files.get({
+                        const res = await drive.files.get({
                             fileId: fileId,
                             fields: 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
                         });
@@ -191,7 +190,7 @@ export class DriveService {
         }
 
         try {
-            const res = await this.drive.files.list({
+            const res = await drive.files.list({
                 q: q,
                 pageSize: pageSize,
                 pageToken: pageToken,

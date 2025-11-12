@@ -56,22 +56,14 @@ async function main() {
 
     const authManager = new AuthManager(SCOPES);
     const driveService = new DriveService(authManager);
-    await driveService.initialize();
     const docsService = new DocsService(authManager, driveService);
-    await docsService.initialize();
     const peopleService = new PeopleService(authManager);
-    await peopleService.initialize();
     const calendarService = new CalendarService(authManager);
-    await calendarService.initialize();
     const chatService = new ChatService(authManager);
-    await chatService.initialize();
     const gmailService = new GmailService(authManager);
-    await gmailService.initialize();
     const timeService = new TimeService();
     const slidesService = new SlidesService(authManager);
-    await slidesService.initialize();
     const sheetsService = new SheetsService(authManager);
-    await sheetsService.initialize();
 
     // 2. Create the server instance
     const server = new McpServer({
@@ -80,6 +72,23 @@ async function main() {
     });
 
     // 3. Register tools directly on the server
+    server.registerTool(
+        "auth.clear",
+        {
+            description: 'Clears the authentication credentials, forcing a re-login on the next request.',
+            inputSchema: {}
+        },
+        async () => {
+            await authManager.clearAuth();
+            return {
+                content: [{
+                    type: "text",
+                    text: "Authentication credentials cleared. You will be prompted to log in again on the next request."
+                }]
+            };
+        }
+    );
+
     server.registerTool(
         "docs.create",
         {

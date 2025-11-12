@@ -27,9 +27,6 @@ describe('GmailService', () => {
     // Create mock AuthManager
     mockAuthManager = {
       getAuthenticatedClient: jest.fn(),
-      loadSavedCredentialsIfExist: jest.fn(),
-      saveCredentials: jest.fn(),
-      authorize: jest.fn(),
     } as any;
 
     // Create mock Gmail API
@@ -71,36 +68,16 @@ describe('GmailService', () => {
 
     // Create GmailService instance
     gmailService = new GmailService(mockAuthManager);
+
+    const mockAuthClient = { access_token: 'test-token' };
+    mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  describe('initialize', () => {
-    it('should initialize the Gmail API client', async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-      await gmailService.initialize();
-
-      expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-      expect(google.gmail).toHaveBeenCalledWith(
-        expect.objectContaining({
-          version: 'v1',
-          auth: mockAuthClient,
-        })
-      );
-    });
-  });
-
   describe('search', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-    });
-
     it('should search for emails with query', async () => {
       const mockMessages = [
         { id: 'msg1', threadId: 'thread1' },
@@ -218,12 +195,6 @@ describe('GmailService', () => {
   });
 
   describe('get', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-    });
-
     it('should get a message by ID with full format', async () => {
       const mockMessage = {
         id: 'msg1',
@@ -321,12 +292,6 @@ describe('GmailService', () => {
   });
 
   describe('modify', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-    });
-
     it('should add a label to a message', async () => {
       mockGmailAPI.users.messages.modify.mockResolvedValue({
         data: {
@@ -486,10 +451,6 @@ describe('GmailService', () => {
 
   describe('send', () => {
     beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-
       // Mock MimeHelper
       (MimeHelper.createMimeMessage as jest.Mock) = jest.fn().mockReturnValue('base64encodedmessage');
     });
@@ -515,10 +476,8 @@ describe('GmailService', () => {
         to: 'recipient@example.com',
         subject: 'Test Subject',
         body: 'Test Body',
-        from: undefined,
         cc: undefined,
         bcc: undefined,
-        replyTo: undefined,
         isHtml: false,
       });
 
@@ -553,10 +512,8 @@ describe('GmailService', () => {
         to: 'recipient1@example.com, recipient2@example.com',
         subject: 'Test',
         body: 'Body',
-        from: undefined,
         cc: 'cc1@example.com, cc2@example.com',
         bcc: 'bcc@example.com',
-        replyTo: undefined,
         isHtml: false,
       });
     });
@@ -597,10 +554,6 @@ describe('GmailService', () => {
 
   describe('createDraft', () => {
     beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-
       (MimeHelper.createMimeMessage as jest.Mock) = jest.fn().mockReturnValue('base64encodedmessage');
     });
 
@@ -655,12 +608,6 @@ describe('GmailService', () => {
   });
 
   describe('sendDraft', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-    });
-
     it('should send a draft', async () => {
       const mockSentMessage = {
         id: 'sent-msg-1',
@@ -698,12 +645,6 @@ describe('GmailService', () => {
   });
 
   describe('listLabels', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await gmailService.initialize();
-    });
-
     it('should list all labels', async () => {
       const mockLabels = [
         { id: 'INBOX', name: 'INBOX', type: 'system' },

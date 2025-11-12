@@ -19,22 +19,23 @@ import { extractDocumentId as validateAndExtractDocId } from '../utils/validatio
 import { parseMarkdownToDocsRequests, processMarkdownLineBreaks } from '../utils/markdownToDocsRequests';
 
 export class DocsService {
-    private docs: docs_v1.Docs;
-    private drive: drive_v3.Drive;
     private purify: ReturnType<typeof createDOMPurify>;
 
     constructor(private authManager: AuthManager, private driveService: DriveService) {
-        this.docs = {} as docs_v1.Docs;
-        this.drive = {} as drive_v3.Drive;
         const window = new JSDOM('').window;
         this.purify = createDOMPurify(window as any);
     }
 
-    public async initialize(): Promise<void> {
-        const auth: Auth.OAuth2Client = await this.authManager.getAuthenticatedClient();
+    private async getDocsClient(): Promise<docs_v1.Docs> {
+        const auth = await this.authManager.getAuthenticatedClient();
         const options = { ...gaxiosOptions, auth };
-        this.docs = google.docs({ version: 'v1', ...options });
-        this.drive = google.drive({ version: 'v3', ...options });
+        return google.docs({ version: 'v1', ...options });
+    }
+
+    private async getDriveClient(): Promise<drive_v3.Drive> {
+        const auth = await this.authManager.getAuthenticatedClient();
+        const options = { ...gaxiosOptions, auth };
+        return google.drive({ version: 'v3', ...options });
     }
 
     public create = async ({ title, folderName, markdown }: { title: string, folderName?: string, markdown?: string }) => {
@@ -57,7 +58,8 @@ export class DocsService {
                     };
 
                     logToFile('[DocsService] Calling drive.files.create');
-                    const file = await this.drive.files.create({
+                    const drive = await this.getDriveClient();
+                    const file = await drive.files.create({
                         requestBody: fileMetadata,
                         media: media,
                         fields: 'id, name',
@@ -67,7 +69,8 @@ export class DocsService {
                 } else {
                     logToFile('[DocsService] Creating blank doc');
                     logToFile('[DocsService] Calling docs.documents.create');
-                    const doc = await this.docs.documents.create({
+                    const docs = await this.getDocsClient();
+                    const doc = await docs.documents.create({
                         requestBody: { title },
                     });
                     logToFile('[DocsService] docs.documents.create finished');
@@ -126,7 +129,8 @@ export class DocsService {
                 requests.push(...formattingRequests);
             }
 
-            const res = await this.docs.documents.batchUpdate({
+            const docs = await this.getDocsClient();
+            const res = await docs.documents.batchUpdate({
                 documentId: id,
                 requestBody: {
                     requests,
@@ -167,7 +171,8 @@ export class DocsService {
             const q = buildDriveSearchQuery(MIME_TYPES.DOCUMENT, query);
             logToFile(`Executing Drive API query: ${q}`);
 
-            const res = await this.drive.files.list({
+            const drive = await this.getDriveClient();
+            const res = await drive.files.list({
                 pageSize: pageSize,
                 fields: 'nextPageToken, files(id, name)',
                 q: q,
@@ -233,7 +238,8 @@ export class DocsService {
         try {
             // Validate and extract document ID
             const id = validateAndExtractDocId(documentId);
-            const res = await this.docs.documents.get({
+            const docs = await this.getDocsClient();
+            const res = await docs.documents.get({
                 documentId: id,
                 fields: 'body',
             });
@@ -289,7 +295,8 @@ export class DocsService {
         logToFile(`[DocsService] Starting appendText for document: ${documentId}`);
         try {
             const id = extractDocId(documentId) || documentId;
-            const res = await this.docs.documents.get({
+            const docs = await this.getDocsClient();
+            const res = await docs.documents.get({
                 documentId: id,
                 fields: 'body',
             });
@@ -319,7 +326,7 @@ export class DocsService {
                 requests.push(...formattingRequests);
             }
 
-            await this.docs.documents.batchUpdate({
+            await docs.documents.batchUpdate({
                 documentId: id,
                 requestBody: {
                     requests,
@@ -349,13 +356,14 @@ export class DocsService {
         logToFile(`[DocsService] Starting replaceText for document: ${documentId}`);
         try {
             const id = extractDocId(documentId) || documentId;
+            const docs = await this.getDocsClient();
 
             // Parse markdown to get plain text and formatting info
             const { plainText, formattingRequests: originalFormattingRequests } = parseMarkdownToDocsRequests(replaceText, 0);
             const processedText = processMarkdownLineBreaks(plainText);
 
             // First, get the document to find where the text will be replaced
-            const docBefore = await this.docs.documents.get({
+            const docBefore = await docs.documents.get({
                 documentId: id,
                 fields: 'body',
             });
@@ -410,7 +418,7 @@ export class DocsService {
                 cumulativeOffset += lengthDiff;
             }
 
-            await this.docs.documents.batchUpdate({
+            await docs.documents.batchUpdate({
                 documentId: id,
                 requestBody: {
                     requests,
@@ -468,14 +476,15 @@ export class DocsService {
             }
 
             const folderId = folders[0].id;
-            const file = await this.drive.files.get({
+            const drive = await this.getDriveClient();
+            const file = await drive.files.get({
                 fileId: documentId,
                 fields: 'parents',
             });
             
             const previousParents = file.data.parents?.join(',');
 
-            await this.drive.files.update({
+            await drive.files.update({
                 fileId: documentId,
                 addParents: folderId,
                 removeParents: previousParents,

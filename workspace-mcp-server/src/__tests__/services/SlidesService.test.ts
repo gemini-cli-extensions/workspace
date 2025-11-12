@@ -48,42 +48,16 @@ describe('SlidesService', () => {
 
         // Create SlidesService instance
         slidesService = new SlidesService(mockAuthManager);
+
+        const mockAuthClient = { access_token: 'test-token' };
+        mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
     });
 
     afterEach(() => {
         jest.restoreAllMocks();
     });
 
-    describe('initialize', () => {
-        it('should initialize Slides and Drive API clients', async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-            await slidesService.initialize();
-
-            expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-            expect(google.slides).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v1',
-                    auth: mockAuthClient,
-                })
-            );
-            expect(google.drive).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    version: 'v3',
-                    auth: mockAuthClient,
-                })
-            );
-        });
-    });
-
     describe('getText', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await slidesService.initialize();
-        });
-
         it('should extract text from a presentation', async () => {
             const mockPresentation = {
                 data: {
@@ -180,12 +154,6 @@ describe('SlidesService', () => {
     });
 
     describe('find', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await slidesService.initialize();
-        });
-
         it('should find presentations by query', async () => {
             const mockResponse = {
                 data: {
@@ -238,12 +206,6 @@ describe('SlidesService', () => {
     });
 
     describe('getMetadata', () => {
-        beforeEach(async () => {
-            const mockAuthClient = { access_token: 'test-token' };
-            mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-            await slidesService.initialize();
-        });
-
         it('should retrieve presentation metadata', async () => {
             const mockPresentation = {
                 data: {

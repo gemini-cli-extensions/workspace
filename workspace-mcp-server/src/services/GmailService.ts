@@ -23,16 +23,13 @@ type SendEmailParams = {
 };
 
 export class GmailService {
-    private gmail: gmail_v1.Gmail;
-
     constructor(private authManager: AuthManager) {
-        this.gmail = {} as gmail_v1.Gmail;
     }
 
-    public async initialize(): Promise<void> {
-        const auth: Auth.OAuth2Client = await this.authManager.getAuthenticatedClient();
+    private async getGmailClient(): Promise<gmail_v1.Gmail> {
+        const auth = await this.authManager.getAuthenticatedClient();
         const options = { ...gaxiosOptions, auth };
-        this.gmail = google.gmail({ version: 'v1', ...options });
+        return google.gmail({ version: 'v1', ...options });
     }
 
     /**
@@ -65,7 +62,8 @@ export class GmailService {
         try {
             logToFile(`Gmail search - query: ${query}, maxResults: ${maxResults}`);
             
-            const response = await this.gmail.users.messages.list({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.messages.list({
                 userId: 'me',
                 q: query,
                 maxResults,
@@ -108,7 +106,8 @@ export class GmailService {
         try {
             logToFile(`Getting message ${messageId} with format: ${format}`);
             
-            const response = await this.gmail.users.messages.get({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.messages.get({
                 userId: 'me',
                 id: messageId,
                 format
@@ -173,7 +172,8 @@ export class GmailService {
         try {
             logToFile(`Modifying message ${messageId} with addLabelIds: ${addLabelIds}, removeLabelIds: ${removeLabelIds}`);
 
-            const response = await this.gmail.users.messages.modify({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.messages.modify({
                 userId: 'me',
                 id: messageId,
                 requestBody: {
@@ -232,7 +232,8 @@ export class GmailService {
                 isHtml
             });
 
-            const response = await this.gmail.users.messages.send({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.messages.send({
                 userId: 'me',
                 requestBody: {
                     raw: mimeMessage
@@ -278,7 +279,8 @@ export class GmailService {
                 isHtml
             });
 
-            const response = await this.gmail.users.drafts.create({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.drafts.create({
                 userId: 'me',
                 requestBody: {
                     message: {
@@ -312,7 +314,8 @@ export class GmailService {
         try {
             logToFile(`Sending draft: ${draftId}`);
             
-            const response = await this.gmail.users.drafts.send({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.drafts.send({
                 userId: 'me',
                 requestBody: {
                     id: draftId
@@ -341,7 +344,8 @@ export class GmailService {
         try {
             logToFile(`Listing Gmail labels`);
             
-            const response = await this.gmail.users.labels.list({
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.labels.list({
                 userId: 'me'
             });
 

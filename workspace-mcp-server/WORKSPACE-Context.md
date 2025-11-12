@@ -154,6 +154,11 @@ Choose output format based on use case:
 
 ## 🔍 Error Handling Patterns
 
+### Authentication Errors
+- If any tool returns `{"error":"invalid_request"}`, it likely indicates an expired or invalid session.
+- **Action:** Call `auth.clear` to reset credentials and force a re-login.
+- Inform the user that you are resetting authentication due to an error.
+
 ### Graceful Degradation
 - If a folder doesn't exist, offer to create it
 - If search returns no results, suggest alternatives

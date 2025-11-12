@@ -25,9 +25,6 @@ describe('DriveService', () => {
     // Create mock AuthManager
     mockAuthManager = {
       getAuthenticatedClient: jest.fn(),
-      loadSavedCredentialsIfExist: jest.fn(),
-      saveCredentials: jest.fn(),
-      authorize: jest.fn(),
     } as any;
 
     // Create mock Drive API
@@ -46,43 +43,16 @@ describe('DriveService', () => {
 
     // Create DriveService instance
     driveService = new DriveService(mockAuthManager);
+
+    const mockAuthClient = { access_token: 'test-token' };
+    mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  describe('initialize', () => {
-    it('should initialize the Drive API client with authentication', async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-      await driveService.initialize();
-
-      expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-      expect(google.drive).toHaveBeenCalledWith(
-        expect.objectContaining({
-          version: 'v3',
-          auth: mockAuthClient,
-        })
-      );
-    });
-
-    it('should handle authentication errors', async () => {
-      const authError = new Error('Authentication failed');
-      mockAuthManager.getAuthenticatedClient.mockRejectedValue(authError);
-
-      await expect(driveService.initialize()).rejects.toThrow('Authentication failed');
-    });
-  });
-
   describe('findFolder', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await driveService.initialize();
-    });
-
     it('should find folders by name', async () => {
       const mockFolders = [
         { id: 'folder1', name: 'TestFolder' },
@@ -130,12 +100,6 @@ describe('DriveService', () => {
   });
 
   describe('search', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await driveService.initialize();
-    });
-
     it('should search files with custom query', async () => {
       const mockFiles = [
         { id: 'file1', name: 'Document.pdf', modifiedTime: '2024-01-01T00:00:00Z' },
@@ -621,32 +585,59 @@ describe('DriveService', () => {
       expect(responseData.files).toEqual(mockFiles);
     });
 
-    it('should not wrap a valid query in full-text search', async () => {
-      const mockFiles = [
-        { id: 'file1', name: 'My File.pdf', mimeType: 'application/pdf' },
-      ];
+        it('should not wrap a valid query in full-text search', async () => {
 
-      mockDriveAPI.files.list.mockResolvedValue({
-        data: {
-          files: mockFiles,
-        },
+          const mockFiles = [
+
+            { id: 'file1', name: 'My File.pdf', mimeType: 'application/pdf' },
+
+          ];
+
+    
+
+          mockDriveAPI.files.list.mockResolvedValue({
+
+            data: {
+
+              files: mockFiles,
+
+            },
+
+          });
+
+    
+
+          const result = await driveService.search({
+
+            query: "'me' in owners",
+
+            pageSize: 10,
+
+          });
+
+    
+
+          expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
+
+            q: "'me' in owners",
+
+            pageSize: 10,
+
+            pageToken: undefined,
+
+            corpus: undefined,
+
+            fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+
+          });
+
+    
+
+          const responseData = JSON.parse(result.content[0].text);
+
+          expect(responseData.files).toEqual(mockFiles);
+
+        });
+
       });
-
-      const result = await driveService.search({
-        query: "'me' in owners",
-        pageSize: 10,
-      });
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
-        q: "'me' in owners",
-        pageSize: 10,
-        pageToken: undefined,
-        corpus: undefined,
-        fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
-      });
-
-      const responseData = JSON.parse(result.content[0].text);
-      expect(responseData.files).toEqual(mockFiles);
-    });
-  });
 });

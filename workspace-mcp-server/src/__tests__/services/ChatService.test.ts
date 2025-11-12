@@ -26,9 +26,6 @@ describe('ChatService', () => {
     // Create mock AuthManager
     mockAuthManager = {
       getAuthenticatedClient: jest.fn(),
-      loadSavedCredentialsIfExist: jest.fn(),
-      saveCredentials: jest.fn(),
-      authorize: jest.fn(),
     } as any;
 
     // Create mock Chat API
@@ -60,42 +57,16 @@ describe('ChatService', () => {
 
     // Create ChatService instance
     chatService = new ChatService(mockAuthManager);
+
+    const mockAuthClient = { access_token: 'test-token' };
+    mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  describe('initialize', () => {
-    it('should initialize Chat and People API clients', async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-
-      await chatService.initialize();
-
-      expect(mockAuthManager.getAuthenticatedClient).toHaveBeenCalledTimes(1);
-      expect(google.chat).toHaveBeenCalledWith(
-        expect.objectContaining({
-          version: 'v1',
-          auth: mockAuthClient,
-        })
-      );
-      expect(google.people).toHaveBeenCalledWith(
-        expect.objectContaining({
-          version: 'v1',
-          auth: mockAuthClient,
-        })
-      );
-    });
-  });
-
   describe('listSpaces', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should list all chat spaces', async () => {
       const mockSpaces = [
         { name: 'spaces/space1', displayName: 'Team Chat' },
@@ -139,12 +110,6 @@ describe('ChatService', () => {
   });
 
   describe('sendMessage', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should send a message to a space', async () => {
       const mockResponse = {
         name: 'spaces/space1/messages/msg1',
@@ -186,12 +151,6 @@ describe('ChatService', () => {
   });
 
   describe('findSpaceByName', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should find spaces by display name', async () => {
       const mockSpaces = [
         { name: 'spaces/space1', displayName: 'Team Chat' },
@@ -263,12 +222,6 @@ describe('ChatService', () => {
   });
 
   describe('getMessages', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should list messages from a space', async () => {
       const mockMessages = [
         { name: 'spaces/space1/messages/msg1', text: 'Hello' },
@@ -404,12 +357,6 @@ describe('ChatService', () => {
   });
 
   describe('sendDm', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should send a direct message to a user', async () => {
       const mockSpace = {
         name: 'spaces/dm123',
@@ -477,12 +424,6 @@ describe('ChatService', () => {
   });
 
   describe('findDmByEmail', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should find a DM space by user email using spaces.setup', async () => {
       const mockSpace = {
         name: 'spaces/dm123',
@@ -528,12 +469,6 @@ describe('ChatService', () => {
   });
 
   describe('createSpace', () => {
-    beforeEach(async () => {
-      const mockAuthClient = { access_token: 'test-token' };
-      mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
-      await chatService.initialize();
-    });
-
     it('should create a space and return the space data', async () => {
       const mockResponse = {
         name: 'spaces/space1',
