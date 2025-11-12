@@ -31,7 +31,7 @@
     "@modelcontextprotocol/sdk": "^1.17.5",
     "dompurify": "^3.1.6",
     "google-auth-library": "^10.4.0",
-    "googleapis": "^159.0.0",
+    "googleapis": "^166.0.0",
     "jsdom": "^27.0.0",
     "keytar": "^7.9.0",
     "marked": "^16.2.1"
