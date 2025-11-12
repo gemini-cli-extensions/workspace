@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, chat_v1, people_v1, Auth } from 'googleapis';
+import { google, chat_v1, people_v1 } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';

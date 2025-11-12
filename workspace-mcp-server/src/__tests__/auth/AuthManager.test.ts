@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 import { AuthManager } from '../../auth/AuthManager';
 import { OAuthCredentialStorage } from '../../auth/token-storage/oauth-credential-storage';

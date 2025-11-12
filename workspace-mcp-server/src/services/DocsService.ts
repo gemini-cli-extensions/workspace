@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, docs_v1, drive_v3, Auth } from 'googleapis';
+import { google, docs_v1, drive_v3 } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
 import { DriveService } from './DriveService';
 import { logToFile } from '../utils/logger';

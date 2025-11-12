@@ -5,7 +5,6 @@
  */
 
 import { google, people_v1 } from 'googleapis';
-import { Auth } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
