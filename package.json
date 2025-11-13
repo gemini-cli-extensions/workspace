@@ -17,7 +17,7 @@
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "test:ci": "npm run test:ci --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
-    "clear-auth": "npm run build:clear-auth -w workspace-mcp-server && node scripts/clear-auth.js",
+    "auth-utils": "npm run build:auth-utils -w workspace-mcp-server && node scripts/auth-utils.js",
     "clean": "rm -rf release && npm run clean --workspaces --if-present",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

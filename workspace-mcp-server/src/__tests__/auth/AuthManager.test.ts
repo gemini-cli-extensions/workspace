@@ -14,6 +14,9 @@ jest.mock('googleapis');
 jest.mock('../../utils/logger');
 jest.mock('../../utils/secure-browser-launcher');
 
+// Mock fetch globally for refreshToken tests
+global.fetch = jest.fn();
+
 describe('AuthManager', () => {
   let authManager: AuthManager;
   let mockOAuth2Client: any;
@@ -92,15 +95,13 @@ describe('AuthManager', () => {
     // Initialize client to populate this.client
     await authManager.getAuthenticatedClient();
     
-    // Mock refresh to return ONLY access token (no refresh token)
-    // We need to update the mock to actually update credentials, similar to real OAuth2Client
-    mockOAuth2Client.refreshAccessToken.mockImplementation(async () => {
-        const newCreds = {
+    // Mock fetch to simulate cloud function returning new tokens without refresh_token
+    (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({
             access_token: 'new_access_token',
             expiry_date: 999999999
-        };
-        mockOAuth2Client.credentials = newCreds;
-        return { credentials: newCreds };
+        })
     });
 
     await authManager.refreshToken();
@@ -123,28 +124,19 @@ describe('AuthManager', () => {
     // Initialize client to populate this.client
     await authManager.getAuthenticatedClient();
     
-    // This test simulates the REAL OAuth2Client behavior where refreshAccessToken
-    // mutates the credentials object IN-PLACE before returning
-    mockOAuth2Client.refreshAccessToken.mockImplementation(async () => {
-        // CRITICAL: Mutate the existing credentials object in-place
-        // This is what the real OAuth2Client does!
-        mockOAuth2Client.credentials.access_token = 'new_access_token';
-        mockOAuth2Client.credentials.expiry_date = 999999999;
-        // Note: refresh_token is NOT included in the refresh response
-        delete mockOAuth2Client.credentials.refresh_token;
-        delete mockOAuth2Client.credentials.scope;
-        
-        // Return the new credentials (which are the SAME object reference)
-        return { credentials: mockOAuth2Client.credentials };
+    // Mock fetch to simulate cloud function returning new tokens without refresh_token
+    (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+            access_token: 'new_access_token',
+            expiry_date: 999999999
+        })
     });
 
     await authManager.refreshToken();
 
-    // This test will FAIL if the bug exists, because:
-    // 1. Line 146 captures a reference to mockOAuth2Client.credentials
-    // 2. Line 148 calls refreshAccessToken which mutates that same object
-    // 3. The merge logic sees currentCredentials.refresh_token is undefined (it was deleted)
-    // 4. The refresh_token is lost
+    // This test verifies that the refresh_token is preserved even when
+    // the cloud function doesn't return it in the response
     expect(OAuthCredentialStorage.saveCredentials).toHaveBeenCalledWith(expect.objectContaining({
         access_token: 'new_access_token',
         refresh_token: 'old_refresh_token'
@@ -179,5 +171,46 @@ describe('AuthManager', () => {
         expiry_date: 999999999,
         refresh_token: 'stored_refresh_token'
     });
+  });
+
+  it('should proactively refresh expired tokens before returning client', async () => {
+    // Setup: Load credentials with expired token
+    const expiredTime = Date.now() - 1000; // 1 second ago
+    (OAuthCredentialStorage.loadCredentials as jest.Mock).mockResolvedValue({
+        access_token: 'expired_token',
+        refresh_token: 'valid_refresh',
+        expiry_date: expiredTime,
+        scope: 'scope1'
+    });
+    
+    // Mock fetch to simulate cloud function returning fresh tokens
+    (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+            access_token: 'fresh_token',
+            expiry_date: Date.now() + 3600000
+        })
+    });
+    
+    // First call: load expired credentials from storage, should trigger proactive refresh
+    const firstClient = await authManager.getAuthenticatedClient();
+    expect(firstClient).toBeDefined();
+    
+    // Verify fetch was called to refresh the token
+    expect(global.fetch).toHaveBeenCalledWith(
+        'https://google-workspace-extension.geminicli.com/refreshToken',
+        expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('valid_refresh')
+        })
+    );
+    
+    // Verify new token was saved with preserved refresh_token
+    expect(OAuthCredentialStorage.saveCredentials).toHaveBeenCalledWith(
+        expect.objectContaining({
+            access_token: 'fresh_token',
+            refresh_token: 'valid_refresh'
+        })
+    );
   });
 });

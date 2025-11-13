@@ -254,3 +254,60 @@ functions.http('oauthCallback', async (req, res) => {
     res.status(500).send('An error occurred during the token exchange. Check function logs for details.');
   }
 });
+
+/**
+ * HTTP Cloud Function that handles token refresh.
+ * Accepts a refresh_token and returns a new access_token.
+ */
+functions.http('refreshToken', async (req, res) => {
+  // Only accept POST requests
+  if (req.method !== 'POST') {
+    console.error('Invalid method for refreshToken:', req.method);
+    return res.status(405).send('Method Not Allowed');
+  }
+
+  const { refresh_token } = req.body;
+  console.log(`Received refresh request with refresh_token: ${refresh_token ? 'present' : 'missing'}`);
+  
+  if (!refresh_token) {
+    console.error('Missing refresh_token in request body');
+    return res.status(400).send('Error: Missing refresh_token in request body.');
+  }
+
+  try {
+    const clientSecret = await getClientSecret();
+
+    console.log('Refreshing access token via Google OAuth API...');
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      client_id: CLIENT_ID,
+      client_secret: clientSecret,
+      refresh_token: refresh_token,
+      grant_type: 'refresh_token',
+    });
+
+    console.log('Token refresh successful.');
+    const { access_token, expires_in, scope, token_type } = tokenResponse.data;
+
+    // Calculate expiry_date (timestamp in milliseconds)
+    const expiry_date = Date.now() + (expires_in * 1000);
+
+    // Return the new credentials
+    // Note: Google does NOT return a new refresh_token on refresh
+    // The client must preserve the original refresh_token
+    res.status(200).json({
+      access_token,
+      expiry_date,
+      token_type,
+      scope,
+    });
+
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Error during token refresh:', error.response.data);
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      console.error('Error during token refresh:', error instanceof Error ? error.message : error);
+      res.status(500).send('An error occurred during token refresh.');
+    }
+  }
+});

@@ -11,7 +11,7 @@
     "start": "ts-node src/index.ts",
     "clean": "rm -rf dist",
     "build": "node esbuild.config.js",
-    "build:clear-auth": "node esbuild.clear-auth.js"
+    "build:auth-utils": "node esbuild.auth-utils.js"
   },
   "keywords": [],
   "author": "",

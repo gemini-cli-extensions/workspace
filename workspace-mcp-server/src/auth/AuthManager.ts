@@ -70,8 +70,30 @@ export class AuthManager {
             logToFile(`Access token exists: ${!!this.client.credentials.access_token}`);
             logToFile(`Expiry date: ${this.client.credentials.expiry_date}`);
             logToFile(`Current time: ${Date.now()}`);
-            logToFile(`Token expired: ${this.client.credentials.expiry_date ? this.client.credentials.expiry_date < Date.now() : 'unknown'}`);
-            return this.client;
+            
+            const isExpired = this.client.credentials.expiry_date ? 
+                this.client.credentials.expiry_date < Date.now() : 
+                false;
+            logToFile(`Token expired: ${isExpired}`);
+            
+            // Proactively refresh if expired
+            if (isExpired) {
+                logToFile('Token is expired, refreshing proactively...');
+                try {
+                    await this.refreshToken();
+                    logToFile('Token refreshed successfully');
+                } catch (error) {
+                    logToFile(`Failed to refresh token: ${error}`);
+                    // Clear the client and fall through to re-authenticate
+                    this.client = null;
+                    await OAuthCredentialStorage.clearCredentials();
+                }
+            }
+            
+            // Return the client (either still valid or just refreshed)
+            if (this.client) {
+                return this.client;
+            }
         }
 
         // Note: No clientSecret is provided here. The secret is only known by the cloud function.
@@ -104,7 +126,30 @@ export class AuthManager {
         if (await this.loadCachedCredentials(oAuth2Client)) {
             logToFile('Loaded saved credentials, caching and returning client');
             this.client = oAuth2Client;
-            return this.client;
+            
+            // Check if the loaded token is expired and refresh proactively
+            const isExpired = this.client.credentials.expiry_date ? 
+                this.client.credentials.expiry_date < Date.now() : 
+                false;
+            logToFile(`Token expired: ${isExpired}`);
+            
+            if (isExpired) {
+                logToFile('Loaded token is expired, refreshing proactively...');
+                try {
+                    await this.refreshToken();
+                    logToFile('Token refreshed successfully after loading from storage');
+                } catch (error) {
+                    logToFile(`Failed to refresh loaded token: ${error}`);
+                    // Clear the client and fall through to re-authenticate
+                    this.client = null;
+                    await OAuthCredentialStorage.clearCredentials();
+                }
+            }
+            
+            // Return the client if refresh succeeded or token was still valid
+            if (this.client) {
+                return this.client;
+            }
         }
 
         const webLogin = await this.authWithWeb(oAuth2Client);
@@ -144,23 +189,45 @@ export class AuthManager {
             this.client = await this.getAuthenticatedClient();
         }
         try {
-            // Create a DEEP COPY of credentials before refresh to preserve refresh_token
-            // (refreshAccessToken mutates this.client.credentials in-place)
             const currentCredentials = { ...this.client.credentials };
             
-            const { credentials } = await this.client.refreshAccessToken();
+            if (!currentCredentials.refresh_token) {
+                throw new Error('No refresh token available');
+            }
             
-            // Merge with existing credentials to preserve refresh_token if not returned
+            logToFile('Calling cloud function to refresh token...');
+            
+            // Call the cloud function refresh endpoint
+            // The cloud function has the client secret needed for token refresh
+            const response = await fetch('https://google-workspace-extension.geminicli.com/refreshToken', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    refresh_token: currentCredentials.refresh_token
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Token refresh failed: ${response.status} ${errorText}`);
+            }
+            
+            const newTokens = await response.json();
+            
+            // Merge new tokens with existing credentials, preserving refresh_token
+            // Note: Google does NOT return a new refresh_token on refresh
             const mergedCredentials = {
-                ...credentials,
-                refresh_token: credentials.refresh_token || currentCredentials.refresh_token
+                ...newTokens,
+                refresh_token: currentCredentials.refresh_token // Always preserve original
             };
 
             this.client.setCredentials(mergedCredentials);
             await OAuthCredentialStorage.saveCredentials(mergedCredentials);
-            logToFile('Token refreshed and saved successfully');
+            logToFile('Token refreshed and saved successfully via cloud function');
         } catch (error) {
-            logToFile(`Error during manual token refresh: ${error}`);
+            logToFile(`Error during token refresh: ${error}`);
             throw error;
         }
     }
