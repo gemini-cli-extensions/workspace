@@ -90,6 +90,23 @@ async function main() {
     );
 
     server.registerTool(
+        "auth.refreshToken",
+        {
+            description: 'Manually triggers the token refresh process.',
+            inputSchema: {}
+        },
+        async () => {
+            await authManager.refreshToken();
+            return {
+                content: [{
+                    type: "text",
+                    text: "Token refresh process triggered successfully."
+                }]
+            };
+        }
+    );
+
+    server.registerTool(
         "docs.create",
         {
             description: 'Creates a new Google Doc. Can be blank or with Markdown content.',

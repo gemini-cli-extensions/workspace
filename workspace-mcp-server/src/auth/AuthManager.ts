@@ -67,6 +67,10 @@ export class AuthManager {
         // Check if we have a cached client with valid credentials
         if (this.client && this.client.credentials && this.client.credentials.refresh_token) {
             logToFile('Returning existing cached client with valid credentials');
+            logToFile(`Access token exists: ${!!this.client.credentials.access_token}`);
+            logToFile(`Expiry date: ${this.client.credentials.expiry_date}`);
+            logToFile(`Current time: ${Date.now()}`);
+            logToFile(`Token expired: ${this.client.credentials.expiry_date ? this.client.credentials.expiry_date < Date.now() : 'unknown'}`);
             return this.client;
         }
 
@@ -83,10 +87,11 @@ export class AuthManager {
             }
             
             try {
-                const current = await OAuthCredentialStorage.loadCredentials();
+                // Create a copy to preserve refresh_token from storage
+                const current = await OAuthCredentialStorage.loadCredentials() || {};
                 const merged = {
-                    ...current,
-                    ...tokens
+                    ...tokens,
+                    refresh_token: tokens.refresh_token || current.refresh_token
                 };
                 await OAuthCredentialStorage.saveCredentials(merged);
                 logToFile('Credentials saved after refresh');
@@ -130,6 +135,34 @@ export class AuthManager {
         this.client = null;
         await OAuthCredentialStorage.clearCredentials();
         logToFile('Authentication cleared.');
+    }
+
+    public async refreshToken(): Promise<void> {
+        logToFile('Manual token refresh triggered');
+        if (!this.client) {
+            logToFile('No client available to refresh, getting new client');
+            this.client = await this.getAuthenticatedClient();
+        }
+        try {
+            // Create a DEEP COPY of credentials before refresh to preserve refresh_token
+            // (refreshAccessToken mutates this.client.credentials in-place)
+            const currentCredentials = { ...this.client.credentials };
+            
+            const { credentials } = await this.client.refreshAccessToken();
+            
+            // Merge with existing credentials to preserve refresh_token if not returned
+            const mergedCredentials = {
+                ...credentials,
+                refresh_token: credentials.refresh_token || currentCredentials.refresh_token
+            };
+
+            this.client.setCredentials(mergedCredentials);
+            await OAuthCredentialStorage.saveCredentials(mergedCredentials);
+            logToFile('Token refreshed and saved successfully');
+        } catch (error) {
+            logToFile(`Error during manual token refresh: ${error}`);
+            throw error;
+        }
     }
 
     private async getAvailablePort(): Promise<number> {
