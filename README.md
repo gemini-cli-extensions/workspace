@@ -1,38 +1,59 @@
-# Gemini Workspace Extension
+# Google Workspace Extension for Gemini CLI
 
 [![Build Status](https://github.com/google-gemini/gemini-cli-workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli-workspace/actions/workflows/ci.yml)
 
-Google Workspace MCP Server Extension.
+The Google Workspace extension for Gemini CLI brings the power of your Google Workspace apps to your command line. Manage your documents, spreadsheets, presentations, emails, chat, and calendar events without leaving your terminal.
 
-This project is a Gemini extension that provides tools for interacting with Google Workspace services like Google Docs, Google Sheets, Google Slides, Google Calendar, Gmail, and Google Drive.
+## Prerequisites
+
+Before using the Google Workspace extension, you need to be logged into your Google account.
 
 ## Installation
 
-To install the dependencies, run the following command:
+Install the Google Workspace extension by running the following command from your terminal:
 
 ```bash
-npm install
+gemini extensions install https://github.com/gemini-cli-extensions/workspace
 ```
+
+
 
 ## Usage
 
-To build the project, run the following command:
+Once the extension is installed, you can use it to interact with your Google Workspace apps. Here are a few examples:
 
-```bash
-npm run build
-```
+**Create a new Google Doc:**
 
-To run the tests, run the following command:
+> "Create a new Google Doc with the title 'My New Doc' and the content '# My New Document\n\nThis is a new document created from the command line.'"
 
-```bash
-npm run test
-```
+**List your upcoming calendar events:**
 
-To start the server, run the following command:
+> "What's on my calendar for today?"
 
-```bash
-npm start
-```
+**Search for a file in Google Drive:**
+
+> "Find the file named 'my-file.txt' in my Google Drive."
+
+## Commands
+
+This extension provides the following commands:
+
+### Get Schedule
+
+**Command:** `/calendar:get-schedule [date]`
+
+Shows your schedule for today or a specified date.
+
+### Search Drive
+
+**Command:** `/drive:search <query>`
+
+Searches your Google Drive for files matching the given query.
+
+## Resources
+
+- [Documentation](docs/index.md): Detailed documentation on all the available tools.
+- [GitHub Issues](https://github.com/gemini-cli-extensions/workspace/issues): Report bugs or request features.
 
 ## Important security consideration: Indirect Prompt Injection Risk
 
@@ -55,3 +76,4 @@ Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) fi
 - **Terms of Service**: [Terms of Service](https://policies.google.com/terms)
 - **Privacy Policy**: [Privacy Policy](https://policies.google.com/privacy)
 - **Security**: [Security Policy](SECURITY.md)
+
