@@ -20,7 +20,7 @@ This section guides contributors on how to build, modify, and understand the dev
 To clone the repository:
 
 ```bash
-git clone https://github.com/google-gemini/gemini-cli-workspace.git # Or your fork's URL
+git clone https://github.com/gemini-cli-extensions/workspace.git # Or your fork's URL
 cd gemini-cli-workspace
 ```
 
