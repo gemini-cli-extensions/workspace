@@ -32,7 +32,7 @@
     "dompurify": "^3.1.6",
     "google-auth-library": "^10.4.0",
     "googleapis": "^166.0.0",
-    "jsdom": "^27.0.0",
+    "jsdom": "^27.2.0",
     "keytar": "^7.9.0",
     "marked": "^16.2.1"
   },
@@ -40,7 +40,7 @@
     "@jest/globals": "^30.0.5",
     "@types/dompurify": "^3.0.5",
     "@types/jest": "^30.0.0",
-    "@types/jsdom": "^21.1.7",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^24.2.1",
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
@@ -58,7 +58,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/google-gemini/gemini-cli-workspace.git"
+    "url": "git+https://github.com/gemini-cli-extensions/workspace.git"
   },
   "keywords": [
     "mcp",

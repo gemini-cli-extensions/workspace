@@ -20,6 +20,7 @@ module.exports = {
         '^@/(.*)$': '<rootDir>/workspace-mcp-server/src/$1',
         '\\.wasm$': '<rootDir>/workspace-mcp-server/src/__tests__/mocks/wasm.js',
         '^marked$': '<rootDir>/workspace-mcp-server/src/__tests__/mocks/marked.js',
+        '^jsdom$': '<rootDir>/workspace-mcp-server/src/__tests__/mocks/jsdom.ts',
       },
       setupFilesAfterEnv: ['<rootDir>/workspace-mcp-server/src/__tests__/setup.ts'],
       collectCoverageFrom: [
