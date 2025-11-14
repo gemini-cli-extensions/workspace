@@ -68,11 +68,15 @@ class MockDocument {
     querySelector(selector: string): MockElement | null {
         // Simple implementation for our use case (mostly just tag names)
         const tagName = selector.toUpperCase();
-        
-        // Check body children
-        for (const child of this.body.childNodes) {
-            if (child instanceof MockElement && child.tagName === tagName) {
-                return child;
+
+        const queue: MockNode[] = [...this.body.childNodes];
+        while (queue.length > 0) {
+            const node = queue.shift()!;
+            if (node instanceof MockElement) {
+                if (node.tagName === tagName) {
+                    return node;
+                }
+                queue.push(...node.childNodes);
             }
         }
         
