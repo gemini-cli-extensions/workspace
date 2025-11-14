@@ -50,9 +50,11 @@ async function getClientSecret() {
 }
 
 /**
- * HTTP Cloud Function that handles the OAuth 2.0 redirect.
+ * Handles the OAuth 2.0 callback.
+ * @param {Object} req Express request object.
+ * @param {Object} res Express response object.
  */
-functions.http('oauthCallback', async (req, res) => {
+async function handleCallback(req, res) {
   const code = req.query.code;
   const state = req.query.state; // The state is the base64 encoded local redirect URI
   console.log(`Received request with code: ${code ? 'present' : 'missing'}`);
@@ -253,13 +255,15 @@ functions.http('oauthCallback', async (req, res) => {
     }
     res.status(500).send('An error occurred during the token exchange. Check function logs for details.');
   }
-});
+}
 
 /**
- * HTTP Cloud Function that handles token refresh.
+ * Handles token refresh.
  * Accepts a refresh_token and returns a new access_token.
+ * @param {Object} req Express request object.
+ * @param {Object} res Express response object.
  */
-functions.http('refreshToken', async (req, res) => {
+async function handleRefreshToken(req, res) {
   // Only accept POST requests
   if (req.method !== 'POST') {
     console.error('Invalid method for refreshToken:', req.method);
@@ -310,4 +314,23 @@ functions.http('refreshToken', async (req, res) => {
       res.status(500).send('An error occurred during token refresh.');
     }
   }
+}
+
+/**
+ * Main entry point for the Cloud Function.
+ * Routes requests to either the callback handler or the refresh handler.
+ */
+functions.http('oauthHandler', async (req, res) => {
+  // Route to refresh handler if path ends with /refresh or /refreshToken or it's a POST with refresh_token
+  if (req.path === '/refresh' || req.path === '/refreshToken' || (req.method === 'POST' && req.body && req.body.refresh_token)) {
+    return handleRefreshToken(req, res);
+  }
+
+  // Route to callback handler if path ends with /callback or /oauth2callback or has 'code' query param
+  if (req.path === '/callback' || req.path === '/oauth2callback' || req.query.code) {
+    return handleCallback(req, res);
+  }
+
+  // Default/Error case
+  res.status(400).send('Unknown request type. Expected OAuth callback or token refresh request.');
 });
