@@ -322,7 +322,7 @@ async function handleRefreshToken(req, res) {
  */
 functions.http('oauthHandler', async (req, res) => {
   // Route to refresh handler if path ends with /refresh or /refreshToken or it's a POST with refresh_token
-  if (req.path === '/refresh' || req.path === '/refreshToken' || (req.method === 'POST' && req.body && req.body.refresh_token)) {
+  if (['/refresh', '/refreshToken'].includes(req.path) || (req.method === 'POST' && req.body?.refresh_token)) {
     return handleRefreshToken(req, res);
   }
 
