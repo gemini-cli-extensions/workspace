@@ -14,7 +14,6 @@
 
 class MockElement {
     tagName: string;
-    textContent: string;
     nodeType: number;
     childNodes: MockNode[];
     nextSibling: MockNode | null;
@@ -22,12 +21,16 @@ class MockElement {
 
     constructor(tagName: string) {
         this.tagName = tagName;
-        this.textContent = '';
         this.nodeType = 1; // Element node
         this.childNodes = [];
         this.nextSibling = null;
         this.attributes = {};
     }
+
+    get textContent(): string {
+        return this.childNodes.map(child => child.textContent).join('');
+    }
+
 
     toLowerCase() {
         return this.tagName.toLowerCase();
@@ -68,7 +71,7 @@ class MockDocument {
     querySelector(selector: string): MockElement | null {
         // Simple implementation for our use case (mostly just tag names)
         const tagName = selector.toUpperCase();
-
+        
         const queue: MockNode[] = [...this.body.childNodes];
         while (queue.length > 0) {
             const node = queue.shift()!;
