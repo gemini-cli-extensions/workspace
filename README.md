@@ -36,7 +36,7 @@ Once the extension is installed, you can use it to interact with your Google Wor
 
 ## Commands
 
-This extension provides the following commands:
+This extension provides a variety of commands. Here are a few examples:
 
 ### Get Schedule
 
