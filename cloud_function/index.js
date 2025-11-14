@@ -327,7 +327,7 @@ functions.http('oauthHandler', async (req, res) => {
   }
 
   // Route to callback handler if path ends with /callback or /oauth2callback or has 'code' query param
-  if (req.path === '/callback' || req.path === '/oauth2callback' || req.query.code) {
+  if (['/callback', '/oauth2callback'].includes(req.path) || req.query.code) {
     return handleCallback(req, res);
   }
 
