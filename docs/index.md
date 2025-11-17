@@ -68,12 +68,3 @@ The extension provides the following tools:
 - `people.getUserProfile`: Gets a user's profile information.
 - `people.getMe`: Gets the profile information of the authenticated user.
 
-## Example Usage
-
-Here is an example of how to use the `docs.create` tool to create a new Google Doc:
-
-```
-docs.create(title="My New Doc", markdown="This is the content of my new doc.")
-```
-
-This will create a new Google Doc with the title "My New Doc" and the specified content.

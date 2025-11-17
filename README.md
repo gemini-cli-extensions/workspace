@@ -1,6 +1,6 @@
 # Google Workspace Extension for Gemini CLI
 
-[![Build Status](https://github.com/google-gemini/gemini-cli-workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/google-gemini/gemini-cli-workspace/actions/workflows/ci.yml)
+[![Build Status](https://github.com/gemini-cli-extensions/workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/gemini-cli-extensions/workspace/actions/workflows/ci.yml)
 
 The Google Workspace extension for Gemini CLI brings the power of your Google Workspace apps to your command line. Manage your documents, spreadsheets, presentations, emails, chat, and calendar events without leaving your terminal.
 
@@ -15,8 +15,6 @@ Install the Google Workspace extension by running the following command from you
 ```bash
 gemini extensions install https://github.com/gemini-cli-extensions/workspace
 ```
-
-
 
 ## Usage
 

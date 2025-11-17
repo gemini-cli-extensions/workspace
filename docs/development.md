@@ -21,7 +21,7 @@ To clone the repository:
 
 ```bash
 git clone https://github.com/gemini-cli-extensions/workspace.git # Or your fork's URL
-cd gemini-cli-workspace
+cd workspace
 ```
 
 To install dependencies defined in `package.json` as well as root dependencies:
