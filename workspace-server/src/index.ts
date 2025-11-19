@@ -71,7 +71,7 @@ async function main() {
     // 2. Create the server instance
     const server = new McpServer({
         name: "google-workspace-server",
-        version: "1.0.0",
+        version: "0.0.1",
     });
 
     // 3. Register tools directly on the server
