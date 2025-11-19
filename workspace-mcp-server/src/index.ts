@@ -55,6 +55,9 @@ async function main() {
     }
 
     const authManager = new AuthManager(SCOPES);
+    // Trigger auth flow immediately on startup
+    await authManager.getAuthenticatedClient();
+
     const driveService = new DriveService(authManager);
     const docsService = new DocsService(authManager, driveService);
     const peopleService = new PeopleService(authManager);
