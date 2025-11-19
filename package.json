@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",
-    "@types/dompurify": "^3.0.5",
+    "@types/dompurify": "^3.2.0",
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^24.2.1",
