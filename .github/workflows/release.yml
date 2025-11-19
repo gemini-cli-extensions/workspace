@@ -11,11 +11,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            suffix: linux
+            platform: linux
           - os: macos-latest
-            suffix: macos
+            platform: darwin
           - os: windows-latest
-            suffix: windows
+            platform: win32
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -38,10 +38,10 @@ jobs:
         run: npm run build --workspace=workspace-server
 
       - name: Create release assets
-        run: npm run release -- --suffix=${{ matrix.suffix }}
+        run: npm run release -- --platform=${{ matrix.platform }}
 
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/google-workspace-extension-${{ matrix.suffix }}.tar.gz
+          files: release/${{ matrix.platform }}.google-workspace-extension.tar.gz
