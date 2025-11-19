@@ -15,7 +15,7 @@ updates:
       include: "scope"
 
   - package-ecosystem: "npm"
-    directory: "/workspace-mcp-server"
+    directory: "/workspace-server"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

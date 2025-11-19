@@ -34,7 +34,7 @@ jobs:
       run: npm run lint
     
     - name: Run type checking
-      run: npx tsc --noEmit --project workspace-mcp-server
+      run: npx tsc --noEmit --project workspace-server
     
     - name: Run tests with coverage
       run: npm run test:ci
@@ -42,7 +42,7 @@ jobs:
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
-        directory: ./workspace-mcp-server/coverage
+        directory: ./workspace-server/coverage
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
@@ -71,7 +71,7 @@ jobs:
       uses: actions/upload-artifact@v5
       with:
         name: dist
-        path: workspace-mcp-server/dist/
+        path: workspace-server/dist/
 
   security:
     runs-on: ubuntu-latest
