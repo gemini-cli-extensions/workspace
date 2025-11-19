@@ -20,7 +20,7 @@ gh release create v1.0.0 --generate-notes
 
 1.  **GitHub Actions Trigger**: The `release.yml` workflow is triggered by the new tag.
 2.  **Build**: The workflow builds the project using `npm run build`.
-3.  **Package**: It creates a `workspace-mcp-server.tar.gz` file containing the extension.
+3.  **Package**: It creates a `workspace-server.tar.gz` file containing the extension.
 4.  **Upload**: The workflow uploads the tarball to the release you just created.
 
 ## Manual Release (Alternative)

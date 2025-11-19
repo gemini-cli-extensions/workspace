@@ -35,7 +35,7 @@ const main = async () => {
   fs.rmSync(releaseDir, { recursive: true, force: true });
   const archiveName = `${name}.${extension}`;
   const archiveDir = path.join(releaseDir, name);
-  const workspaceMcpServerDir = path.join(rootDir, 'workspace-mcp-server');
+  const workspaceMcpServerDir = path.join(rootDir, 'workspace-server');
 
   // Create the release directory
   fs.mkdirSync(releaseDir, { recursive: true });

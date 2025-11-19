@@ -7,7 +7,7 @@
     "gemini-workspace-server": "workspace-mcp-server/dist/index.js"
   },
   "workspaces": [
-    "workspace-mcp-server"
+    "workspace-server"
   ],
   "scripts": {
     "prepare": "npm run build",
@@ -17,7 +17,7 @@
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "test:ci": "npm run test:ci --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
-    "auth-utils": "npm run build:auth-utils -w workspace-mcp-server && node scripts/auth-utils.js",
+    "auth-utils": "npm run build:auth-utils -w workspace-server && node scripts/auth-utils.js",
     "clean": "npm run clean --workspaces --if-present && rm -rf release node_modules logs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -37,7 +37,6 @@
     "keytar": "^7.9.0",
     "marked": "^16.2.1"
   },
-
   "devDependencies": {
     "@jest/globals": "^30.0.5",
     "@types/dompurify": "^3.0.5",

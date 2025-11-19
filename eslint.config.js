@@ -14,7 +14,7 @@ module.exports = [
         ignores: ['**/dist/', '*.js', '**/node_modules/', '**/coverage/', '!eslint.config.js'],
     },
     {
-        files: ['workspace-mcp-server/src/**/*.ts'],
+        files: ['workspace-server/src/**/*.ts'],
         ignores: ['**/*.test.ts', '**/*.spec.ts'],
         languageOptions: {
             parser: tsParser,
@@ -44,7 +44,7 @@ module.exports = [
         },
     },
     {
-        files: ['workspace-mcp-server/src/**/*.test.ts', 'workspace-mcp-server/src/**/*.spec.ts'],
+        files: ['workspace-server/src/**/*.test.ts', 'workspace-server/src/**/*.spec.ts'],
         languageOptions: {
             parser: tsParser,
             parserOptions: {
@@ -71,7 +71,7 @@ module.exports = [
     },
     {
         files: ['./**/*.{tsx,ts,js}'],
-        ignores: ['workspace-mcp-server/src/index.ts'], // Has shebang which conflicts with license header
+        ignores: ['workspace-server/src/index.ts'], // Has shebang which conflicts with license header
         plugins: {
           'license-header': licenseHeader,
           import: importPlugin,
@@ -91,7 +91,7 @@ module.exports = [
         },
       },
     {
-        files: ['workspace-mcp-server/src/index.ts'],
+        files: ['workspace-server/src/index.ts'],
         plugins: {
           import: importPlugin,
         },

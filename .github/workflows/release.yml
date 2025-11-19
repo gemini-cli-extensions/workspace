@@ -26,7 +26,7 @@ jobs:
         run: npm ci
 
       - name: Build extension
-        run: npm run build --workspace=workspace-mcp-server
+        run: npm run build --workspace=workspace-server
 
       - name: Create release assets
         run: npm run release

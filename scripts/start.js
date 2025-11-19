@@ -34,8 +34,8 @@ async function main() {
   try {
     await runCommand('npm', ['install'], { stdio: ['ignore', 'ignore', 'pipe'] });
 
-    const indexPath = path.join(__dirname, '..', 'workspace-mcp-server', 'dist', 'index.js');
-    await runCommand('node', [indexPath, '--debug'], { stdio: 'inherit' });
+    const SERVER_PATH = path.join(__dirname, '..', 'workspace-server', 'dist', 'index.js');
+    await runCommand('node', [SERVER_PATH, '--debug'], { stdio: 'inherit' });
   } catch (error) {
     console.error(error);
     process.exit(1);

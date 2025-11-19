@@ -50,7 +50,7 @@ To execute the unit test suite for the project:
 npm run test
 ```
 
-This will run tests located in the `workspace-mcp-server/src/__tests__` directory. Ensure tests pass before submitting any changes. For a more comprehensive check, it is recommended to run `npm run test && npm run lint`.
+This will run tests located in the `workspace-server/src/__tests__` directory. Ensure tests pass before submitting any changes. For a more comprehensive check, it is recommended to run `npm run test && npm run lint`.
 
 ### Linting and Style Checks
 
@@ -102,7 +102,7 @@ npm run lint
 
 ### Project Structure
 
-- `workspace-mcp-server/`: The main workspace for the MCP server.
+- `workspace-server/`: The main workspace for the MCP server.
   - `src/`: Contains the source code for the server.
     - `__tests__/`: Contains all the tests.
     - `auth/`: Handles authentication.

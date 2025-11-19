@@ -3,7 +3,7 @@ This is a Gemini extension that provides tools for interacting with Google Works
 ### Building and Running
 
 *   **Install dependencies:** `npm install`
-*   **Build the project:** `npm run build --prefix workspace-mcp-server`
+*   **Build the project:** `npm run build --prefix workspace-server`
 
 ### Development Conventions
 
