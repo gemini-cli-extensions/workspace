@@ -27,7 +27,8 @@ const deleteFilesByExtension = (dir, ext) => {
 };
 
 const main = async () => {
-  const name = 'google-workspace-extension';
+  const suffix = argv.suffix ? `-${argv.suffix}` : '';
+  const name = `google-workspace-extension${suffix}`;
   const extension = 'tar.gz';
 
   const rootDir = path.join(__dirname, '..');
