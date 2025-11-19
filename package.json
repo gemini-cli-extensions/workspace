@@ -37,10 +37,7 @@
     "keytar": "^7.9.0",
     "marked": "^16.2.1"
   },
-  "overrides": {
-    "glob": "^10.4.5",
-    "inflight": "^1.0.6"
-  },
+
   "devDependencies": {
     "@jest/globals": "^30.0.5",
     "@types/dompurify": "^3.0.5",
