@@ -18,23 +18,28 @@
     "test:ci": "npm run test:ci --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
     "auth-utils": "npm run build:auth-utils -w workspace-mcp-server && node scripts/auth-utils.js",
-    "clean": "rm -rf release && npm run clean --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rm -rf release node_modules logs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "release:dev": "npm install && npm run build && node scripts/release.js"
   },
   "dependencies": {
-    "@google-apps/chat": "^0.19.0",
+    "@google-apps/chat": "^0.21.0",
     "@google-cloud/local-auth": "^3.0.1",
-    "@googleapis/docs": "^5.0.1",
-    "@googleapis/drive": "^15.0.0",
+    "@googleapis/docs": "^8.1.1",
+    "@googleapis/drive": "^19.2.0",
     "@modelcontextprotocol/sdk": "^1.17.5",
     "dompurify": "^3.1.6",
-    "google-auth-library": "^10.4.0",
+    "google-auth-library": "^10.5.0",
     "googleapis": "^166.0.0",
     "jsdom": "^27.2.0",
     "keytar": "^7.9.0",
     "marked": "^16.2.1"
+  },
+  "overrides": {
+    "glob": "^10.4.5",
+    "inflight": "^1.0.6"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",

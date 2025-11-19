@@ -9,7 +9,7 @@
     "test:coverage": "cd .. && node --max-old-space-size=4096 node_modules/.bin/jest --coverage",
     "test:ci": "cd .. && node --max-old-space-size=4096 node_modules/.bin/jest --ci --coverage --maxWorkers=2",
     "start": "ts-node src/index.ts",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist node_modules",
     "build": "node esbuild.config.js",
     "build:auth-utils": "node esbuild.auth-utils.js"
   },
