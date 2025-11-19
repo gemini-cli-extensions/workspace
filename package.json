@@ -1,10 +1,10 @@
 {
   "name": "gemini-workspace-extension",
-  "version": "1.0.0",
-  "description": "Google Workspace MCP Server Extension",
+  "version": "0.0.1",
+  "description": "Google Workspace Server Extension",
   "private": true,
   "bin": {
-    "gemini-workspace-server": "workspace-mcp-server/dist/index.js"
+    "gemini-workspace-server": "workspace-server/dist/index.js"
   },
   "workspaces": [
     "workspace-server"
@@ -62,13 +62,16 @@
     "url": "git+https://github.com/gemini-cli-extensions/workspace.git"
   },
   "keywords": [
-    "mcp",
     "google-workspace",
     "gmail",
     "google-docs",
     "google-drive",
     "google-calendar",
-    "google-chat"
+    "google-chat",
+    "google-people",
+    "google-sheets",
+    "google-slides",
+    "gemini-cli"
   ],
   "author": "Allen Hutchison",
   "license": "Apache-2.0"

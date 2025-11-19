@@ -1,6 +1,6 @@
 {
   "name": "workspace-server",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
@@ -14,8 +14,8 @@
     "build:auth-utils": "node esbuild.auth-utils.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Allen Hutchison",
+  "license": "Apache-2.0",
   "type": "commonjs",
   "devDependencies": {
     "esbuild": "^0.27.0"
