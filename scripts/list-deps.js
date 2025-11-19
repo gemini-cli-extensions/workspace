@@ -1,29 +1,25 @@
-const fs = require('fs');
-const path = require('path');
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-const root = path.join(__dirname, '..', 'node_modules');
-const visited = new Set();
-const toVisit = ['jsdom', 'keytar'];
+const path = require('node:path');
+const { getTransitiveDependencies } = require('./utils/dependencies');
 
-function getDependencies(pkgName) {
-  const pkgPath = path.join(root, pkgName, 'package.json');
-  if (!fs.existsSync(pkgPath)) return [];
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-  return Object.keys(pkg.dependencies || {});
+const root = path.join(__dirname, '..');
+const targetPackages = process.argv.slice(2);
+
+if (targetPackages.length === 0) {
+  console.log('Usage: node scripts/list-deps.js <package1> [package2...]');
+  process.exit(1);
 }
 
-while (toVisit.length > 0) {
-  const pkg = toVisit.pop();
-  if (visited.has(pkg)) continue;
-  visited.add(pkg);
-  
-  const deps = getDependencies(pkg);
-  deps.forEach(dep => {
-    if (!visited.has(dep)) {
-      toVisit.push(dep);
-    }
-  });
-}
+console.log(`Analyzing dependencies for: ${targetPackages.join(', ')}`);
 
-console.log(Array.from(visited).sort().join('\n'));
-console.log(`Total packages: ${visited.size}`);
+const allDeps = getTransitiveDependencies(root, targetPackages);
+
+console.log('\nTransitive Dependencies:');
+Array.from(allDeps).sort().forEach(dep => {
+  console.log(`- ${dep}`);
+});

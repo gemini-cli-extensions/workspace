@@ -63,34 +63,16 @@ const main = async () => {
   const nodeModulesDir = path.join(archiveDir, 'node_modules');
   fs.mkdirSync(nodeModulesDir, { recursive: true });
   
-  const visited = new Set();
-  const toVisit = ['keytar', 'jsdom'];
+  const { getTransitiveDependencies } = require('./utils/dependencies');
+  const visited = getTransitiveDependencies(rootDir, ['keytar', 'jsdom']);
 
-  function getDependencies(pkgName) {
-    const pkgPath = path.join(rootDir, 'node_modules', pkgName, 'package.json');
-    if (!fs.existsSync(pkgPath)) return [];
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    return Object.keys(pkg.dependencies || {});
-  }
-
-  while (toVisit.length > 0) {
-    const pkg = toVisit.pop();
-    if (visited.has(pkg)) continue;
-    visited.add(pkg);
-    
+  visited.forEach(pkg => {
     const source = path.join(rootDir, 'node_modules', pkg);
     const dest = path.join(nodeModulesDir, pkg);
     if (fs.existsSync(source)) {
       fs.cpSync(source, dest, { recursive: true });
     }
-
-    const deps = getDependencies(pkg);
-    deps.forEach(dep => {
-      if (!visited.has(dep)) {
-        toVisit.push(dep);
-      }
-    });
-  }
+  });
 
   const version = process.env.GITHUB_REF_NAME || '0.0.1';
 
