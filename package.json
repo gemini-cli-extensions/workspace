@@ -35,7 +35,7 @@
     "googleapis": "^166.0.0",
     "jsdom": "^27.2.0",
     "keytar": "^7.9.0",
-    "marked": "^16.2.1"
+    "marked": "^17.0.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.5",
