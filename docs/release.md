@@ -32,4 +32,4 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-This will create a release (or a tag) on GitHub, and the workflow will still run and upload the artifacts. However, using `gh release create` is recommended as it allows you to easily generate release notes.
+This pushes the tag to GitHub, which triggers the release workflow to create a release and upload the artifacts. However, using `gh release create` is recommended as it allows you to easily generate release notes.
