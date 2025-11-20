@@ -22,7 +22,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "release": "node scripts/release.js",
-    "release:dev": "npm install && npm run build && node scripts/release.js"
+    "release:dev": "npm install && npm run build && node scripts/release.js",
+    "set-version": "node scripts/set-version.js",
+    "version": "node scripts/set-version.js && git add workspace-server/package.json workspace-server/src/index.ts"
   },
   "dependencies": {
     "@google-apps/chat": "^0.21.0",
