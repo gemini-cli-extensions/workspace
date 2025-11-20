@@ -17,10 +17,7 @@ async function build() {
       bundle: true,
       platform: 'node',
       target: 'node20',
-
-     
       outdir: 'dist',
-
       minify: true,
       sourcemap: true,
       // Replace 'open' package with our wrapper
