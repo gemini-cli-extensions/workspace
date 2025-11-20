@@ -18,7 +18,7 @@ async function build() {
       platform: 'node',
       target: 'node20',
 
-      // 🟢 CHANGED: Use 'outdir' instead of 'outfile' for multiple entries
+     
       outdir: 'dist',
 
       minify: true,
