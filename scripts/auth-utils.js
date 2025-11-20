@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const { OAuthCredentialStorage } = require('../workspace-server/dist/auth-utils.js');
+const { OAuthCredentialStorage } = require('../workspace-server/dist/auth/token-storage/oauth-credential-storage.js');
 
 async function clearAuth() {
   try {

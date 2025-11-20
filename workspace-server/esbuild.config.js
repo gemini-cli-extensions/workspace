@@ -6,16 +6,21 @@
 
 const esbuild = require('esbuild');
 const path = require('node:path');
-const fs = require('node:fs');
 
 async function build() {
   try {
     await esbuild.build({
-      entryPoints: ['src/index.ts'],
+      entryPoints: [
+        'src/index.ts', // Main Server
+        'src/auth/token-storage/oauth-credential-storage.ts' // Helper for your script
+      ],
       bundle: true,
       platform: 'node',
       target: 'node16',
-      outfile: 'dist/index.js',
+
+      // 🟢 CHANGED: Use 'outdir' instead of 'outfile' for multiple entries
+      outdir: 'dist',
+
       minify: true,
       sourcemap: true,
       // Replace 'open' package with our wrapper
