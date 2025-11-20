@@ -16,7 +16,7 @@ async function build() {
       ],
       bundle: true,
       platform: 'node',
-      target: 'node16',
+      target: 'node20',
 
       // 🟢 CHANGED: Use 'outdir' instead of 'outfile' for multiple entries
       outdir: 'dist',
