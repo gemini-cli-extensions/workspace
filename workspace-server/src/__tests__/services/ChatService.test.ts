@@ -354,6 +354,33 @@ describe('ChatService', () => {
       const response = JSON.parse(result.content[0].text);
       expect(response.messages).toEqual(mockMessages);
     });
+
+    it('should pass orderBy to the API', async () => {
+      const mockMessages = [
+        { name: 'spaces/space1/messages/msg1', text: 'Hello' },
+      ];
+
+      mockChatAPI.spaces.messages.list.mockResolvedValue({
+        data: {
+          messages: mockMessages,
+        },
+      });
+
+      const result = await chatService.getMessages({
+        spaceName: 'spaces/space1',
+        orderBy: 'createTime desc',
+      });
+
+      expect(mockChatAPI.spaces.messages.list).toHaveBeenCalledWith({
+        parent: 'spaces/space1',
+        pageSize: undefined,
+        pageToken: undefined,
+        orderBy: 'createTime desc',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.messages).toEqual(mockMessages);
+    });
   });
 
   describe('sendDm', () => {

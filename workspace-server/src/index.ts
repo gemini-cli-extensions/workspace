@@ -470,6 +470,7 @@ async function main() {
                 unreadOnly: z.boolean().optional().describe('Whether to return only unread messages.'),
                 pageSize: z.number().optional().describe('The maximum number of messages to return.'),
                 pageToken: z.string().optional().describe('The token for the next page of results.'),
+                orderBy: z.string().optional().describe('The order to list messages in (e.g., "createTime desc").'),
             }
         },
         chatService.getMessages

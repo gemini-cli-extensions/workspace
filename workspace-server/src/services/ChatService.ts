@@ -176,7 +176,7 @@ export class ChatService {
         }
     }
 
-    public getMessages = async ({ spaceName, unreadOnly, pageSize, pageToken }: { spaceName: string, unreadOnly?: boolean, pageSize?: number, pageToken?: string }) => {
+    public getMessages = async ({ spaceName, unreadOnly, pageSize, pageToken, orderBy }: { spaceName: string, unreadOnly?: boolean, pageSize?: number, pageToken?: string, orderBy?: string }) => {
         logToFile(`Listing messages for space: ${spaceName}`);
         try {
             const chat = await this.getChatClient();
@@ -207,7 +207,7 @@ export class ChatService {
                     logToFile(`No last read time found for user in space: ${spaceName}`);
                     // This can happen if the user has never read messages in the space.
                     // In this case, all messages are unread.
-                    const res = await chat.spaces.messages.list({ parent: spaceName, pageSize, pageToken });
+                    const res = await chat.spaces.messages.list({ parent: spaceName, pageSize, pageToken, orderBy });
                     const messages = res.data.messages || [];
                     logToFile(`Successfully listed ${messages.length} unread messages for space: ${spaceName}`);
                     return { content: [{ type: "text" as const, text: JSON.stringify({ messages, nextPageToken: res.data.nextPageToken }) }] };
@@ -218,6 +218,7 @@ export class ChatService {
                     filter: `createTime > "${lastReadTime}"`,
                     pageSize,
                     pageToken,
+                    orderBy,
                 });
 
                 const messages = res.data.messages || [];
@@ -234,6 +235,7 @@ export class ChatService {
                     parent: spaceName,
                     pageSize,
                     pageToken,
+                    orderBy,
                 });
                 const messages = res.data.messages || [];
                 logToFile(`Successfully listed ${messages.length} messages for space: ${spaceName}`);
