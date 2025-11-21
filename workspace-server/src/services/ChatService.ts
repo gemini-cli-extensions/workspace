@@ -180,6 +180,8 @@ export class ChatService {
         logToFile(`Listing messages for space: ${spaceName}`);
         try {
             const chat = await this.getChatClient();
+            let filter: string | undefined;
+
             if (unreadOnly) {
                 const people = await this.getPeopleClient();
                 const person = await people.people.get({
@@ -203,49 +205,33 @@ export class ChatService {
 
                 const lastReadTime = currentUserMember?.lastReadTime;
 
-                if (!lastReadTime) {
+                if (lastReadTime) {
+                    filter = `createTime > "${lastReadTime}"`;
+                } else {
                     logToFile(`No last read time found for user in space: ${spaceName}`);
-                    // This can happen if the user has never read messages in the space.
-                    // In this case, all messages are unread.
-                    const res = await chat.spaces.messages.list({ parent: spaceName, pageSize, pageToken, orderBy });
-                    const messages = res.data.messages || [];
-                    logToFile(`Successfully listed ${messages.length} unread messages for space: ${spaceName}`);
-                    return { content: [{ type: "text" as const, text: JSON.stringify({ messages, nextPageToken: res.data.nextPageToken }) }] };
                 }
-
-                const res = await chat.spaces.messages.list({
-                    parent: spaceName,
-                    filter: `createTime > "${lastReadTime}"`,
-                    pageSize,
-                    pageToken,
-                    orderBy,
-                });
-
-                const messages = res.data.messages || [];
-                logToFile(`Successfully listed ${messages.length} unread messages for space: ${spaceName}`);
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: JSON.stringify({ messages, nextPageToken: res.data.nextPageToken })
-                    }]
-                };
-
-            } else {
-                const res = await chat.spaces.messages.list({
-                    parent: spaceName,
-                    pageSize,
-                    pageToken,
-                    orderBy,
-                });
-                const messages = res.data.messages || [];
-                logToFile(`Successfully listed ${messages.length} messages for space: ${spaceName}`);
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: JSON.stringify({ messages, nextPageToken: res.data.nextPageToken })
-                    }]
-                };
             }
+
+            const res = await chat.spaces.messages.list({
+                parent: spaceName,
+                filter,
+                pageSize,
+                pageToken,
+                orderBy,
+            });
+
+            const messages = res.data.messages || [];
+            const logMessage = unreadOnly 
+                ? `Successfully listed ${messages.length} unread messages for space: ${spaceName}`
+                : `Successfully listed ${messages.length} messages for space: ${spaceName}`;
+            logToFile(logMessage);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ messages, nextPageToken: res.data.nextPageToken })
+                }]
+            };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             logToFile(`Error during chat.getMessages: ${errorMessage}`);
@@ -264,6 +250,7 @@ export class ChatService {
             };
         }
     }
+
 
     public sendDm = async ({ email, message }: { email: string, message: string }) => {
         logToFile(`chat.sendDm called with: email=${email}, message=${message}`);
