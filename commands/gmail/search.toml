@@ -1,0 +1,20 @@
+description = "Searches for emails in Gmail matching a query."
+prompt = """
+You are tasked with searching Gmail for emails.
+
+1) The user's search query is: {{args}}
+2) Call the `gmail.search` tool, passing the user's query as the `query` argument.
+3) The `gmail.search` tool returns a JSON object containing a list of emails (id and threadId).
+4) For each email found, you MUST call `gmail.get` with the `messageId` and `format='metadata'` to get the From, Subject, and Snippet.
+5) Format the result into a clear, readable list.
+6) If no emails are found, state that clearly.
+
+Example Output Format:
+> From: sender@example.com
+  Subject: Meeting Reminder
+  Snippet: Don't forget about the meeting tomorrow...
+  ---
+> From: newsletter@example.com
+  Subject: Weekly News
+  Snippet: Here are the top stories for this week...
+"""
