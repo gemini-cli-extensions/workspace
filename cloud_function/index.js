@@ -36,12 +36,12 @@ const secretClient = new SecretManagerServiceClient();
  */
 async function getClientSecret() {
   try {
-    console.log(`Accessing secret: ${SECRET_NAME}`); // Log which secret is being accessed
+
     const [version] = await secretClient.accessSecretVersion({
       name: SECRET_NAME,
     });
     const payload = version.payload.data.toString('utf8');
-    console.log('Successfully accessed secret.');
+
     return payload;
   } catch (error) {
     console.error('Failed to access secret version:', error);
@@ -57,8 +57,8 @@ async function getClientSecret() {
 async function handleCallback(req, res) {
   const code = req.query.code;
   const state = req.query.state; // The state is the base64 encoded local redirect URI
-  console.log(`Received request with code: ${code ? 'present' : 'missing'}`);
-  console.log(`Received state: ${state ? 'present' : 'missing'}`);
+
+
 
   if (!code) {
     console.error('Missing authorization code in request query parameters.');
@@ -68,7 +68,7 @@ async function handleCallback(req, res) {
   try {
     const clientSecret = await getClientSecret();
 
-    console.log(`Exchanging code for token using redirect_uri: ${REDIRECT_URI}`);
+
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
       client_id: CLIENT_ID,
       client_secret: clientSecret,
@@ -77,7 +77,7 @@ async function handleCallback(req, res) {
       redirect_uri: REDIRECT_URI,
     });
 
-    console.log('Token exchange successful.');
+
     const { access_token, refresh_token, expires_in, scope, token_type } = tokenResponse.data;
 
     // Calculate expiry_date (timestamp in milliseconds)
@@ -103,7 +103,7 @@ async function handleCallback(req, res) {
                     throw new Error(`Invalid redirect hostname: ${redirectUrl.hostname}. Must be localhost or 127.0.0.1.`);
                 }
                 
-                console.log(`Automated flow detected. Redirecting to: ${payload.uri}`);
+
                 
                 const finalUrl = redirectUrl; // Use the validated URL object
                 finalUrl.searchParams.append('access_token', access_token);
@@ -127,7 +127,7 @@ async function handleCallback(req, res) {
     }
 
     // --- Fallback to manual instructions ---
-    console.log('Manual flow detected or state was invalid. Rendering instructions page.');
+
     const credentialsJson = JSON.stringify({
         refresh_token: refresh_token,
         scope: scope,
@@ -271,7 +271,7 @@ async function handleRefreshToken(req, res) {
   }
 
   const { refresh_token } = req.body;
-  console.log(`Received refresh request with refresh_token: ${refresh_token ? 'present' : 'missing'}`);
+
   
   if (!refresh_token) {
     console.error('Missing refresh_token in request body');
@@ -281,7 +281,7 @@ async function handleRefreshToken(req, res) {
   try {
     const clientSecret = await getClientSecret();
 
-    console.log('Refreshing access token via Google OAuth API...');
+
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
       client_id: CLIENT_ID,
       client_secret: clientSecret,
@@ -289,7 +289,7 @@ async function handleRefreshToken(req, res) {
       grant_type: 'refresh_token',
     });
 
-    console.log('Token refresh successful.');
+
     const { access_token, expires_in, scope, token_type } = tokenResponse.data;
 
     // Calculate expiry_date (timestamp in milliseconds)
