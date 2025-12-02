@@ -105,49 +105,39 @@ export const pageSizeSchema = z.number()
 
 
 /**
+ * Helper function to create a validator from a Zod schema
+ */
+function createValidator<T>(
+    schema: z.ZodSchema<T>,
+    fallbackErrorMessage: string
+) {
+    return (value: unknown): { success: boolean; error?: string } => {
+        try {
+            schema.parse(value);
+            return { success: true };
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                return { success: false, error: error.issues[0].message };
+            }
+            return { success: false, error: fallbackErrorMessage };
+        }
+    };
+}
+
+/**
  * Helper function to validate email
  */
-export function validateEmail(email: string): { success: boolean; error?: string } {
-    try {
-        emailSchema.parse(email);
-        return { success: true };
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return { success: false, error: error.issues[0].message };
-        }
-        return { success: false, error: 'Invalid email format' };
-    }
-}
+export const validateEmail = createValidator(emailSchema, 'Invalid email format');
 
 /**
  * Helper function to validate ISO 8601 datetime
  */
-export function validateDateTime(datetime: string): { success: boolean; error?: string } {
-    try {
-        iso8601DateTimeSchema.parse(datetime);
-        return { success: true };
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return { success: false, error: error.issues[0].message };
-        }
-        return { success: false, error: 'Invalid datetime format' };
-    }
-}
+export const validateDateTime = createValidator(iso8601DateTimeSchema, 'Invalid datetime format');
 
 /**
  * Helper function to validate Google document ID
  */
-export function validateDocumentId(id: string): { success: boolean; error?: string } {
-    try {
-        googleDocumentIdSchema.parse(id);
-        return { success: true };
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return { success: false, error: error.issues[0].message };
-        }
-        return { success: false, error: 'Invalid document ID' };
-    }
-}
+export const validateDocumentId = createValidator(googleDocumentIdSchema, 'Invalid document ID');
 
 /**
  * Helper function to extract document ID from URL or return the ID if already valid
