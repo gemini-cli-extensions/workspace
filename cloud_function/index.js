@@ -58,8 +58,6 @@ async function handleCallback(req, res) {
   const code = req.query.code;
   const state = req.query.state; // The state is the base64 encoded local redirect URI
 
-
-
   if (!code) {
     console.error('Missing authorization code in request query parameters.');
     return res.status(400).send('Error: Missing authorization code.');
@@ -67,8 +65,6 @@ async function handleCallback(req, res) {
 
   try {
     const clientSecret = await getClientSecret();
-
-
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
       client_id: CLIENT_ID,
       client_secret: clientSecret,
@@ -102,9 +98,7 @@ async function handleCallback(req, res) {
                 if (redirectUrl.hostname !== 'localhost' && redirectUrl.hostname !== '127.0.0.1') {
                     throw new Error(`Invalid redirect hostname: ${redirectUrl.hostname}. Must be localhost or 127.0.0.1.`);
                 }
-                
-
-                
+              
                 const finalUrl = redirectUrl; // Use the validated URL object
                 finalUrl.searchParams.append('access_token', access_token);
                 if (refresh_token) {
@@ -280,7 +274,6 @@ async function handleRefreshToken(req, res) {
 
   try {
     const clientSecret = await getClientSecret();
-
 
     const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
       client_id: CLIENT_ID,
