@@ -27,7 +27,7 @@ describe('TimeService', () => {
       const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       
       expect(parsed.utc).toEqual('2025-08-19');
-      expect(parsed.local).toBeDefined();
+      expect(parsed.local).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(parsed.timeZone).toEqual(expectedTimeZone);
     });
   });
