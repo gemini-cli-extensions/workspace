@@ -60,8 +60,8 @@ The extension provides the following tools:
 - `gmail.listLabels`: List all Gmail labels in the user's mailbox.
 
 ### Time
-- `time.getCurrentDate`: Gets the current date.
-- `time.getCurrentTime`: Gets the current time.
+- `time.getCurrentDate`: Gets the current date. Returns both UTC (for API use) and local time (for user display), along with the timezone.
+- `time.getCurrentTime`: Gets the current time. Returns both UTC (for API use) and local time (for user display), along with the timezone.
 - `time.getTimeZone`: Gets the local timezone.
 
 ### People

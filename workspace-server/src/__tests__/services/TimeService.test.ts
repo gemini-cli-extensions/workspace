@@ -21,17 +21,27 @@ describe('TimeService', () => {
   });
 
   describe('getCurrentDate', () => {
-    it('should return the current date in YYYY-MM-DD format', async () => {
+    it('should return the current date with utc, local, and timeZone fields', async () => {
       const result = await timeService.getCurrentDate();
-      expect(result.content[0].text).toEqual(JSON.stringify({ date: '2025-08-19' }));
+      const parsed = JSON.parse(result.content[0].text);
+      const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      expect(parsed.utc).toEqual('2025-08-19');
+      expect(parsed.local).toBeDefined();
+      expect(parsed.timeZone).toEqual(expectedTimeZone);
     });
   });
 
   describe('getCurrentTime', () => {
-    it('should return the current time in HH:MM:SS format', async () => {
-        const result = await timeService.getCurrentTime();
-        expect(result.content[0].text).toEqual(JSON.stringify({ time: '12:34:56' }));
-      });
+    it('should return the current time with utc, local, and timeZone fields', async () => {
+      const result = await timeService.getCurrentTime();
+      const parsed = JSON.parse(result.content[0].text);
+      const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      expect(parsed.utc).toEqual('12:34:56');
+      expect(parsed.local).toBeDefined();
+      expect(parsed.timeZone).toEqual(expectedTimeZone);
+    });
   });
 
   describe('getTimeZone', () => {

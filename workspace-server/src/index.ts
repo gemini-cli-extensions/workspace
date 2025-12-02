@@ -617,7 +617,7 @@ There are a list of system labels that can be modified on a message:
     server.registerTool(
         "time.getCurrentDate",
         {
-            description: 'Gets the current date.',
+            description: 'Gets the current date. Returns both UTC (for calendar/API use) and local time (for display to the user), along with the timezone.',
             inputSchema: {}
         },
         timeService.getCurrentDate
@@ -626,7 +626,7 @@ There are a list of system labels that can be modified on a message:
     server.registerTool(
         "time.getCurrentTime",
         {
-            description: 'Gets the current time.',
+            description: 'Gets the current time. Returns both UTC (for calendar/API use) and local time (for display to the user), along with the timezone.',
             inputSchema: {}
         },
         timeService.getCurrentTime
@@ -635,7 +635,7 @@ There are a list of system labels that can be modified on a message:
     server.registerTool(
         "time.getTimeZone",
         {
-            description: 'Gets the local timezone.',
+            description: 'Gets the local timezone. Note: timezone is also included in getCurrentDate and getCurrentTime responses.',
             inputSchema: {}
         },
         timeService.getTimeZone
