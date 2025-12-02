@@ -39,7 +39,7 @@ describe('TimeService', () => {
       const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       
       expect(parsed.utc).toEqual('12:34:56');
-      expect(parsed.local).toBeDefined();
+      expect(parsed.local).toMatch(/^\d{2}:\d{2}:\d{2}$/);
       expect(parsed.timeZone).toEqual(expectedTimeZone);
     });
   });
