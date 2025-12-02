@@ -113,7 +113,7 @@ export function validateEmail(email: string): { success: boolean; error?: string
         return { success: true };
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return { success: false, error: error.errors[0].message };
+            return { success: false, error: error.issues[0].message };
         }
         return { success: false, error: 'Invalid email format' };
     }
@@ -128,7 +128,7 @@ export function validateDateTime(datetime: string): { success: boolean; error?: 
         return { success: true };
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return { success: false, error: error.errors[0].message };
+            return { success: false, error: error.issues[0].message };
         }
         return { success: false, error: 'Invalid datetime format' };
     }
@@ -143,7 +143,7 @@ export function validateDocumentId(id: string): { success: boolean; error?: stri
         return { success: true };
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return { success: false, error: error.errors[0].message };
+            return { success: false, error: error.issues[0].message };
         }
         return { success: false, error: 'Invalid document ID' };
     }
