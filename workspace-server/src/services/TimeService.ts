@@ -32,11 +32,17 @@ export class TimeService {
     }
   }
 
+  private getTimeContext() {
+    return {
+      now: new Date(),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    };
+  }
+
   getCurrentDate = async () => {
     logToFile('getCurrentDate called');
     return this.handleErrors(async () => {
-      const now = new Date();
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const { now, timeZone } = this.getTimeContext();
       return {
         utc: now.toISOString().slice(0, 10),
         local: now.toLocaleDateString('en-CA', { timeZone }), // YYYY-MM-DD format
@@ -48,8 +54,7 @@ export class TimeService {
   getCurrentTime = async () => {
     logToFile('getCurrentTime called');
     return this.handleErrors(async () => {
-      const now = new Date();
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const { now, timeZone } = this.getTimeContext();
       return {
         utc: now.toISOString().slice(11, 19),
         local: now.toLocaleTimeString('en-GB', { hour12: false, timeZone }), // HH:MM:SS format
