@@ -120,7 +120,7 @@ export class DocsService {
                     insertText: {
                         location: { 
                             index: 1,
-                            segmentId: tabId 
+                            tabId: tabId 
                         },
                         text: processedText,
                     },
@@ -129,18 +129,27 @@ export class DocsService {
 
             // Add formatting requests if any
             if (formattingRequests.length > 0) {
-                
                 const requestsWithTabId = formattingRequests.map(req => {
-                    if (req.updateTextStyle?.range) {
-                        req.updateTextStyle.range.segmentId = tabId;
+                    const newReq = { ...req };
+                    if (newReq.updateTextStyle?.range) {
+                        newReq.updateTextStyle = {
+                            ...newReq.updateTextStyle,
+                            range: { ...newReq.updateTextStyle.range, tabId: tabId }
+                        };
                     }
-                    if (req.updateParagraphStyle?.range) {
-                        req.updateParagraphStyle.range.segmentId = tabId;
+                    if (newReq.updateParagraphStyle?.range) {
+                        newReq.updateParagraphStyle = {
+                            ...newReq.updateParagraphStyle,
+                            range: { ...newReq.updateParagraphStyle.range, tabId: tabId }
+                        };
                     }
-                    if (req.insertText?.location) {
-                        req.insertText.location.segmentId = tabId;
+                    if (newReq.insertText?.location) {
+                        newReq.insertText = {
+                            ...newReq.insertText,
+                            location: { ...newReq.insertText.location, tabId: tabId }
+                        };
                     }
-                    return req;
+                    return newReq;
                 });
                 requests.push(...requestsWithTabId);
             }
@@ -426,16 +435,26 @@ export class DocsService {
             // Add formatting requests if any
             if (formattingRequests.length > 0) {
                  const requestsWithTabId = formattingRequests.map(req => {
-                    if (req.updateTextStyle?.range) {
-                        req.updateTextStyle.range.tabId = tabId;
+                    const newReq = { ...req };
+                    if (newReq.updateTextStyle?.range) {
+                        newReq.updateTextStyle = {
+                            ...newReq.updateTextStyle,
+                            range: { ...newReq.updateTextStyle.range, tabId: tabId }
+                        };
                     }
-                    if (req.updateParagraphStyle?.range) {
-                        req.updateParagraphStyle.range.tabId = tabId;
+                    if (newReq.updateParagraphStyle?.range) {
+                        newReq.updateParagraphStyle = {
+                            ...newReq.updateParagraphStyle,
+                            range: { ...newReq.updateParagraphStyle.range, tabId: tabId }
+                        };
                     }
-                    if (req.insertText?.location) {
-                        req.insertText.location.tabId = tabId; // Use tabId for tab-specific insertion
+                    if (newReq.insertText?.location) {
+                        newReq.insertText = {
+                            ...newReq.insertText,
+                            location: { ...newReq.insertText.location, tabId: tabId } // Use tabId for tab-specific insertion
+                        };
                     }
-                    return req;
+                    return newReq;
                 });
                 requests.push(...requestsWithTabId);
             }
@@ -485,9 +504,6 @@ export class DocsService {
 
             const tabs = docBefore.data.tabs || [];
             
-            // If tabId is provided, we only look at that tab.
-            // If not, we look at ALL tabs (legacy behavior was global replace).
-            
             const requests: docs_v1.Schema$Request[] = [];
             
             if (tabId) {
@@ -497,131 +513,27 @@ export class DocsService {
                 }
                 const content = tab.documentTab?.body?.content;
                 
-                // Find occurrences in this tab
-                const documentText = this._getFullDocumentText(content);
-                const occurrences: number[] = [];
-                let searchIndex = 0;
-                while ((searchIndex = documentText.indexOf(findText, searchIndex)) !== -1) {
-                    occurrences.push(searchIndex + 1);
-                    searchIndex += findText.length;
-                }
-
-                // Manual replacement using delete/insert
-                const lengthDiff = processedText.length - findText.length;
-                let cumulativeOffset = 0;
-
-                for (let i = 0; i < occurrences.length; i++) {
-                    const occurrence = occurrences[i];
-                    const adjustedPosition = occurrence + cumulativeOffset; 
-                    
-                    // Delete old text
-                    requests.push({
-                        deleteContentRange: {
-                            range: {
-                            tabId: tabId,
-                                startIndex: adjustedPosition - 1, 
-                                endIndex: adjustedPosition - 1 + findText.length 
-                            }
-                        }
-                    });
-                    
-                    // Insert new text
-                    requests.push({
-                        insertText: {
-                            location: {
-                                tabId: tabId,
-                                index: adjustedPosition 
-                            },
-                            text: processedText
-                        }
-                    });
-                    
-                    // Formatting
-                    for (const formatRequest of originalFormattingRequests) {
-                        if (formatRequest.updateTextStyle) {
-                            const adjustedRequest: docs_v1.Schema$Request = {
-                                updateTextStyle: {
-                                    ...formatRequest.updateTextStyle,
-                                    range: {
-                                        tabId: tabId,
-                                        startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition - 1,
-                                        endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition - 1
-                                    }
-                                }
-                            };
-                            requests.push(adjustedRequest);
-                        }
-                    }
-
-                    cumulativeOffset += lengthDiff;
-                }
+                const tabRequests = this._generateReplacementRequests(
+                    content,
+                    tabId,
+                    findText,
+                    processedText,
+                    originalFormattingRequests
+                );
+                requests.push(...tabRequests);
             } else {
-                // If no tabId, we want to replace in ALL tabs.
-                // We can use replaceAllText for the text replacement, BUT we need to apply formatting manually.
-                // To apply formatting manually, we need to know where the text was replaced.
-                // replaceAllText doesn't tell us.
-                // So we must iterate all tabs and do manual replacement if we want to support formatting.
-                // OR we accept that formatting might not work perfectly if we use replaceAllText?
-                // No, we should try to support formatting.
-                // So let's iterate all tabs and do manual replacement for each.
-                
                 for (const tab of tabs) {
                     const currentTabId = tab.tabProperties?.tabId;
                     const content = tab.documentTab?.body?.content;
                     
-                    const documentText = this._getFullDocumentText(content);
-                    const occurrences: number[] = [];
-                    let searchIndex = 0;
-                    while ((searchIndex = documentText.indexOf(findText, searchIndex)) !== -1) {
-                        occurrences.push(searchIndex + 1);
-                        searchIndex += findText.length;
-                    }
-                    
-                    const lengthDiff = processedText.length - findText.length;
-                    let cumulativeOffset = 0;
-
-                    for (let i = 0; i < occurrences.length; i++) {
-                        const occurrence = occurrences[i];
-                        const adjustedPosition = occurrence + cumulativeOffset; 
-                        
-                        requests.push({
-                            deleteContentRange: {
-                                range: {
-                                    tabId: currentTabId,
-                                    startIndex: adjustedPosition - 1, 
-                                    endIndex: adjustedPosition - 1 + findText.length 
-                                }
-                            }
-                        });
-                        
-                        requests.push({
-                            insertText: {
-                                location: {
-                                    tabId: currentTabId,
-                                    index: adjustedPosition 
-                                },
-                                text: processedText
-                            }
-                        });
-                        
-                        for (const formatRequest of originalFormattingRequests) {
-                            if (formatRequest.updateTextStyle) {
-                                const adjustedRequest: docs_v1.Schema$Request = {
-                                    updateTextStyle: {
-                                        ...formatRequest.updateTextStyle,
-                                        range: {
-                                            segmentId: currentTabId,
-                                            startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition - 1,
-                                            endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition - 1
-                                        }
-                                    }
-                                };
-                                requests.push(adjustedRequest);
-                            }
-                        }
-
-                        cumulativeOffset += lengthDiff;
-                    }
+                    const tabRequests = this._generateReplacementRequests(
+                        content,
+                        currentTabId,
+                        findText,
+                        processedText,
+                        originalFormattingRequests
+                    );
+                    requests.push(...tabRequests);
                 }
             }
 
@@ -651,6 +563,73 @@ export class DocsService {
                 }]
             };
         }
+    }
+
+    private _generateReplacementRequests(
+        content: docs_v1.Schema$StructuralElement[] | undefined,
+        tabId: string | undefined | null,
+        findText: string,
+        processedText: string,
+        originalFormattingRequests: docs_v1.Schema$Request[]
+    ): docs_v1.Schema$Request[] {
+        const requests: docs_v1.Schema$Request[] = [];
+        const documentText = this._getFullDocumentText(content);
+        const occurrences: number[] = [];
+        let searchIndex = 0;
+        while ((searchIndex = documentText.indexOf(findText, searchIndex)) !== -1) {
+            occurrences.push(searchIndex + 1);
+            searchIndex += findText.length;
+        }
+
+        const lengthDiff = processedText.length - findText.length;
+        let cumulativeOffset = 0;
+
+        for (let i = 0; i < occurrences.length; i++) {
+            const occurrence = occurrences[i];
+            const adjustedPosition = occurrence + cumulativeOffset; 
+            
+            // Delete old text
+            requests.push({
+                deleteContentRange: {
+                    range: {
+                        tabId: tabId,
+                        startIndex: adjustedPosition - 1, 
+                        endIndex: adjustedPosition - 1 + findText.length 
+                    }
+                }
+            });
+            
+            // Insert new text
+            requests.push({
+                insertText: {
+                    location: {
+                        tabId: tabId,
+                        index: adjustedPosition 
+                    },
+                    text: processedText
+                }
+            });
+            
+            // Formatting
+            for (const formatRequest of originalFormattingRequests) {
+                if (formatRequest.updateTextStyle) {
+                    const adjustedRequest: docs_v1.Schema$Request = {
+                        updateTextStyle: {
+                            ...formatRequest.updateTextStyle,
+                            range: {
+                                tabId: tabId,
+                                startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition - 1,
+                                endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition - 1
+                            }
+                        }
+                    };
+                    requests.push(adjustedRequest);
+                }
+            }
+
+            cumulativeOffset += lengthDiff;
+        }
+        return requests;
     }
 
     private _getFullDocumentText(content: docs_v1.Schema$StructuralElement[] | undefined): string {

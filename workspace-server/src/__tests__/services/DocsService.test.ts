@@ -202,7 +202,7 @@ describe('DocsService', () => {
                         insertText: {
                             location: { 
                                 index: 1,
-                                segmentId: 'tab-1'
+                                tabId: 'tab-1'
                             },
                             text: 'Hello',
                         },
