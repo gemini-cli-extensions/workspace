@@ -566,8 +566,8 @@ describe('DocsService', () => {
                             deleteContentRange: {
                                 range: {
                                     tabId: undefined,
-                                    startIndex: 0,
-                                    endIndex: 5
+                                    startIndex: 1,
+                                    endIndex: 6
                                 }
                             }
                         }),
@@ -638,8 +638,8 @@ describe('DocsService', () => {
                             deleteContentRange: {
                                 range: {
                                     tabId: undefined,
-                                    startIndex: 8,
-                                    endIndex: 17
+                                    startIndex: 9,
+                                    endIndex: 18
                                 }
                             }
                         }),
@@ -656,8 +656,8 @@ describe('DocsService', () => {
                             updateTextStyle: expect.objectContaining({
                                 range: {
                                     tabId: undefined,
-                                    startIndex: 8,
-                                    endIndex: 17
+                                    startIndex: 9,
+                                    endIndex: 18
                                 },
                                 textStyle: { bold: true }
                             })
@@ -667,8 +667,8 @@ describe('DocsService', () => {
                             deleteContentRange: {
                                 range: {
                                     tabId: undefined,
-                                    startIndex: 22,
-                                    endIndex: 31
+                                    startIndex: 23,
+                                    endIndex: 32
                                 }
                             }
                         }),
@@ -685,8 +685,8 @@ describe('DocsService', () => {
                             updateTextStyle: expect.objectContaining({
                                 range: {
                                     tabId: undefined,
-                                    startIndex: 22,
-                                    endIndex: 31
+                                    startIndex: 23,
+                                    endIndex: 32
                                 },
                                 textStyle: { bold: true }
                             })
@@ -773,8 +773,8 @@ describe('DocsService', () => {
                             deleteContentRange: {
                                 range: {
                                     tabId: 'tab-1',
-                                    startIndex: 0,
-                                    endIndex: 5
+                                    startIndex: 1,
+                                    endIndex: 6
                                 }
                             }
                         }),
