@@ -618,8 +618,8 @@ export class DocsService {
                             ...formatRequest.updateTextStyle,
                             range: {
                                 tabId: tabId,
-                                startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition - 1,
-                                endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition - 1
+                                startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition,
+                                endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition
                             }
                         }
                     };
