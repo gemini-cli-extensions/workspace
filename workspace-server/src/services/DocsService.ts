@@ -593,8 +593,8 @@ export class DocsService {
                 deleteContentRange: {
                     range: {
                         tabId: tabId,
-                        startIndex: adjustedPosition - 1, 
-                        endIndex: adjustedPosition - 1 + findText.length 
+                        startIndex: adjustedPosition,
+                        endIndex: adjustedPosition + findText.length
                     }
                 }
             });
