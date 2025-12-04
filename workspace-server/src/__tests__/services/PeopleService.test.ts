@@ -68,7 +68,7 @@ describe('PeopleService', () => {
 
             expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
                 resourceName: 'people/110001608645105799644',
-                personFields: 'names,emailAddresses',
+                personFields: 'names,emailAddresses,relations',
             });
             expect(JSON.parse(result.content[0].text)).toEqual({ results: [{ person: mockUser.data }] });
         });
@@ -142,6 +142,37 @@ describe('PeopleService', () => {
             mockPeopleAPI.people.get.mockRejectedValue(apiError);
 
             const result = await peopleService.getMe();
+
+            expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
+        });
+    });
+
+    describe('getUserManager', () => {
+        it('should return the manager of a user', async () => {
+            const mockManager = {
+                data: {
+                    relations: [{
+                        type: 'manager',
+                        person: 'people/110001608645105799645',
+                    }],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockManager);
+
+            const result = await peopleService.getUserManager({ userId: '110001608645105799644' });
+
+            expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
+                resourceName: 'people/110001608645105799644',
+                personFields: 'relations',
+            });
+            expect(JSON.parse(result.content[0].text)).toEqual({ manager: 'people/110001608645105799645' });
+        });
+
+        it('should handle errors during getUserManager', async () => {
+            const apiError = new Error('API Error');
+            mockPeopleAPI.people.get.mockRejectedValue(apiError);
+
+            const result = await peopleService.getUserManager({ userId: '110001608645105799644' });
 
             expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
         });
