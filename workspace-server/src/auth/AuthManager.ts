@@ -17,6 +17,7 @@ import { OAuthCredentialStorage } from './token-storage/oauth-credential-storage
 // The Client ID for the OAuth flow.
 // The secret is handled by the cloud function, not in the client.
 const CLIENT_ID = '338689075775-o75k922vn5fdl18qergr96rp8g63e4d7.apps.googleusercontent.com';
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * An Authentication URL for updating the credentials of a Oauth2Client
@@ -72,7 +73,7 @@ export class AuthManager {
             logToFile(`Current time: ${Date.now()}`);
             
             const isExpired = this.client.credentials.expiry_date ? 
-                this.client.credentials.expiry_date < Date.now() : 
+                this.client.credentials.expiry_date < Date.now() + TOKEN_EXPIRY_BUFFER_MS : 
                 false;
             logToFile(`Token expired: ${isExpired}`);
             
@@ -129,7 +130,7 @@ export class AuthManager {
             
             // Check if the loaded token is expired and refresh proactively
             const isExpired = this.client.credentials.expiry_date ? 
-                this.client.credentials.expiry_date < Date.now() : 
+                this.client.credentials.expiry_date < Date.now() + TOKEN_EXPIRY_BUFFER_MS : 
                 false;
             logToFile(`Token expired: ${isExpired}`);
             

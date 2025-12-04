@@ -213,4 +213,37 @@ describe('AuthManager', () => {
         })
     );
   });
+
+  it('should proactively refresh tokens expiring within buffer (5 minutes)', async () => {
+    // Setup: Load credentials with token expiring in 4 minutes (within 5 min buffer)
+    const expiresIn4Minutes = Date.now() + 4 * 60 * 1000;
+    (OAuthCredentialStorage.loadCredentials as jest.Mock).mockResolvedValue({
+        access_token: 'soon_expiring_token',
+        refresh_token: 'valid_refresh',
+        expiry_date: expiresIn4Minutes,
+        scope: 'scope1'
+    });
+    
+    // Mock fetch to simulate cloud function returning fresh tokens
+    (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+            access_token: 'fresh_token',
+            expiry_date: Date.now() + 3600000
+        })
+    });
+    
+    // Call getAuthenticatedClient
+    const client = await authManager.getAuthenticatedClient();
+    expect(client).toBeDefined();
+    
+    // Verify fetch was called to refresh the token because it was within buffer
+    expect(global.fetch).toHaveBeenCalledWith(
+        'https://google-workspace-extension.geminicli.com/refreshToken',
+        expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('valid_refresh')
+        })
+    );
+  });
 });
