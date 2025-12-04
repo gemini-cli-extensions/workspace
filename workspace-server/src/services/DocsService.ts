@@ -129,29 +129,7 @@ export class DocsService {
 
             // Add formatting requests if any
             if (formattingRequests.length > 0) {
-                const requestsWithTabId = formattingRequests.map(req => {
-                    const newReq = { ...req };
-                    if (newReq.updateTextStyle?.range) {
-                        newReq.updateTextStyle = {
-                            ...newReq.updateTextStyle,
-                            range: { ...newReq.updateTextStyle.range, tabId: tabId }
-                        };
-                    }
-                    if (newReq.updateParagraphStyle?.range) {
-                        newReq.updateParagraphStyle = {
-                            ...newReq.updateParagraphStyle,
-                            range: { ...newReq.updateParagraphStyle.range, tabId: tabId }
-                        };
-                    }
-                    if (newReq.insertText?.location) {
-                        newReq.insertText = {
-                            ...newReq.insertText,
-                            location: { ...newReq.insertText.location, tabId: tabId }
-                        };
-                    }
-                    return newReq;
-                });
-                requests.push(...requestsWithTabId);
+                requests.push(...this._addTabIdToFormattingRequests(formattingRequests, tabId));
             }
 
             const docs = await this.getDocsClient();
@@ -434,29 +412,7 @@ export class DocsService {
 
             // Add formatting requests if any
             if (formattingRequests.length > 0) {
-                 const requestsWithTabId = formattingRequests.map(req => {
-                    const newReq = { ...req };
-                    if (newReq.updateTextStyle?.range) {
-                        newReq.updateTextStyle = {
-                            ...newReq.updateTextStyle,
-                            range: { ...newReq.updateTextStyle.range, tabId: tabId }
-                        };
-                    }
-                    if (newReq.updateParagraphStyle?.range) {
-                        newReq.updateParagraphStyle = {
-                            ...newReq.updateParagraphStyle,
-                            range: { ...newReq.updateParagraphStyle.range, tabId: tabId }
-                        };
-                    }
-                    if (newReq.insertText?.location) {
-                        newReq.insertText = {
-                            ...newReq.insertText,
-                            location: { ...newReq.insertText.location, tabId: tabId } // Use tabId for tab-specific insertion
-                        };
-                    }
-                    return newReq;
-                });
-                requests.push(...requestsWithTabId);
+                requests.push(...this._addTabIdToFormattingRequests(formattingRequests, tabId));
             }
 
             await docs.documents.batchUpdate({
@@ -643,6 +599,34 @@ export class DocsService {
     }
 
     
+
+    private _addTabIdToFormattingRequests(requests: docs_v1.Schema$Request[], tabId?: string): docs_v1.Schema$Request[] {
+        if (!tabId || requests.length === 0) {
+            return requests;
+        }
+        return requests.map(req => {
+            const newReq = { ...req };
+            if (newReq.updateTextStyle?.range) {
+                newReq.updateTextStyle = {
+                    ...newReq.updateTextStyle,
+                    range: { ...newReq.updateTextStyle.range, tabId: tabId }
+                };
+            }
+            if (newReq.updateParagraphStyle?.range) {
+                newReq.updateParagraphStyle = {
+                    ...newReq.updateParagraphStyle,
+                    range: { ...newReq.updateParagraphStyle.range, tabId: tabId }
+                };
+            }
+            if (newReq.insertText?.location) {
+                newReq.insertText = {
+                    ...newReq.insertText,
+                    location: { ...newReq.insertText.location, tabId: tabId }
+                };
+            }
+            return newReq;
+        });
+    }
 
     private async _moveFileToFolder(documentId: string, folderName: string): Promise<void> {
         try {
