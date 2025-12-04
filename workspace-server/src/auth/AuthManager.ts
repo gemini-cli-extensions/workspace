@@ -37,6 +37,11 @@ export class AuthManager {
         this.scopes = scopes;
     }
 
+    private isTokenExpiringSoon(credentials: Auth.Credentials): boolean {
+        return !!(credentials.expiry_date && 
+            credentials.expiry_date < Date.now() + TOKEN_EXPIRY_BUFFER_MS);
+    }
+
     private async loadCachedCredentials(client: Auth.OAuth2Client): Promise<boolean> {
         const credentials = await OAuthCredentialStorage.loadCredentials();
 
@@ -72,9 +77,7 @@ export class AuthManager {
             logToFile(`Expiry date: ${this.client.credentials.expiry_date}`);
             logToFile(`Current time: ${Date.now()}`);
             
-            const isExpired = this.client.credentials.expiry_date ? 
-                this.client.credentials.expiry_date < Date.now() + TOKEN_EXPIRY_BUFFER_MS : 
-                false;
+            const isExpired = this.isTokenExpiringSoon(this.client.credentials);
             logToFile(`Token expired: ${isExpired}`);
             
             // Proactively refresh if expired
@@ -129,9 +132,7 @@ export class AuthManager {
             this.client = oAuth2Client;
             
             // Check if the loaded token is expired and refresh proactively
-            const isExpired = this.client.credentials.expiry_date ? 
-                this.client.credentials.expiry_date < Date.now() + TOKEN_EXPIRY_BUFFER_MS : 
-                false;
+            const isExpired = this.isTokenExpiringSoon(this.client.credentials);
             logToFile(`Token expired: ${isExpired}`);
             
             if (isExpired) {

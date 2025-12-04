@@ -216,7 +216,8 @@ describe('AuthManager', () => {
 
   it('should proactively refresh tokens expiring within buffer (5 minutes)', async () => {
     // Setup: Load credentials with token expiring in 4 minutes (within 5 min buffer)
-    const expiresIn4Minutes = Date.now() + 4 * 60 * 1000;
+    const TEST_EXPIRY_WITHIN_BUFFER = 4 * 60 * 1000;
+    const expiresIn4Minutes = Date.now() + TEST_EXPIRY_WITHIN_BUFFER;
     (OAuthCredentialStorage.loadCredentials as jest.Mock).mockResolvedValue({
         access_token: 'soon_expiring_token',
         refresh_token: 'valid_refresh',
