@@ -229,7 +229,7 @@ describe('AuthManager', () => {
         ok: true,
         json: async () => ({
             access_token: 'fresh_token',
-            expiry_date: Date.now() + 3600000
+            expiry_date: Date.now() + 60 * 60 * 1000
         })
     });
     
