@@ -132,6 +132,7 @@ async function main() {
             inputSchema: {
                 documentId: z.string().describe('The ID of the document to modify.'),
                 text: z.string().describe('The text to insert at the beginning of the document.'),
+                tabId: z.string().optional().describe('The ID of the tab to modify. If not provided, modifies the first tab.'),
             }
         },
         docsService.insertText
@@ -179,6 +180,7 @@ async function main() {
             description: 'Retrieves the text content of a Google Doc.',
             inputSchema: {
                 documentId: z.string().describe('The ID of the document to read.'),
+                tabId: z.string().optional().describe('The ID of the tab to read. If not provided, returns all tabs.'),
             }
         },
         docsService.getText
@@ -191,6 +193,7 @@ async function main() {
             inputSchema: {
                 documentId: z.string().describe('The ID of the document to modify.'),
                 text: z.string().describe('The text to append to the document.'),
+                tabId: z.string().optional().describe('The ID of the tab to modify. If not provided, modifies the first tab.'),
             }
         },
         docsService.appendText
@@ -204,6 +207,7 @@ async function main() {
                 documentId: z.string().describe('The ID of the document to modify.'),
                 findText: z.string().describe('The text to find in the document.'),
                 replaceText: z.string().describe('The text to replace the found text with.'),
+                tabId: z.string().optional().describe('The ID of the tab to modify. If not provided, replaces in all tabs (legacy behavior).'),
             }
         },
         docsService.replaceText
