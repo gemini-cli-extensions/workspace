@@ -28,7 +28,7 @@ export class PeopleService {
                 resourceName,
                 personFields: 'relations',
             });
-            const manager = res.data.relations?.find((r: { type: string; }) => r.type === 'manager')?.person || 'Not Found';
+            const manager = res.data.relations?.find((r: { type: string; }) => r.type === 'manager')?.person || null;
             logToFile(`[PeopleService] Finished getUserManager for user: ${userId}`);
             return {
                 content: [{
