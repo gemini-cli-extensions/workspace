@@ -83,7 +83,10 @@ const main = async () => {
   });
 
   const packageJson = require('../package.json');
-  const version = process.env.GITHUB_REF_NAME || packageJson.version;
+  let version = process.env.GITHUB_REF_NAME || packageJson.version;
+  if (version.startsWith('v')) {
+    version = version.slice(1);
+  }
 
   // Generate the gemini-extension.json file
   const geminiExtensionJson = {
