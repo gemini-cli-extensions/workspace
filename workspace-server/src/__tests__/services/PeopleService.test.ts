@@ -68,7 +68,7 @@ describe('PeopleService', () => {
 
             expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
                 resourceName: 'people/110001608645105799644',
-                personFields: 'names,emailAddresses,relations',
+                personFields: 'names,emailAddresses',
             });
             expect(JSON.parse(result.content[0].text)).toEqual({ results: [{ person: mockUser.data }] });
         });
