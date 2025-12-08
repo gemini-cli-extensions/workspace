@@ -246,7 +246,7 @@ export class CalendarService {
         }]
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = (error as any).response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
       logToFile(`Error during calendar.deleteEvent: ${errorMessage}`);
       return {
         content: [{
