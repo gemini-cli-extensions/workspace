@@ -226,6 +226,37 @@ export class CalendarService {
     }
   }
 
+  deleteEvent = async (input: { eventId: string, calendarId?: string }) => {
+    const { eventId, calendarId } = input;
+    const finalCalendarId = calendarId || await this.getPrimaryCalendarId();
+    logToFile(`Deleting event ${eventId} from calendar: ${finalCalendarId}`);
+
+    try {
+      const calendar = await this.getCalendar();
+      await calendar.events.delete({
+        calendarId: finalCalendarId,
+        eventId,
+      });
+
+      logToFile(`Successfully deleted event: ${eventId}`);
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ message: `Successfully deleted event ${eventId}` })
+        }]
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.deleteEvent: ${errorMessage}`);
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({ error: errorMessage })
+        }]
+      };
+    }
+  }
+
   updateEvent = async (input: { eventId: string, calendarId?: string, summary?: string, start?: { dateTime: string }, end?: { dateTime: string }, attendees?: string[] }) => {
     const { eventId, calendarId, summary, start, end, attendees } = input;
 

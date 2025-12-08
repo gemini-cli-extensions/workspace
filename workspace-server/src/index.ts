@@ -437,6 +437,18 @@ async function main() {
     );
 
     server.registerTool(
+        "calendar.deleteEvent",
+        {
+            description: 'Deletes an event from a calendar.',
+            inputSchema: {
+                eventId: z.string().describe('The ID of the event to delete.'),
+                calendarId: z.string().optional().describe('The ID of the calendar to delete the event from. Defaults to the primary calendar.'),
+            }
+        },
+        calendarService.deleteEvent
+    );
+
+    server.registerTool(
         "chat.listSpaces",
         {
             description: 'Lists the spaces the user is a member of.',

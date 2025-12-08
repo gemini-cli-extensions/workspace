@@ -800,6 +800,11 @@ describe('CalendarService', () => {
         responseMessage: 'Sorry, I have a conflict',
       });
 
+      expect(mockCalendarAPI.events.get).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        eventId: 'event123',
+      });
+
       expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith({
         calendarId: 'primary',
         eventId: 'event123',
@@ -1001,6 +1006,63 @@ describe('CalendarService', () => {
       const result = await calendarService.getEvent({ eventId: 'non-existent-event', calendarId: 'primary' });
 
       expect(JSON.parse(result.content[0].text)).toEqual({ error: 'Event not found' });
+    });
+  });
+  describe('deleteEvent', () => {
+    beforeEach(async () => {
+      mockCalendarAPI.calendarList.list.mockResolvedValue({
+        data: {
+          items: [{ id: 'primary', primary: true }],
+        },
+      });
+    });
+
+    it('should delete an event from the primary calendar', async () => {
+      mockCalendarAPI.events.delete.mockResolvedValue({});
+
+      const result = await calendarService.deleteEvent({
+        eventId: 'event123',
+      });
+
+      expect(mockCalendarAPI.events.delete).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        eventId: 'event123',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        message: 'Successfully deleted event event123',
+      });
+    });
+
+    it('should delete an event from a specific calendar', async () => {
+      mockCalendarAPI.events.delete.mockResolvedValue({});
+
+      const result = await calendarService.deleteEvent({
+        eventId: 'event123',
+        calendarId: 'work-calendar',
+      });
+
+      expect(mockCalendarAPI.events.delete).toHaveBeenCalledWith({
+        calendarId: 'work-calendar',
+        eventId: 'event123',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        message: 'Successfully deleted event event123',
+      });
+    });
+
+    it('should handle delete errors', async () => {
+      const apiError = new Error('Delete failed');
+      mockCalendarAPI.events.delete.mockRejectedValue(apiError);
+
+      const result = await calendarService.deleteEvent({
+        eventId: 'event123',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Delete failed',
+      });
     });
   });
 });
