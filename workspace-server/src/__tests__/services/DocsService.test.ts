@@ -193,7 +193,7 @@ describe('DocsService', () => {
             };
             mockDocsAPI.documents.batchUpdate.mockResolvedValue(mockResponse);
 
-            const result = await docsService.insertText({ documentId: 'test-doc-id', text: 'Hello', tabId: 'tab-1' });
+            await docsService.insertText({ documentId: 'test-doc-id', text: 'Hello', tabId: 'tab-1' });
 
             expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
                 documentId: 'test-doc-id',
