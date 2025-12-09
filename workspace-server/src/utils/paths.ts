@@ -8,20 +8,16 @@ import path from 'node:path';
 import * as fs from 'node:fs';
 
 function findProjectRoot(): string {
-  // Case 1: Bundled (dist/index.js) -> __dirname is '.../dist'. Root is '.../dist/..'
-  const bundledRoot = path.join(__dirname, '..');
-  if (fs.existsSync(path.join(bundledRoot, 'package.json'))) {
-    return bundledRoot;
+  let dir = __dirname;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, 'gemini-extension.json'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
   }
-
-  // Case 2: Development (src/utils/paths.ts) -> __dirname is '.../src/utils'. Root is '.../src/utils/../..'
-  const devRoot = path.join(__dirname, '..', '..');
-  if (fs.existsSync(path.join(devRoot, 'package.json'))) {
-    return devRoot;
-  }
-
-  // Default fallback
-  return devRoot;
+  throw new Error(
+    `Could not find project root containing gemini-extension.json. Traversed up from ${__dirname}.`,
+  );
 }
 
 // Construct an absolute path to the project root.
