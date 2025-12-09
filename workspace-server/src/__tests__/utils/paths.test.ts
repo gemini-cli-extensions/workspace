@@ -5,6 +5,7 @@
  */
 
 import path from 'node:path';
+import * as fs from 'node:fs';
 import { PROJECT_ROOT } from '../../utils/paths';
 
 describe('paths utils', () => {
@@ -13,7 +14,6 @@ describe('paths utils', () => {
       // The project root should contain gemini-extension.json
       // Since we are searching for gemini-extension.json which is in the root 'workspace',
       // not 'workspace-server', the path should NOT end with 'workspace-server'.
-      import * as fs from 'node:fs';
       const extensionConfigPath = path.join(PROJECT_ROOT, 'gemini-extension.json');
       expect(fs.existsSync(extensionConfigPath)).toBe(true);
       
