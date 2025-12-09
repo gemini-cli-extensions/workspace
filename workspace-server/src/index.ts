@@ -334,6 +334,17 @@ async function main() {
     );
 
     server.registerTool(
+        "drive.readFile",
+        {
+            description: 'Reads the content of a file from Google Drive. For text files, returns the text content. For images, returns the image content. For other binary files (PDFs, etc.), returns the content as an embedded resource. Note: passing a file ID for a Google Doc, Sheet or Slide will prompt you to use the specific tool for those types.',
+            inputSchema: {
+                fileId: z.string().describe('The ID of the file to read.'),
+            }
+        },
+        driveService.readFile
+    );
+
+    server.registerTool(
         "calendar.list",
         {
             description: 'Lists all of the user\'s calendars.',

@@ -230,4 +230,100 @@ export class DriveService {
             };
         }
     }
+
+    public readFile = async ({ fileId }: { fileId: string }) => {
+        logToFile(`Reading file with ID: ${fileId}`);
+        try {
+            const drive = await this.getDriveClient();
+            
+            // First get metadata to check mimeType
+            const metadata = await drive.files.get({
+                fileId: fileId,
+                fields: 'id, name, mimeType',
+            });
+            
+            const mimeType = metadata.data.mimeType || '';
+            logToFile(`File mimeType: ${mimeType}`);
+
+            // Handle Google Workspace files
+            if (mimeType === 'application/vnd.google-apps.document') {
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: `This is a Google Doc. Please use the 'docs.getText' tool with documentId: ${fileId}`
+                    }]
+                };
+            }
+            if (mimeType === 'application/vnd.google-apps.spreadsheet') {
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: `This is a Google Sheet. Please use the 'sheets.getText' tool with spreadsheetId: ${fileId}`
+                    }]
+                };
+            }
+            if (mimeType === 'application/vnd.google-apps.presentation') {
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: `This is a Google Slide. Please use the 'slides.getText' tool with presentationId: ${fileId}`
+                    }]
+                };
+            }
+
+            // Download file content
+            const response = await drive.files.get({
+                fileId: fileId,
+                alt: 'media',
+            }, { responseType: 'arraybuffer' });
+
+            const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
+
+            // Determine if text or binary
+            // Simple heuristic: if mimeType starts with text/ or is json/xml
+            const isText = mimeType.startsWith('text/') || 
+                           mimeType === 'application/json' || 
+                           mimeType.includes('xml') ||
+                           mimeType === 'application/javascript' ||
+                           mimeType === 'application/x-sh';
+
+            if (isText) {
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: buffer.toString('utf-8')
+                    }]
+                };
+            } else if (mimeType.startsWith('image/')) {
+                return {
+                    content: [{
+                        type: "image" as const,
+                        data: buffer.toString('base64'),
+                        mimeType: mimeType
+                    }]
+                };
+            } else {
+                return {
+                    content: [{
+                        type: "resource" as const,
+                        resource: {
+                            uri: `https://drive.google.com/file/d/${fileId}`,
+                            mimeType: mimeType,
+                            blob: buffer.toString('base64')
+                        }
+                    }]
+                };
+            }
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logToFile(`Error during drive.readFile: ${errorMessage}`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ error: errorMessage })
+                }]
+            };
+        }
+    }
 }
