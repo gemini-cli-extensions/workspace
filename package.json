@@ -32,7 +32,7 @@
     "@googleapis/docs": "^8.1.1",
     "@googleapis/drive": "^19.2.0",
     "@modelcontextprotocol/sdk": "^1.24.3",
-    "dompurify": "^3.1.6",
+    "dompurify": "^3.3.1",
     "google-auth-library": "^10.5.0",
     "googleapis": "^166.0.0",
     "jsdom": "^27.2.0",
