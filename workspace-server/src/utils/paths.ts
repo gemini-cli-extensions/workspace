@@ -5,11 +5,27 @@
  */
 
 import path from 'node:path';
+import * as fs from 'node:fs';
+
+function findProjectRoot(): string {
+  // Case 1: Bundled (dist/index.js) -> __dirname is '.../dist'. Root is '.../dist/..'
+  const bundledRoot = path.join(__dirname, '..');
+  if (fs.existsSync(path.join(bundledRoot, 'package.json'))) {
+    return bundledRoot;
+  }
+
+  // Case 2: Development (src/utils/paths.ts) -> __dirname is '.../src/utils'. Root is '.../src/utils/../..'
+  const devRoot = path.join(__dirname, '..', '..');
+  if (fs.existsSync(path.join(devRoot, 'package.json'))) {
+    return devRoot;
+  }
+
+  // Default fallback
+  return devRoot;
+}
 
 // Construct an absolute path to the project root.
-// __dirname will be /path/to/project/src (in dev) or /path/to/project/dist (in prod).
-// In both cases, going up one level gives us the project root.
-export const PROJECT_ROOT = path.join(__dirname, '..', '..');
+export const PROJECT_ROOT = findProjectRoot();
 export const ENCRYPTED_TOKEN_PATH = path.join(
   PROJECT_ROOT,
   'gemini-cli-workspace-token.json',

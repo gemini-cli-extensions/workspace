@@ -6,10 +6,9 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { PROJECT_ROOT } from './paths';
 
-// Navigate up two levels from src/utils to get to the project root
-const projectRoot = path.join(__dirname, '..', '..');
-const logFilePath = path.join(projectRoot, 'logs', 'server.log');
+const logFilePath = path.join(PROJECT_ROOT, 'logs', 'server.log');
 
 async function ensureLogDirectoryExists() {
     try {

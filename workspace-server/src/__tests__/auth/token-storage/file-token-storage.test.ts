@@ -29,6 +29,7 @@ jest.mock('node:fs', () => ({
     unlink: jest.fn(),
     mkdir: jest.fn(),
   },
+  existsSync: jest.fn(() => true),
 }));
 
 jest.mock('node:os', () => ({
