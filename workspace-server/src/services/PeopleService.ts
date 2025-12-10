@@ -109,34 +109,30 @@ export class PeopleService {
             });
             logToFile(`[PeopleService] Finished getUserRelations API call`);
 
-            const relations = res.data.relations || [];
+            const relations = res.data?.relations || [];
+            let responseData;
 
-            // If a specific relation type is requested, filter the results
             if (relationType) {
                 const filteredRelations = relations.filter(
                     (relation) => relation.type?.toLowerCase() === relationType.toLowerCase()
                 );
                 logToFile(`[PeopleService] Filtered to ${filteredRelations.length} relations of type: ${relationType}`);
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: JSON.stringify({
-                            relationType,
-                            relations: filteredRelations
-                        })
-                    }]
+                responseData = {
+                    relationType,
+                    relations: filteredRelations,
+                };
+            } else {
+                logToFile(`[PeopleService] Returning all ${relations.length} relations`);
+                responseData = {
+                    relations,
                 };
             }
 
-            // Return all relations if no specific type is requested
-            logToFile(`[PeopleService] Returning all ${relations.length} relations`);
             return {
                 content: [{
                     type: "text" as const,
-                    text: JSON.stringify({
-                        relations
-                    })
-                }]
+                    text: JSON.stringify(responseData),
+                }],
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
