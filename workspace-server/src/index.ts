@@ -683,6 +683,17 @@ There are a list of system labels that can be modified on a message:
         peopleService.getMe
     );
 
+    server.registerTool(
+        "people.getUserManager",
+        {
+            description: 'Gets the manager for a given user.',
+            inputSchema: {
+                userId: z.string().describe('The ID of the user to get the manager for.'),
+            }
+        },
+        peopleService.getUserManager
+    );
+
     // 4. Connect the transport layer and start listening
     const transport = new StdioServerTransport();
     await server.connect(transport);

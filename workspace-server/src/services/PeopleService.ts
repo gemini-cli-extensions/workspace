@@ -19,6 +19,35 @@ export class PeopleService {
         return google.people({ version: 'v1', ...options });
     }
 
+    public getUserManager = async ({ userId }: { userId: string; }) => {
+        logToFile(`[PeopleService] Starting getUserManager with: userId=${userId}`);
+        try {
+            const people = await this.getPeopleClient();
+            const resourceName = userId.startsWith('people/') ? userId : `people/${userId}`;
+            const res = await people.people.get({
+                resourceName,
+                personFields: 'relations',
+            });
+            const manager = res.data.relations?.find((r: { type: string; }) => r.type === 'manager')?.person || null;
+            logToFile(`[PeopleService] Finished getUserManager for user: ${userId}`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ manager })
+                }]
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logToFile(`[PeopleService] Error during people.getUserManager: ${errorMessage}`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ error: errorMessage })
+                }]
+            };
+        }
+    }
+
     public getUserProfile = async ({ userId, email, name }: { userId?: string, email?: string, name?: string }) => {
         logToFile(`[PeopleService] Starting getUserProfile with: userId=${userId}, email=${email}, name=${name}`);
         try {
@@ -30,7 +59,7 @@ export class PeopleService {
                 const resourceName = userId.startsWith('people/') ? userId : `people/${userId}`;
                 const res = await people.people.get({
                     resourceName,
-                    personFields: 'names,emailAddresses',
+                    personFields: 'names,emailAddresses,relations',
                 });
                 logToFile(`[PeopleService] Finished getUserProfile for user: ${userId}`);
                 return {
