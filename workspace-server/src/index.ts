@@ -683,6 +683,17 @@ There are a list of system labels that can be modified on a message:
         peopleService.getMe
     );
 
+    server.registerTool(
+        "people.getUserRelations",
+        {
+            description: 'Gets the authenticated user\'s relations (e.g., manager, spouse, assistant, etc.). Common relation types include: manager, assistant, spouse, partner, relative, mother, father, parent, sibling, child, friend, domesticPartner, referredBy.',
+            inputSchema: {
+                relationType: z.string().optional().describe('The type of relation to filter by (e.g., "manager", "spouse", "assistant"). If not provided, returns all relations.'),
+            }
+        },
+        peopleService.getUserRelations
+    );
+
     // 4. Connect the transport layer and start listening
     const transport = new StdioServerTransport();
     await server.connect(transport);

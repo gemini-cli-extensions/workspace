@@ -94,4 +94,59 @@ export class PeopleService {
             };
         }
     }
+
+    /**
+     * Gets the authenticated user's relations (e.g., manager, spouse, assistant).
+     * Optionally filters by a specific relation type.
+     */
+    public getUserRelations = async ({ relationType }: { relationType?: string }) => {
+        logToFile(`[PeopleService] Starting getUserRelations with relationType=${relationType}`);
+        try {
+            const people = await this.getPeopleClient();
+            const res = await people.people.get({
+                resourceName: 'people/me',
+                personFields: 'relations',
+            });
+            logToFile(`[PeopleService] Finished getUserRelations API call`);
+
+            const relations = res.data.relations || [];
+
+            // If a specific relation type is requested, filter the results
+            if (relationType) {
+                const filteredRelations = relations.filter(
+                    (relation) => relation.type?.toLowerCase() === relationType.toLowerCase()
+                );
+                logToFile(`[PeopleService] Filtered to ${filteredRelations.length} relations of type: ${relationType}`);
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: JSON.stringify({
+                            relationType,
+                            relations: filteredRelations
+                        })
+                    }]
+                };
+            }
+
+            // Return all relations if no specific type is requested
+            logToFile(`[PeopleService] Returning all ${relations.length} relations`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        relations
+                    })
+                }]
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logToFile(`[PeopleService] Error during people.getUserRelations: ${errorMessage}`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ error: errorMessage })
+                }]
+            };
+        }
+    }
 }
