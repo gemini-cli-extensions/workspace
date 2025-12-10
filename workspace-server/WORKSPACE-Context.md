@@ -85,6 +85,13 @@ When creating documents in specific folders:
 2. For user created custom labels, retrieve label ID with `gmail.listLabels()`.
 3. Use `gmail.modify()` to add or remove labels from emails with a single call using label IDs.
 
+### Event Deletion
+When using `calendar.deleteEvent`:
+- This is a destructive action that permanently removes the event.
+- For organizers, this cancels the event for all attendees.
+- For attendees, this only removes it from their own calendar.
+- Always confirm with the user before executing a deletion.
+
 ## 📅 Calendar Best Practices
 
 ### Understanding "Next Meeting"

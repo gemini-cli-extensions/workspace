@@ -105,8 +105,8 @@ export class DocsService {
         }
     }
 
-    public insertText = async ({ documentId, text }: { documentId: string, text: string }) => {
-        logToFile(`[DocsService] Starting insertText for document: ${documentId}`);
+    public insertText = async ({ documentId, text, tabId }: { documentId: string, text: string, tabId?: string }) => {
+        logToFile(`[DocsService] Starting insertText for document: ${documentId}, tabId: ${tabId}`);
         try {
             const id = extractDocId(documentId) || documentId;
 
@@ -118,7 +118,10 @@ export class DocsService {
             const requests: docs_v1.Schema$Request[] = [
                 {
                     insertText: {
-                        location: { index: 1 },
+                        location: { 
+                            index: 1,
+                            tabId: tabId 
+                        },
                         text: processedText,
                     },
                 }
@@ -126,7 +129,7 @@ export class DocsService {
 
             // Add formatting requests if any
             if (formattingRequests.length > 0) {
-                requests.push(...formattingRequests);
+                requests.push(...this._addTabIdToFormattingRequests(formattingRequests, tabId));
             }
 
             const docs = await this.getDocsClient();
@@ -233,30 +236,97 @@ export class DocsService {
         }
     }
 
-    public getText = async ({ documentId }: { documentId: string }) => {
-        logToFile(`[DocsService] Starting getText for document: ${documentId}`);
+    public getText = async ({ documentId, tabId }: { documentId: string, tabId?: string }) => {
+        logToFile(`[DocsService] Starting getText for document: ${documentId}, tabId: ${tabId}`);
         try {
             // Validate and extract document ID
             const id = validateAndExtractDocId(documentId);
             const docs = await this.getDocsClient();
             const res = await docs.documents.get({
                 documentId: id,
-                fields: 'body',
+                fields: 'tabs', // Request tabs only (body is legacy and mutually exclusive with tabs in mask)
+                includeTabsContent: true,
             });
 
-            const body = res.data.body;
-            let text = '';
-            if (body && body.content) {
-                body.content.forEach(element => {
+            const tabs = res.data.tabs || [];
+
+            // If tabId is provided, try to find it
+            if (tabId) {
+                const tab = tabs.find(t => t.tabProperties?.tabId === tabId);
+                if (!tab) {
+                    throw new Error(`Tab with ID ${tabId} not found.`);
+                }
+                
+                const content = tab.documentTab?.body?.content;
+                if (!content) {
+                     return {
+                        content: [{
+                            type: "text" as const,
+                            text: ""
+                        }]
+                    };
+                }
+
+                let text = '';
+                content.forEach(element => {
                     text += this._readStructuralElement(element);
                 });
+
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: text
+                    }]
+                };
             }
 
-            logToFile(`[DocsService] Finished getText for document: ${id}`);
+            // If no tabId provided
+            if (tabs.length === 0) {
+                 return {
+                    content: [{
+                        type: "text" as const,
+                        text: ""
+                    }]
+                };
+            }
+
+            // If only 1 tab, return plain text (backward compatibility)
+            if (tabs.length === 1) {
+                const tab = tabs[0];
+                let text = '';
+                if (tab.documentTab?.body?.content) {
+                    tab.documentTab.body.content.forEach(element => {
+                        text += this._readStructuralElement(element);
+                    });
+                }
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: text
+                    }]
+                };
+            }
+
+            // If multiple tabs, return JSON
+            const tabsData = tabs.map((tab, index) => {
+                let tabText = '';
+                if (tab.documentTab?.body?.content) {
+                    tab.documentTab.body.content.forEach(element => {
+                        tabText += this._readStructuralElement(element);
+                    });
+                }
+                return {
+                    tabId: tab.tabProperties?.tabId,
+                    title: tab.tabProperties?.title,
+                    content: tabText,
+                    index: index
+                };
+            });
+
             return {
                 content: [{
                     type: "text" as const,
-                    text: text
+                    text: JSON.stringify(tabsData, null, 2)
                 }]
             };
         } catch (error) {
@@ -291,18 +361,34 @@ export class DocsService {
         return text;
     }
 
-    public appendText = async ({ documentId, text }: { documentId: string, text: string }) => {
-        logToFile(`[DocsService] Starting appendText for document: ${documentId}`);
+    public appendText = async ({ documentId, text, tabId }: { documentId: string, text: string, tabId?: string }) => {
+        logToFile(`[DocsService] Starting appendText for document: ${documentId}, tabId: ${tabId}`);
         try {
             const id = extractDocId(documentId) || documentId;
             const docs = await this.getDocsClient();
             const res = await docs.documents.get({
                 documentId: id,
-                fields: 'body',
+                fields: 'tabs',
+                includeTabsContent: true,
             });
 
-            const body = res.data.body;
-            const lastElement = body?.content?.[body.content.length - 1];
+            const tabs = res.data.tabs || [];
+            let content: docs_v1.Schema$StructuralElement[] | undefined;
+
+            if (tabId) {
+                const tab = tabs.find(t => t.tabProperties?.tabId === tabId);
+                if (!tab) {
+                    throw new Error(`Tab with ID ${tabId} not found.`);
+                }
+                content = tab.documentTab?.body?.content;
+            } else {
+                // Default to first tab if no tabId
+                if (tabs.length > 0) {
+                    content = tabs[0].documentTab?.body?.content;
+                }
+            }
+
+            const lastElement = content?.[content.length - 1];
             const endIndex = lastElement?.endIndex || 1;
 
             const locationIndex = Math.max(1, endIndex - 1);
@@ -315,7 +401,10 @@ export class DocsService {
             const requests: docs_v1.Schema$Request[] = [
                 {
                     insertText: {
-                        location: { index: locationIndex },
+                        location: { 
+                            index: locationIndex,
+                            tabId: tabId // Use tabId for tab-specific insertion
+                        },
                         text: processedText,
                     },
                 }
@@ -323,7 +412,7 @@ export class DocsService {
 
             // Add formatting requests if any
             if (formattingRequests.length > 0) {
-                requests.push(...formattingRequests);
+                requests.push(...this._addTabIdToFormattingRequests(formattingRequests, tabId));
             }
 
             await docs.documents.batchUpdate({
@@ -352,8 +441,8 @@ export class DocsService {
         }
     }
 
-    public replaceText = async ({ documentId, findText, replaceText }: { documentId: string, findText: string, replaceText: string }) => {
-        logToFile(`[DocsService] Starting replaceText for document: ${documentId}`);
+    public replaceText = async ({ documentId, findText, replaceText, tabId }: { documentId: string, findText: string, replaceText: string, tabId?: string }) => {
+        logToFile(`[DocsService] Starting replaceText for document: ${documentId}, tabId: ${tabId}`);
         try {
             const id = extractDocId(documentId) || documentId;
             const docs = await this.getDocsClient();
@@ -365,65 +454,53 @@ export class DocsService {
             // First, get the document to find where the text will be replaced
             const docBefore = await docs.documents.get({
                 documentId: id,
-                fields: 'body',
+                fields: 'tabs',
+                includeTabsContent: true,
             });
 
-            // Find all occurrences of the text to be replaced
-            const documentText = this._getFullDocumentText(docBefore.data.body);
-            const occurrences: number[] = [];
-            let searchIndex = 0;
-            while ((searchIndex = documentText.indexOf(findText, searchIndex)) !== -1) {
-                occurrences.push(searchIndex + 1); // Google Docs uses 1-based indexing
-                searchIndex += findText.length;
+            const tabs = docBefore.data.tabs || [];
+            
+            const requests: docs_v1.Schema$Request[] = [];
+            
+            if (tabId) {
+                const tab = tabs.find(t => t.tabProperties?.tabId === tabId);
+                if (!tab) {
+                    throw new Error(`Tab with ID ${tabId} not found.`);
+                }
+                const content = tab.documentTab?.body?.content;
+                
+                const tabRequests = this._generateReplacementRequests(
+                    content,
+                    tabId,
+                    findText,
+                    processedText,
+                    originalFormattingRequests
+                );
+                requests.push(...tabRequests);
+            } else {
+                for (const tab of tabs) {
+                    const currentTabId = tab.tabProperties?.tabId;
+                    const content = tab.documentTab?.body?.content;
+                    
+                    const tabRequests = this._generateReplacementRequests(
+                        content,
+                        currentTabId,
+                        findText,
+                        processedText,
+                        originalFormattingRequests
+                    );
+                    requests.push(...tabRequests);
+                }
             }
 
-            // Build batch update requests
-            const requests: docs_v1.Schema$Request[] = [
-                {
-                    replaceAllText: {
-                        replaceText: processedText,
-                        containsText: {
-                            text: findText,
-                            matchCase: true,
-                        },
+            if (requests.length > 0) {
+                await docs.documents.batchUpdate({
+                    documentId: id,
+                    requestBody: {
+                        requests,
                     },
-                }
-            ];
-
-            // Calculate formatting positions for each replacement
-            // After replacement, we need to adjust indices based on text length difference
-            const lengthDiff = processedText.length - findText.length;
-            let cumulativeOffset = 0;
-
-            for (let i = 0; i < occurrences.length; i++) {
-                const occurrence = occurrences[i];
-                const adjustedPosition = occurrence + cumulativeOffset - 1; // Subtract 1 because parseMarkdownToDocsRequests expects 0-based
-
-                // Adjust formatting requests for this occurrence
-                for (const formatRequest of originalFormattingRequests) {
-                    if (formatRequest.updateTextStyle) {
-                        const adjustedRequest: docs_v1.Schema$Request = {
-                            updateTextStyle: {
-                                ...formatRequest.updateTextStyle,
-                                range: {
-                                    startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition,
-                                    endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition
-                                }
-                            }
-                        };
-                        requests.push(adjustedRequest);
-                    }
-                }
-
-                cumulativeOffset += lengthDiff;
+                });
             }
-
-            await docs.documents.batchUpdate({
-                documentId: id,
-                requestBody: {
-                    requests,
-                },
-            });
 
             logToFile(`[DocsService] Finished replaceText for document: ${id}`);
             return {
@@ -444,10 +521,77 @@ export class DocsService {
         }
     }
 
-    private _getFullDocumentText(body: docs_v1.Schema$Body | undefined): string {
+    private _generateReplacementRequests(
+        content: docs_v1.Schema$StructuralElement[] | undefined,
+        tabId: string | undefined | null,
+        findText: string,
+        processedText: string,
+        originalFormattingRequests: docs_v1.Schema$Request[]
+    ): docs_v1.Schema$Request[] {
+        const requests: docs_v1.Schema$Request[] = [];
+        const documentText = this._getFullDocumentText(content);
+        const occurrences: number[] = [];
+        let searchIndex = 0;
+        while ((searchIndex = documentText.indexOf(findText, searchIndex)) !== -1) {
+            occurrences.push(searchIndex + 1);
+            searchIndex += findText.length;
+        }
+
+        const lengthDiff = processedText.length - findText.length;
+        let cumulativeOffset = 0;
+
+        for (let i = 0; i < occurrences.length; i++) {
+            const occurrence = occurrences[i];
+            const adjustedPosition = occurrence + cumulativeOffset; 
+            
+            // Delete old text
+            requests.push({
+                deleteContentRange: {
+                    range: {
+                        tabId: tabId,
+                        startIndex: adjustedPosition,
+                        endIndex: adjustedPosition + findText.length
+                    }
+                }
+            });
+            
+            // Insert new text
+            requests.push({
+                insertText: {
+                    location: {
+                        tabId: tabId,
+                        index: adjustedPosition 
+                    },
+                    text: processedText
+                }
+            });
+            
+            // Formatting
+            for (const formatRequest of originalFormattingRequests) {
+                if (formatRequest.updateTextStyle) {
+                    const adjustedRequest: docs_v1.Schema$Request = {
+                        updateTextStyle: {
+                            ...formatRequest.updateTextStyle,
+                            range: {
+                                tabId: tabId,
+                                startIndex: (formatRequest.updateTextStyle.range?.startIndex || 0) + adjustedPosition,
+                                endIndex: (formatRequest.updateTextStyle.range?.endIndex || 0) + adjustedPosition
+                            }
+                        }
+                    };
+                    requests.push(adjustedRequest);
+                }
+            }
+
+            cumulativeOffset += lengthDiff;
+        }
+        return requests;
+    }
+
+    private _getFullDocumentText(content: docs_v1.Schema$StructuralElement[] | undefined): string {
         let text = '';
-        if (body && body.content) {
-            body.content.forEach(element => {
+        if (content) {
+            content.forEach(element => {
                 text += this._readStructuralElement(element);
             });
         }
@@ -455,6 +599,34 @@ export class DocsService {
     }
 
     
+
+    private _addTabIdToFormattingRequests(requests: docs_v1.Schema$Request[], tabId?: string): docs_v1.Schema$Request[] {
+        if (!tabId || requests.length === 0) {
+            return requests;
+        }
+        return requests.map(req => {
+            const newReq = { ...req };
+            if (newReq.updateTextStyle?.range) {
+                newReq.updateTextStyle = {
+                    ...newReq.updateTextStyle,
+                    range: { ...newReq.updateTextStyle.range, tabId: tabId }
+                };
+            }
+            if (newReq.updateParagraphStyle?.range) {
+                newReq.updateParagraphStyle = {
+                    ...newReq.updateParagraphStyle,
+                    range: { ...newReq.updateParagraphStyle.range, tabId: tabId }
+                };
+            }
+            if (newReq.insertText?.location) {
+                newReq.insertText = {
+                    ...newReq.insertText,
+                    location: { ...newReq.insertText.location, tabId: tabId }
+                };
+            }
+            return newReq;
+        });
+    }
 
     private async _moveFileToFolder(documentId: string, folderName: string): Promise<void> {
         try {

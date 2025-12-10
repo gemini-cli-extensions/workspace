@@ -62,19 +62,20 @@ npm run test && npm run lint
 
 This command will run ESLint, Prettier, all tests, and other checks as defined in the project's `package.json`.
 
-_ProTip_
-
-after cloning create a git precommit hook file to ensure your commits are always clean.
-
-cat <<'EOF' > .git/hooks/pre-commit
-#!/bin/sh
-# Run tests and linting before commit
-if ! (npm run test && npm run lint); then
-  echo "Pre-commit checks failed. Commit aborted."
-  exit 1
-fi
-EOF
-chmod +x .git/hooks/pre-commit
+> [!TIP]
+> After cloning create a git pre-commit hook file to ensure your commits are always clean.
+>
+> ```bash
+> cat <<'EOF' > .git/hooks/pre-commit
+> #!/bin/sh
+> # Run tests and linting before commit
+> if ! (npm run test && npm run lint); then
+>   echo "Pre-commit checks failed. Commit aborted."
+>   exit 1
+> fi
+> EOF
+> chmod +x .git/hooks/pre-commit
+> ```
 
 #### Formatting
 

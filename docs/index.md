@@ -39,6 +39,7 @@ The extension provides the following tools:
 - `calendar.findFreeTime`: Finds a free time slot for multiple people to meet.
 - `calendar.updateEvent`: Updates an existing event in a calendar.
 - `calendar.respondToEvent`: Responds to a meeting invitation (accept, decline, or tentative).
+- `calendar.deleteEvent`: Deletes an event from a calendar.
 
 ### Google Chat
 - `chat.listSpaces`: Lists the spaces the user is a member of.

@@ -17,6 +17,7 @@ import { OAuthCredentialStorage } from './token-storage/oauth-credential-storage
 // The Client ID for the OAuth flow.
 // The secret is handled by the cloud function, not in the client.
 const CLIENT_ID = '338689075775-o75k922vn5fdl18qergr96rp8g63e4d7.apps.googleusercontent.com';
+const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * An Authentication URL for updating the credentials of a Oauth2Client
@@ -34,6 +35,11 @@ export class AuthManager {
 
     constructor(scopes: string[]) {
         this.scopes = scopes;
+    }
+
+    private isTokenExpiringSoon(credentials: Auth.Credentials): boolean {
+        return !!(credentials.expiry_date && 
+            credentials.expiry_date < Date.now() + TOKEN_EXPIRY_BUFFER_MS);
     }
 
     private async loadCachedCredentials(client: Auth.OAuth2Client): Promise<boolean> {
@@ -71,9 +77,7 @@ export class AuthManager {
             logToFile(`Expiry date: ${this.client.credentials.expiry_date}`);
             logToFile(`Current time: ${Date.now()}`);
             
-            const isExpired = this.client.credentials.expiry_date ? 
-                this.client.credentials.expiry_date < Date.now() : 
-                false;
+            const isExpired = this.isTokenExpiringSoon(this.client.credentials);
             logToFile(`Token expired: ${isExpired}`);
             
             // Proactively refresh if expired
@@ -128,9 +132,7 @@ export class AuthManager {
             this.client = oAuth2Client;
             
             // Check if the loaded token is expired and refresh proactively
-            const isExpired = this.client.credentials.expiry_date ? 
-                this.client.credentials.expiry_date < Date.now() : 
-                false;
+            const isExpired = this.isTokenExpiringSoon(this.client.credentials);
             logToFile(`Token expired: ${isExpired}`);
             
             if (isExpired) {

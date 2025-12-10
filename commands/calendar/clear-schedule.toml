@@ -1,0 +1,31 @@
+description = "Clear all events for a specific date or range by deleting or declining them"
+prompt = """
+Please help me clear my schedule for a specific date or date range. Follow these steps carefully:
+
+1. **Identify User & Context:**
+   - Call `people.getMe` to get my email address and details.
+   - Call `time.getTimeZone` to get my local time zone.
+
+2. **Determine Date Range:**
+   - Parse the date or date range from the arguments: "{{args}}".
+   - If no arguments are provided, use `time.getCurrentDate` to default to today.
+
+3. **Fetch Events:**
+   - Call `calendar.listEvents` for the determined date range using my primary calendar.
+   - **Important:** Include ALL events in the list, even those often filtered out like "Commute Time", "DNS", personal blocks, or events where I am the only attendee.
+
+4. **Review & Confirm (CRITICAL):**
+   - List all the events found for that period in a clear, numbered list showing the Time and Title.
+   - **Specifically call out any all-day events** and ask if I want to include those in the clear operation.
+   - **STOP** and ask me for explicit confirmation before proceeding. Example: "I found 5 events (including 1 all-day event). Do you want me to clear all of them?"
+
+5. **Execute Clearing:**
+   - Once I confirm, iterate through each event in the list:
+     - **If I am the organizer** (check `organizer.self` is true or `organizer.email` matches mine):
+       - Call `calendar.deleteEvent` to remove it.
+     - **If I am NOT the organizer**:
+       - Call `calendar.respondToEvent` with `responseStatus` set to "declined".
+
+6. **Final Report:**
+   - Summarize the actions taken (e.g., "Deleted 2 events and declined 3 events.").
+"""
