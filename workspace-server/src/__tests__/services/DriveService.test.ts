@@ -697,7 +697,7 @@ describe('DriveService', () => {
 
       const result = await driveService.downloadFile({ fileId: mockFileId, localPath: 'any' });
 
-      expect(result.content[0].text).toContain("Direct direct media download is not supported");
+      expect(result.content[0].text).toContain("This is a Google Doc. Direct download is not supported. Please use the 'docs.getText' tool with documentId: doc-id");
       expect(mockDriveAPI.files.get).toHaveBeenCalledTimes(1);
     });
 
@@ -707,7 +707,7 @@ describe('DriveService', () => {
 
       const result = await driveService.downloadFile({ fileId: mockFileId, localPath: 'any' });
 
-      expect(result.content[0].text).toContain('API Error');
+      expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
     });
   });
 });

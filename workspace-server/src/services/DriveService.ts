@@ -245,11 +245,27 @@ export class DriveService {
             });
             const mimeType = metadata.data.mimeType || '';
 
+            const googleWorkspaceFileMap: Record<string, { tool: string, idName: string, type: string }> = {
+                'application/vnd.google-apps.document': { tool: 'docs.getText', idName: 'documentId', type: 'Google Doc' },
+                'application/vnd.google-apps.spreadsheet': { tool: 'sheets.getText', idName: 'spreadsheetId', type: 'Google Sheet' },
+                'application/vnd.google-apps.presentation': { tool: 'slides.getText', idName: 'presentationId', type: 'Google Slide' },
+            };
+
+            if (mimeType in googleWorkspaceFileMap) {
+                const fileInfo = googleWorkspaceFileMap[mimeType];
+                return {
+                    content: [{
+                        type: "text" as const,
+                        text: `This is a ${fileInfo.type}. Direct download is not supported. Please use the '${fileInfo.tool}' tool with ${fileInfo.idName}: ${fileId}`
+                    }]
+                };
+            }
+
             if (mimeType.includes('vnd.google-apps.')) {
                  return {
                     content: [{
                         type: "text" as const,
-                        text: `This is a Google Workspace file type (${mimeType}). Direct direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`
+                        text: `This is a Google Workspace file type (${mimeType}). Direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`
                     }]
                 };
             }
