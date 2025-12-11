@@ -4,10 +4,10 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "test": "cd .. && node --max-old-space-size=4096 node_modules/.bin/jest --runInBand --verbose",
+    "test": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --runInBand --verbose",
     "test:watch": "cd .. && jest --watch",
-    "test:coverage": "cd .. && node --max-old-space-size=4096 node_modules/.bin/jest --coverage",
-    "test:ci": "cd .. && node --max-old-space-size=4096 node_modules/.bin/jest --ci --coverage --maxWorkers=2",
+    "test:coverage": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --coverage",
+    "test:ci": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --ci --coverage --maxWorkers=2",
     "start": "ts-node src/index.ts",
     "clean": "rm -rf dist node_modules",
     "build": "node esbuild.config.js",
