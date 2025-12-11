@@ -12,6 +12,23 @@ import { google } from 'googleapis';
 // Mock the googleapis module
 jest.mock('googleapis');
 jest.mock('../../utils/logger');
+jest.mock('node:fs');
+jest.mock('node:path', () => {
+  const actualPath = jest.requireActual('node:path') as any;
+  return {
+    ...actualPath,
+    resolve: jest.fn((...args: string[]) => args.join('/')),
+    dirname: jest.fn((p: string) => p.substring(0, p.lastIndexOf('/'))),
+    isAbsolute: jest.fn((p: string) => p.startsWith('/')),
+  };
+});
+jest.mock('../../utils/paths', () => ({
+  PROJECT_ROOT: '/mock/project/root',
+  ENCRYPTED_TOKEN_PATH: '/mock/project/root/token.json',
+  ENCRYPTION_MASTER_KEY_PATH: '/mock/project/root/key',
+}));
+
+import * as fs from 'node:fs';
 
 describe('DriveService', () => {
   let driveService: DriveService;
@@ -641,119 +658,46 @@ describe('DriveService', () => {
 
   });
 
-  describe('readFile', () => {
-    it('should read text files and return content', async () => {
+  describe('downloadFile', () => {
+    it('should download files and save locally', async () => {
       const mockFileId = 'text-file-id';
       const mockContent = 'Hello, World!';
       const mockBuffer = Buffer.from(mockContent);
+      const mockLocalPath = 'downloads/test.txt';
 
-      mockDriveAPI.files.get.mockImplementation((params: any, _options: any) => {
+      mockDriveAPI.files.get.mockImplementation((params: any) => {
         if (params.alt === 'media') {
             return Promise.resolve({
                 data: mockBuffer,
             });
         }
         return Promise.resolve({
-            data: { mimeType: 'text/plain' },
+            data: { id: mockFileId, name: 'test.txt', mimeType: 'text/plain' },
         });
       });
 
-      const result = await driveService.readFile({ fileId: mockFileId });
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
+
+      const result = await driveService.downloadFile({ fileId: mockFileId, localPath: mockLocalPath });
 
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: mockFileId,
         fields: 'id, name, mimeType',
       });
 
-      expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
-        fileId: mockFileId,
-        alt: 'media',
-      }, { responseType: 'arraybuffer' });
-
-      // Clean up the result text to handle potential JSON stringification if the implementation does that
-      // The implementation returns { content: [{ type: 'text', text: '...' }] }
-      // The text field contains the raw content for text files
-      const content = result.content[0];
-      if (content.type === 'text') {
-        expect(content.text).toBe(mockContent);
-      } else {
-        throw new Error('Expected text content');
-      }
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      expect(result.content[0].text).toContain(`Successfully downloaded file test.txt`);
     });
 
-    it('should read image files and return image content', async () => {
-      const mockFileId = 'image-file-id';
-      const mockContent = 'ImageData';
-      const mockBuffer = Buffer.from(mockContent);
-
-      mockDriveAPI.files.get.mockImplementation((params: any, _options: any) => {
-        if (params.alt === 'media') {
-            return Promise.resolve({
-                data: mockBuffer,
-            });
-        }
-        return Promise.resolve({
-            data: { mimeType: 'image/png' },
-        });
-      });
-
-      const result = await driveService.readFile({ fileId: mockFileId });
-
-      const content = result.content[0];
-      if (content.type === 'image') {
-        expect(content.data).toBe(mockBuffer.toString('base64'));
-        expect(content.mimeType).toBe('image/png');
-      } else {
-        throw new Error('Expected image content');
-      }
-    });
-
-    it('should read binary files and return resource content', async () => {
-      const mockFileId = 'pdf-file-id';
-      const mockContent = 'PDFData';
-      const mockBuffer = Buffer.from(mockContent);
-
-      mockDriveAPI.files.get.mockImplementation((params: any, _options: any) => {
-        if (params.alt === 'media') {
-            return Promise.resolve({
-                data: mockBuffer,
-            });
-        }
-        return Promise.resolve({
-            data: { mimeType: 'application/pdf' },
-        });
-      });
-
-      const result = await driveService.readFile({ fileId: mockFileId });
-
-      const content = result.content[0];
-      if (content.type === 'resource') {
-          // Check for 'blob' property if we are using BlobResourceContents
-          // Using 'any' cast here if type definition is tricky in test file, but ideally we check the discrimination
-          const resource = content.resource as any;
-          expect(resource.blob).toBe(mockBuffer.toString('base64'));
-          expect(resource.mimeType).toBe('application/pdf');
-          expect(resource.uri).toContain(`drive.google.com/file/d/${mockFileId}`);
-      } else {
-        throw new Error('Expected resource content');
-      }
-    });
-
-    it('should suggest docs tool for Google Docs', async () => {
+    it('should suggest specialized tools for workspace types', async () => {
       const mockFileId = 'doc-id';
       mockDriveAPI.files.get.mockResolvedValue({
         data: { mimeType: 'application/vnd.google-apps.document' },
       });
 
-      const result = await driveService.readFile({ fileId: mockFileId });
+      const result = await driveService.downloadFile({ fileId: mockFileId, localPath: 'any' });
 
-      const content = result.content[0];
-       if (content.type === 'text') {
-        expect(content.text).toContain("This is a Google Doc. Please use the 'docs.getText' tool");
-      } else {
-        throw new Error('Expected text content');
-      }
-      // Should not attempt to download media
+      expect(result.content[0].text).toContain("Direct direct media download is not supported");
       expect(mockDriveAPI.files.get).toHaveBeenCalledTimes(1);
     });
 
@@ -761,14 +705,9 @@ describe('DriveService', () => {
       const mockFileId = 'error-file-id';
       mockDriveAPI.files.get.mockRejectedValue(new Error('API Error'));
 
-      const result = await driveService.readFile({ fileId: mockFileId });
+      const result = await driveService.downloadFile({ fileId: mockFileId, localPath: 'any' });
 
-      const content = result.content[0];
-      if (content.type === 'text') {
-        expect(content.text).toContain('API Error');
-      } else {
-        throw new Error('Expected text content');
-      }
+      expect(result.content[0].text).toContain('API Error');
     });
   });
 });

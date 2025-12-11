@@ -334,14 +334,15 @@ async function main() {
     );
 
     server.registerTool(
-        "drive.readFile",
+        "drive.downloadFile",
         {
-            description: 'Reads the content of a file from Google Drive. For text files, returns the text content. For images, returns the image content. For other binary files (PDFs, etc.), returns the content as an embedded resource. Note: passing a file ID for a Google Doc, Sheet or Slide will prompt you to use the specific tool for those types.',
+            description: 'Downloads the content of a file from Google Drive to a local path. Note: Google Docs, Sheets, and Slides require specialized handling.',
             inputSchema: {
-                fileId: z.string().describe('The ID of the file to read.'),
+                fileId: z.string().describe('The ID of the file to download.'),
+                localPath: z.string().describe('The local file path where the content should be saved (e.g., "downloads/report.pdf").'),
             }
         },
-        driveService.readFile
+        driveService.downloadFile
     );
 
     server.registerTool(

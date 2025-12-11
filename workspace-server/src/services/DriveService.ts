@@ -9,6 +9,8 @@ import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { escapeQueryString } from '../utils/DriveQueryBuilder';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const MIN_DRIVE_ID_LENGTH = 25;
 
@@ -231,47 +233,28 @@ export class DriveService {
         }
     }
 
-    public readFile = async ({ fileId }: { fileId: string }) => {
-        logToFile(`Reading file with ID: ${fileId}`);
+    public downloadFile = async ({ fileId, localPath }: { fileId: string, localPath: string }) => {
+        logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
         try {
             const drive = await this.getDriveClient();
             
-            // First get metadata to check mimeType
+            // 1. Check if it's a Google Doc (special handling required, export instead of download)
             const metadata = await drive.files.get({
                 fileId: fileId,
                 fields: 'id, name, mimeType',
             });
-            
             const mimeType = metadata.data.mimeType || '';
-            logToFile(`File mimeType: ${mimeType}`);
 
-            // Handle Google Workspace files
-            if (mimeType === 'application/vnd.google-apps.document') {
-                return {
+            if (mimeType.includes('vnd.google-apps.')) {
+                 return {
                     content: [{
                         type: "text" as const,
-                        text: `This is a Google Doc. Please use the 'docs.getText' tool with documentId: ${fileId}`
-                    }]
-                };
-            }
-            if (mimeType === 'application/vnd.google-apps.spreadsheet') {
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: `This is a Google Sheet. Please use the 'sheets.getText' tool with spreadsheetId: ${fileId}`
-                    }]
-                };
-            }
-            if (mimeType === 'application/vnd.google-apps.presentation') {
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: `This is a Google Slide. Please use the 'slides.getText' tool with presentationId: ${fileId}`
+                        text: `This is a Google Workspace file type (${mimeType}). Direct direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`
                     }]
                 };
             }
 
-            // Download file content
+            // 2. Download media
             const response = await drive.files.get({
                 fileId: fileId,
                 alt: 'media',
@@ -279,45 +262,26 @@ export class DriveService {
 
             const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
 
-            // Determine if text or binary
-            // Simple heuristic: if mimeType starts with text/ or is json/xml
-            const isText = mimeType.startsWith('text/') || 
-                           mimeType === 'application/json' || 
-                           mimeType.includes('xml') ||
-                           mimeType === 'application/javascript' ||
-                           mimeType === 'application/x-sh';
-
-            if (isText) {
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: buffer.toString('utf-8')
-                    }]
-                };
-            } else if (mimeType.startsWith('image/')) {
-                return {
-                    content: [{
-                        type: "image" as const,
-                        data: buffer.toString('base64'),
-                        mimeType: mimeType
-                    }]
-                };
-            } else {
-                return {
-                    content: [{
-                        type: "resource" as const,
-                        resource: {
-                            uri: `https://drive.google.com/file/d/${fileId}`,
-                            mimeType: mimeType,
-                            blob: buffer.toString('base64')
-                        }
-                    }]
-                };
+            // 3. Save to localPath
+            const absolutePath = path.isAbsolute(localPath) ? localPath : path.resolve(process.cwd(), localPath);
+            const dir = path.dirname(absolutePath);
+            
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
             }
+
+            fs.writeFileSync(absolutePath, buffer);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: `Successfully downloaded file ${metadata.data.name} to ${absolutePath}`
+                }]
+            };
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            logToFile(`Error during drive.readFile: ${errorMessage}`);
+            logToFile(`Error during drive.downloadFile: ${errorMessage}`);
             return {
                 content: [{
                     type: "text" as const,

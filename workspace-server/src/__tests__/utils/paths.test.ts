@@ -1,5 +1,11 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-import path from 'path';
+import path from 'node:path';
+import * as fs from 'node:fs';
 import { PROJECT_ROOT } from '../../utils/paths';
 
 describe('paths utils', () => {
@@ -8,7 +14,6 @@ describe('paths utils', () => {
       // The project root should contain gemini-extension.json
       // Since we are searching for gemini-extension.json which is in the root 'workspace',
       // not 'workspace-server', the path should NOT end with 'workspace-server'.
-      const fs = require('fs');
       const extensionConfigPath = path.join(PROJECT_ROOT, 'gemini-extension.json');
       expect(fs.existsSync(extensionConfigPath)).toBe(true);
       
