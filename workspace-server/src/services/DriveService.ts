@@ -11,6 +11,7 @@ import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { escapeQueryString } from '../utils/DriveQueryBuilder';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { PROJECT_ROOT } from '../utils/paths';
 
 const MIN_DRIVE_ID_LENGTH = 25;
 
@@ -279,14 +280,12 @@ export class DriveService {
             const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
 
             // 3. Save to localPath
-            const absolutePath = path.isAbsolute(localPath) ? localPath : path.resolve(process.cwd(), localPath);
+            const absolutePath = path.isAbsolute(localPath) ? localPath : path.resolve(PROJECT_ROOT, localPath);
             const dir = path.dirname(absolutePath);
             
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
+            await fs.promises.mkdir(dir, { recursive: true });
 
-            fs.writeFileSync(absolutePath, buffer);
+            await fs.promises.writeFile(absolutePath, buffer);
 
             return {
                 content: [{

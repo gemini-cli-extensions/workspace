@@ -12,7 +12,20 @@ import { google } from 'googleapis';
 // Mock the googleapis module
 jest.mock('googleapis');
 jest.mock('../../utils/logger');
-jest.mock('node:fs');
+jest.mock('node:fs', () => {
+  const actualFs = jest.requireActual('node:fs') as any;
+  return {
+    ...actualFs,
+    promises: {
+      ...actualFs.promises,
+      mkdir: jest.fn(),
+      writeFile: jest.fn(),
+    },
+    existsSync: jest.fn(),
+    writeFileSync: jest.fn(),
+    mkdirSync: jest.fn(),
+  };
+});
 jest.mock('node:path', () => {
   const actualPath = jest.requireActual('node:path') as any;
   return {
@@ -676,8 +689,6 @@ describe('DriveService', () => {
         });
       });
 
-      (fs.existsSync as jest.Mock).mockReturnValue(true);
-
       const result = await driveService.downloadFile({ fileId: mockFileId, localPath: mockLocalPath });
 
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
@@ -685,7 +696,15 @@ describe('DriveService', () => {
         fields: 'id, name, mimeType',
       });
 
-      expect(fs.writeFileSync).toHaveBeenCalled();
+      expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
+        { fileId: mockFileId, alt: 'media' },
+        { responseType: 'arraybuffer' }
+      );
+
+      expect(fs.promises.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining(mockLocalPath),
+        mockBuffer
+      );
       expect(result.content[0].text).toContain(`Successfully downloaded file test.txt`);
     });
 
