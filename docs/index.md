@@ -30,6 +30,7 @@ The extension provides the following tools:
 ### Google Drive
 - `drive.search`: Searches for files and folders in Google Drive.
 - `drive.findFolder`: Finds a folder by name in Google Drive.
+- `drive.downloadFile`: Downloads a file from Google Drive to a local path.
 
 ### Google Calendar
 - `calendar.list`: Lists all of the user's calendars.
