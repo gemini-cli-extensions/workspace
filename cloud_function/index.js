@@ -122,13 +122,26 @@ async function handleCallback(req, res) {
 
     // --- Fallback to manual instructions ---
 
-    const credentialsJson = JSON.stringify({
+    const credentials = {
         refresh_token: refresh_token,
         scope: scope,
         token_type: token_type,
         access_token: access_token,
         expiry_date: expiry_date
-    }, null, 2); // Pretty print JSON
+    };
+
+    if (state) {
+        try {
+            const payload = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+            if (payload && payload.csrf) {
+                credentials.csrf_token_for_validation = payload.csrf;
+            }
+        } catch (e) {
+            // Ignore state parsing errors here, as we are just trying to enhance the credentials
+        }
+    }
+
+    const credentialsJson = JSON.stringify(credentials, null, 2); // Pretty print JSON
 
     // 4. Display the JSON and add a copy button + instructions
     res.set('Content-Type', 'text/html');
@@ -182,17 +195,13 @@ async function handleCallback(req, res) {
             <span id="copy-status">Copied!</span>
 
             <div class="instructions">
-              <h4>Keychain Storage Instructions:</h4>
+              <h4>Instructions:</h4>
               <ol>
-                <li>Open your OS Keychain/Credential Manager.</li>
-                <li>Create a new secure entry (e.g., a "Generic Password" on macOS, a "Windows Credential", or similar on Linux).</li>
-                <li>Set the **Service** (or equivalent field) to: <code>${KEYCHAIN_SERVICE_NAME}</code></li>
-                <li>Set the **Account** (or username field) to: <code>${KEYCHAIN_ACCOUNT_NAME}</code></li>
-                <li>Paste the copied JSON into the **Password/Secret** field.</li>
-                <li>Save the entry.</li>
+                <li>Click the "Copy JSON" button above.</li>
+                <li>Paste the copied JSON into your terminal application where the extension is running.</li>
+                <li>The extension will automatically save these credentials securely.</li>
               </ol>
-              <p>Your local MCP server will now be able to find and use these credentials automatically.</p>
-              <p><small>(If keychain is unavailable, the server falls back to an encrypted file, but keychain is recommended.)</small></p>
+              <p><small>(Alternatively, you can manually save this JSON to your OS Keychain with Service: <code>${KEYCHAIN_SERVICE_NAME}</code> and Account: <code>${KEYCHAIN_ACCOUNT_NAME}</code>)</small></p>
             </div>
           </div>
 
