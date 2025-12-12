@@ -103,10 +103,22 @@ export class AuthManager {
         });
 
         return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                rl.close();
+                reject(new Error('Manual authentication timed out after 10 minutes. Please try again.'));
+            }, 10 * 60 * 1000); // 10 minutes
+
             rl.question('Paste credentials JSON here: ', (answer) => {
+                clearTimeout(timeout);
                 rl.close();
                 try {
                     const tokens = JSON.parse(answer.trim());
+                    
+                    if (tokens.csrf_token_for_validation !== csrfToken) {
+                         reject(new Error('CSRF token mismatch. Authentication aborted.'));
+                         return;
+                    }
+
                     if (tokens.access_token) {
                         client.setCredentials(tokens);
                         logToFile('Manual authentication successful');
@@ -115,7 +127,7 @@ export class AuthManager {
                         reject(new Error('Invalid credentials JSON: missing access_token'));
                     }
                 } catch (e) {
-                    reject(new Error(`Failed to parse credentials JSON: ${e}`));
+                    reject(new Error(`Failed to parse credentials JSON: ${e instanceof Error ? e.message : String(e)}`));
                 }
             });
         });

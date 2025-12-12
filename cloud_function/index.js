@@ -122,13 +122,26 @@ async function handleCallback(req, res) {
 
     // --- Fallback to manual instructions ---
 
-    const credentialsJson = JSON.stringify({
+    const credentials = {
         refresh_token: refresh_token,
         scope: scope,
         token_type: token_type,
         access_token: access_token,
         expiry_date: expiry_date
-    }, null, 2); // Pretty print JSON
+    };
+
+    if (state) {
+        try {
+            const payload = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+            if (payload && payload.csrf) {
+                credentials.csrf_token_for_validation = payload.csrf;
+            }
+        } catch (e) {
+            // Ignore state parsing errors here, as we are just trying to enhance the credentials
+        }
+    }
+
+    const credentialsJson = JSON.stringify(credentials, null, 2); // Pretty print JSON
 
     // 4. Display the JSON and add a copy button + instructions
     res.set('Content-Type', 'text/html');
