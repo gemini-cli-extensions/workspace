@@ -5,8 +5,8 @@
  */
 
 import { google, gmail_v1 } from 'googleapis';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { MimeHelper } from '../utils/MimeHelper';
