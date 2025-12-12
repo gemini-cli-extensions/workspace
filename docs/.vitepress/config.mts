@@ -2,6 +2,7 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  base: '/workspace/',
   title: "Gemini Workspace Extension",
   description: "Documentation for the Google Workspace Server Extension",
   themeConfig: {
