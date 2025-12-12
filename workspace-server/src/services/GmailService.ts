@@ -24,6 +24,13 @@ type SendEmailParams = {
     isHtml?: boolean;
 };
 
+interface GmailAttachment {
+    filename: string | null | undefined;
+    mimeType: string | null | undefined;
+    attachmentId: string | null | undefined;
+    size: number | null | undefined;
+}
+
 export class GmailService {
     constructor(private authManager: AuthManager) {
     }
@@ -129,7 +136,7 @@ export class GmailService {
                 
                 // Extract body and attachments for full format
                 let body = '';
-                let attachments: any[] = [];
+                let attachments: GmailAttachment[] = [];
                 if (format === 'full' && message.payload) {
                     const result = this.extractAttachmentsAndBody(message.payload);
                     body = result.body;
@@ -206,7 +213,10 @@ export class GmailService {
             return {
                 content: [{
                     type: "text" as const,
-                    text: `Attachment downloaded successfully to ${localPath}`
+                    text: JSON.stringify({
+                        message: `Attachment downloaded successfully to ${localPath}`,
+                        path: localPath
+                    })
                 }]
             };
         } catch (error) {
@@ -426,7 +436,7 @@ export class GmailService {
         }
     }
 
-    private extractAttachmentsAndBody(payload: gmail_v1.Schema$MessagePart, result: { body: string, attachments: any[] } = { body: '', attachments: [] }) {
+    private extractAttachmentsAndBody(payload: gmail_v1.Schema$MessagePart, result: { body: string, attachments: GmailAttachment[] } = { body: '', attachments: [] }) {
         if (!payload) return result;
 
         // Handle body parts

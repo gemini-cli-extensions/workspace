@@ -374,7 +374,9 @@ describe('GmailService', () => {
             expect.any(Buffer) // We check if it's a buffer, content verification is implicit via Buffer.from logic
         );
         
-        expect(result.content[0].text).toContain('Attachment downloaded successfully');
+        const response = JSON.parse(result.content[0].text);
+        expect(response.message).toContain('Attachment downloaded successfully');
+        expect(response.path).toBe('/tmp/test.txt');
     });
 
     it('should reject relative paths', async () => {
