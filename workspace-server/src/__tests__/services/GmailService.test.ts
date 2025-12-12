@@ -5,8 +5,7 @@
  */
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
 import { GmailService } from '../../services/GmailService';
 import { AuthManager } from '../../auth/AuthManager';
 import { MimeHelper } from '../../utils/MimeHelper';
