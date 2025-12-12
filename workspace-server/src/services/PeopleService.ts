@@ -96,15 +96,17 @@ export class PeopleService {
     }
 
     /**
-     * Gets the authenticated user's relations (e.g., manager, spouse, assistant).
+     * Gets a user's relations (e.g., manager, spouse, assistant).
+     * Defaults to the authenticated user if no userId is provided.
      * Optionally filters by a specific relation type.
      */
-    public getUserRelations = async ({ relationType }: { relationType?: string }) => {
-        logToFile(`[PeopleService] Starting getUserRelations with relationType=${relationType}`);
+    public getUserRelations = async ({ userId, relationType }: { userId?: string, relationType?: string }) => {
+        const targetUser = userId ? (userId.startsWith('people/') ? userId : `people/${userId}`) : 'people/me';
+        logToFile(`[PeopleService] Starting getUserRelations for ${targetUser} with relationType=${relationType}`);
         try {
             const people = await this.getPeopleClient();
             const res = await people.people.get({
-                resourceName: 'people/me',
+                resourceName: targetUser,
                 personFields: 'relations',
             });
             logToFile(`[PeopleService] Finished getUserRelations API call`);
@@ -118,12 +120,14 @@ export class PeopleService {
                 );
                 logToFile(`[PeopleService] Filtered to ${filteredRelations.length} relations of type: ${relationType}`);
                 responseData = {
+                    resourceName: targetUser,
                     relationType,
                     relations: filteredRelations,
                 };
             } else {
                 logToFile(`[PeopleService] Returning all ${relations.length} relations`);
                 responseData = {
+                    resourceName: targetUser,
                     relations,
                 };
             }

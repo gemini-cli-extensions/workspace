@@ -686,8 +686,9 @@ There are a list of system labels that can be modified on a message:
     server.registerTool(
         "people.getUserRelations",
         {
-            description: 'Gets the authenticated user\'s relations (e.g., manager, spouse, assistant, etc.). Common relation types include: manager, assistant, spouse, partner, relative, mother, father, parent, sibling, child, friend, domesticPartner, referredBy.',
+            description: 'Gets a user\'s relations (e.g., manager, spouse, assistant, etc.). Common relation types include: manager, assistant, spouse, partner, relative, mother, father, parent, sibling, child, friend, domesticPartner, referredBy. Defaults to the authenticated user if no userId is provided.',
             inputSchema: {
+                userId: z.string().optional().describe('The ID of the user to get relations for (e.g., "110001608645105799644" or "people/110001608645105799644"). Defaults to the authenticated user if not provided.'),
                 relationType: z.string().optional().describe('The type of relation to filter by (e.g., "manager", "spouse", "assistant"). If not provided, returns all relations.'),
             }
         },
