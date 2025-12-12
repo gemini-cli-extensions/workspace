@@ -5,6 +5,8 @@
  */
 
 import { google, gmail_v1 } from 'googleapis';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { MimeHelper } from '../utils/MimeHelper';
@@ -125,10 +127,13 @@ export class GmailService {
                 const to = getHeader('To');
                 const date = getHeader('Date');
                 
-                // Extract body for full format
+                // Extract body and attachments for full format
                 let body = '';
+                let attachments: any[] = [];
                 if (format === 'full' && message.payload) {
-                    body = this.extractBody(message.payload);
+                    const result = this.extractAttachmentsAndBody(message.payload);
+                    body = result.body;
+                    attachments = result.attachments;
                 }
 
                 return {
@@ -143,7 +148,8 @@ export class GmailService {
                             from,
                             to,
                             date,
-                            body: body || message.snippet
+                            body: body || message.snippet,
+                            attachments: attachments
                         }, null, 2)
                     }]
                 };
@@ -157,6 +163,54 @@ export class GmailService {
             };
         } catch (error) {
             return this.handleError(error, 'gmail.get');
+        }
+    }
+
+    public downloadAttachment = async ({
+        messageId,
+        attachmentId,
+        localPath
+    }: {
+        messageId: string,
+        attachmentId: string,
+        localPath: string
+    }) => {
+        try {
+            logToFile(`Downloading attachment ${attachmentId} from message ${messageId} to ${localPath}`);
+
+            if (!path.isAbsolute(localPath)) {
+                throw new Error('localPath must be an absolute path.');
+            }
+
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.messages.attachments.get({
+                userId: 'me',
+                messageId: messageId,
+                id: attachmentId
+            });
+
+            const data = response.data.data;
+            if (!data) {
+                throw new Error('Attachment data is empty');
+            }
+
+            // Ensure directory exists
+            await fs.mkdir(path.dirname(localPath), { recursive: true });
+
+            // Write file
+            const buffer = Buffer.from(data, 'base64url');
+            await fs.writeFile(localPath, buffer);
+
+            logToFile(`Attachment downloaded successfully to ${localPath}`);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: `Attachment downloaded successfully to ${localPath}`
+                }]
+            };
+        } catch (error) {
+            return this.handleError(error, 'gmail.downloadAttachment');
         }
     }
 
@@ -372,33 +426,37 @@ export class GmailService {
         }
     }
 
-    private extractBody(payload: gmail_v1.Schema$MessagePart): string {
-        let body = '';
-        
-        // Check for plain text or HTML in the main part
+    private extractAttachmentsAndBody(payload: gmail_v1.Schema$MessagePart, result: { body: string, attachments: any[] } = { body: '', attachments: [] }) {
+        if (!payload) return result;
+
+        // Handle body parts
         if (payload.body?.data) {
-            body = Buffer.from(payload.body.data, 'base64').toString('utf-8');
-        }
-        
-        // Check parts for multipart messages
-        if (payload.parts) {
-            for (const part of payload.parts) {
-                if (part.mimeType === 'text/plain' && part.body?.data) {
-                    body = Buffer.from(part.body.data, 'base64').toString('utf-8');
-                    break; // Prefer plain text
-                } else if (part.mimeType === 'text/html' && part.body?.data && !body) {
-                    body = Buffer.from(part.body.data, 'base64').toString('utf-8');
-                } else if (part.parts) {
-                    // Recursive for nested parts
-                    const nestedBody = this.extractBody(part);
-                    if (nestedBody) {
-                        body = nestedBody;
-                        break;
+            // If it's the main body (and not an attachment)
+            if (!payload.filename || !payload.body.attachmentId) {
+                 if (payload.mimeType?.startsWith('text/')) {
+                    // Prioritize plain text over HTML for direct body extraction
+                    if (!result.body || payload.mimeType === 'text/plain') {
+                        result.body = Buffer.from(payload.body.data, 'base64').toString('utf-8');
                     }
                 }
             }
         }
+
+        // Handle attachments and recursive parts
+        if (payload.filename && payload.body?.attachmentId) {
+             result.attachments.push({
+                filename: payload.filename,
+                mimeType: payload.mimeType,
+                attachmentId: payload.body.attachmentId,
+                size: payload.body.size, // Size in bytes
+            });
+        }
         
-        return body;
+        if (payload.parts) {
+            for (const part of payload.parts) {
+                this.extractAttachmentsAndBody(part, result);
+            }
+        }
+        return result;
     }
 }

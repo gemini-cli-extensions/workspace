@@ -5,6 +5,8 @@
  */
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { GmailService } from '../../services/GmailService';
 import { AuthManager } from '../../auth/AuthManager';
 import { MimeHelper } from '../../utils/MimeHelper';
@@ -12,6 +14,7 @@ import { google } from 'googleapis';
 
 // Mock the modules
 jest.mock('googleapis');
+jest.mock('fs/promises');
 jest.mock('../../utils/logger');
 jest.mock('../../utils/MimeHelper');
 
@@ -40,6 +43,9 @@ describe('GmailService', () => {
           untrash: jest.fn(),
           delete: jest.fn(),
           modify: jest.fn(),
+          attachments: {
+            get: jest.fn(),
+          },
         },
         drafts: {
           create: jest.fn(),
@@ -231,7 +237,51 @@ describe('GmailService', () => {
       expect(response.subject).toBe('Test Email');
       expect(response.from).toBe('sender@example.com');
       expect(response.to).toBe('recipient@example.com');
+      expect(response.attachments).toEqual([]);
     });
+
+    it('should extract attachments in full format', async () => {
+        const mockMessage = {
+          id: 'msg_with_attach',
+          threadId: 'thread1',
+          payload: {
+            headers: [],
+            filename: '',
+            body: { size: 0 },
+            parts: [
+              {
+                mimeType: 'text/plain',
+                body: { data: 'SGVsbG8=' }, // Hello
+                filename: ''
+              },
+              {
+                mimeType: 'application/pdf',
+                filename: 'test.pdf',
+                body: { attachmentId: 'attach1', size: 1000 }
+              }
+            ]
+          },
+        };
+  
+        mockGmailAPI.users.messages.get.mockResolvedValue({
+          data: mockMessage,
+        });
+  
+        const result = await gmailService.get({
+          messageId: 'msg_with_attach',
+          format: 'full',
+        });
+  
+        const response = JSON.parse(result.content[0].text);
+        expect(response.attachments).toHaveLength(1);
+        expect(response.attachments[0]).toEqual({
+            filename: 'test.pdf',
+            mimeType: 'application/pdf',
+            attachmentId: 'attach1',
+            size: 1000
+        });
+        expect(response.body).toBe('Hello');
+      });
 
     it('should handle minimal format', async () => {
       const mockMessage = {
@@ -288,6 +338,83 @@ describe('GmailService', () => {
 
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('Message not found');
+    });
+  });
+
+  describe('downloadAttachment', () => {
+    it('should download an attachment successfully', async () => {
+        // Setup mocks
+        const mockAttachmentData = {
+            data: 'SGVsbG8gV29ybGQ=', // Base64 for "Hello World"
+        };
+        mockGmailAPI.users.messages.attachments.get.mockResolvedValue({
+            data: mockAttachmentData,
+        });
+
+        (fs.mkdir as any).mockResolvedValue('/tmp');
+        (fs.writeFile as any).mockResolvedValue(undefined);
+
+        // Execute
+        const result = await gmailService.downloadAttachment({
+            messageId: 'msg1',
+            attachmentId: 'attach1',
+            localPath: '/tmp/test.txt',
+        });
+
+        // Verify
+        expect(mockGmailAPI.users.messages.attachments.get).toHaveBeenCalledWith({
+            userId: 'me',
+            messageId: 'msg1',
+            id: 'attach1',
+        });
+
+        expect(fs.mkdir).toHaveBeenCalledWith('/tmp', { recursive: true });
+        expect(fs.writeFile).toHaveBeenCalledWith(
+            '/tmp/test.txt',
+            expect.any(Buffer) // We check if it's a buffer, content verification is implicit via Buffer.from logic
+        );
+        
+        expect(result.content[0].text).toContain('Attachment downloaded successfully');
+    });
+
+    it('should reject relative paths', async () => {
+        const result = await gmailService.downloadAttachment({
+            messageId: 'msg1',
+            attachmentId: 'attach1',
+            localPath: 'relative/path.txt',
+        });
+
+        const response = JSON.parse(result.content[0].text);
+        expect(response.error).toBe('localPath must be an absolute path.');
+    });
+
+    it('should handle empty attachment data', async () => {
+        mockGmailAPI.users.messages.attachments.get.mockResolvedValue({
+            data: {}, // No data
+        });
+
+        const result = await gmailService.downloadAttachment({
+            messageId: 'msg1',
+            attachmentId: 'attach1',
+            localPath: '/tmp/test.txt',
+        });
+
+        const response = JSON.parse(result.content[0].text);
+        expect(response.error).toBe('Attachment data is empty');
+    });
+
+    it('should handle download errors', async () => {
+        const error = new Error('Download failed');
+        mockGmailAPI.users.messages.attachments.get.mockRejectedValue(error);
+
+        const result = await gmailService.downloadAttachment({
+            messageId: 'msg1',
+            attachmentId: 'attach1',
+            localPath: '/tmp/test.txt',
+        });
+
+        const response = JSON.parse(result.content[0].text);
+        expect(response.error).toBe('Download failed');
     });
   });
 
