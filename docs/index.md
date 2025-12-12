@@ -55,6 +55,7 @@ The extension provides the following tools:
 ### Gmail
 - `gmail.search`: Search for emails in Gmail using query parameters.
 - `gmail.get`: Get the full content of a specific email message.
+- `gmail.downloadAttachment`: Downloads an attachment from a Gmail message to a local file.
 - `gmail.modify`: Modify a Gmail message.
 - `gmail.send`: Send an email message.
 - `gmail.createDraft`: Create a draft email message.
