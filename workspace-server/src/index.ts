@@ -585,6 +585,19 @@ async function main() {
     );
 
     server.registerTool(
+        "gmail.downloadAttachment",
+        {
+            description: 'Downloads an attachment from a Gmail message to a local file.',
+            inputSchema: {
+                messageId: z.string().describe('The ID of the message containing the attachment.'),
+                attachmentId: z.string().describe('The ID of the attachment to download.'),
+                localPath: z.string().describe('The absolute local path where the attachment should be saved (e.g., "/Users/name/downloads/report.pdf").'),
+            }
+        },
+        gmailService.downloadAttachment
+    );
+
+    server.registerTool(
         "gmail.modify",
         {
             description: `Modify a Gmail message. Supported modifications include:
