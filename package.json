@@ -24,7 +24,10 @@
     "release": "node scripts/release.js",
     "release:dev": "npm install && npm run build && node scripts/release.js",
     "set-version": "node scripts/set-version.js",
-    "version": "node scripts/set-version.js && git add workspace-server/package.json"
+    "version": "node scripts/set-version.js && git add workspace-server/package.json",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
     "@google-apps/chat": "^0.21.0",
@@ -57,7 +60,9 @@
     "minimist": "^1.2.8",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitepress": "^1.6.4",
+    "vue": "^3.5.25"
   },
   "repository": {
     "type": "git",
