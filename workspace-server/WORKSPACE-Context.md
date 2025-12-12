@@ -130,6 +130,11 @@ When asked about "next meeting" or "today's schedule":
 - Reference previous messages when relevant
 - Use appropriate reply vs. new message based on context
 
+### Downloading Attachments
+1. **Find Attachment ID**: Use `gmail.get` with `format='full'` to retrieve message details, including `attachments` metadata (IDs and filenames).
+2. **Download**: Use `gmail.downloadAttachment` with the specific `messageId` and `attachmentId`.
+3. **Absolute Paths**: Always provide an **absolute path** for the `localPath` argument (e.g., `/Users/username/Downloads/file.pdf`). Relative paths will be rejected for security.
+
 ## 📄 Docs, Sheets, and Slides
 
 ### Format Selection (Sheets)
@@ -151,6 +156,7 @@ Choose output format based on use case:
 - ❌ Execute writes without preview and confirmation
 - ❌ Create files unless explicitly requested
 - ❌ Duplicate parameter documentation from tool descriptions
+- ❌ Use relative paths for file downloads (e.g., `downloads/file.txt`)
 
 ### Do This Instead:
 - ✅ Pass URLs directly to tools that accept them
@@ -158,6 +164,7 @@ Choose output format based on use case:
 - ✅ Preview all changes and wait for approval
 - ✅ Only create what's requested
 - ✅ Focus on behavioral guidance and best practices
+- ✅ Always use **absolute paths** for file downloads (e.g., `/Users/me/Downloads/file.txt`)
 
 ## 🔍 Error Handling Patterns
 
