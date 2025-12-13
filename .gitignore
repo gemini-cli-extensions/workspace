@@ -37,3 +37,7 @@ commit_message.txt
 
 # Release directory
 release/
+
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache

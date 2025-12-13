@@ -11,7 +11,7 @@ const importPlugin = require('eslint-plugin-import');
 
 module.exports = [
     {
-        ignores: ['**/dist/', '*.js', '**/node_modules/', '**/coverage/', '!eslint.config.js'],
+        ignores: ['**/dist/', '*.js', '**/node_modules/', '**/coverage/', '!eslint.config.js', '**/docs/.vitepress/cache/', '**/docs/.vitepress/dist/'],
     },
     {
         files: ['workspace-server/src/**/*.ts'],
