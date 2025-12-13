@@ -167,6 +167,7 @@ describe('PeopleService', () => {
                 personFields: 'relations',
             });
             expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
                 relations: mockRelations.data.relations,
             });
         });
@@ -186,6 +187,7 @@ describe('PeopleService', () => {
             const result = await peopleService.getUserRelations({ relationType: 'manager' });
 
             expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
                 relationType: 'manager',
                 relations: [{ person: 'John Doe', type: 'manager' }],
             });
@@ -204,6 +206,7 @@ describe('PeopleService', () => {
             const result = await peopleService.getUserRelations({ relationType: 'MANAGER' });
 
             expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
                 relationType: 'MANAGER',
                 relations: [{ person: 'John Doe', type: 'Manager' }],
             });
@@ -218,6 +221,7 @@ describe('PeopleService', () => {
             const result = await peopleService.getUserRelations({});
 
             expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
                 relations: [],
             });
         });
@@ -235,6 +239,7 @@ describe('PeopleService', () => {
             const result = await peopleService.getUserRelations({ relationType: 'spouse' });
 
             expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
                 relationType: 'spouse',
                 relations: [],
             });
@@ -247,6 +252,24 @@ describe('PeopleService', () => {
             const result = await peopleService.getUserRelations({});
 
             expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
+        });
+
+        it('should call with the correct resourceName when a userId is provided', async () => {
+            const mockRelations = {
+                data: {
+                    relations: [
+                        { person: 'John Doe', type: 'manager' },
+                    ],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            await peopleService.getUserRelations({ userId: '110001608645105799644' });
+
+            expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
+                resourceName: 'people/110001608645105799644',
+                personFields: 'relations',
+            });
         });
     });
 });
