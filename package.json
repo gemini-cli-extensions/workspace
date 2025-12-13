@@ -18,7 +18,7 @@
     "test:ci": "npm run test:ci --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
     "auth-utils": "npm run build:auth-utils -w workspace-server && node scripts/auth-utils.js",
-    "clean": "npm run clean --workspaces --if-present && rm -rf release node_modules logs",
+    "clean": "npm run clean --workspaces --if-present && rm -rf release node_modules logs docs/.vitepress/cache docs/.vitepress/dist",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "release": "node scripts/release.js",
