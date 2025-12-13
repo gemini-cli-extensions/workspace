@@ -94,4 +94,59 @@ export class PeopleService {
             };
         }
     }
+
+    /**
+     * Gets a user's relations (e.g., manager, spouse, assistant).
+     * Defaults to the authenticated user if no userId is provided.
+     * Optionally filters by a specific relation type.
+     */
+    public getUserRelations = async ({ userId, relationType }: { userId?: string, relationType?: string }) => {
+        const targetUser = userId ? (userId.startsWith('people/') ? userId : `people/${userId}`) : 'people/me';
+        logToFile(`[PeopleService] Starting getUserRelations for ${targetUser} with relationType=${relationType}`);
+        try {
+            const people = await this.getPeopleClient();
+            const res = await people.people.get({
+                resourceName: targetUser,
+                personFields: 'relations',
+            });
+            logToFile(`[PeopleService] Finished getUserRelations API call`);
+
+            const relations = res.data?.relations || [];
+            let responseData;
+
+            if (relationType) {
+                const filteredRelations = relations.filter(
+                    (relation) => relation.type?.toLowerCase() === relationType.toLowerCase()
+                );
+                logToFile(`[PeopleService] Filtered to ${filteredRelations.length} relations of type: ${relationType}`);
+                responseData = {
+                    resourceName: targetUser,
+                    relationType,
+                    relations: filteredRelations,
+                };
+            } else {
+                logToFile(`[PeopleService] Returning all ${relations.length} relations`);
+                responseData = {
+                    resourceName: targetUser,
+                    relations,
+                };
+            }
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify(responseData),
+                }],
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logToFile(`[PeopleService] Error during people.getUserRelations: ${errorMessage}`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ error: errorMessage })
+                }]
+            };
+        }
+    }
 }

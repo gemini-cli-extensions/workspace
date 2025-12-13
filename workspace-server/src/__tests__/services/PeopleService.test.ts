@@ -146,4 +146,130 @@ describe('PeopleService', () => {
             expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
         });
     });
+
+    describe('getUserRelations', () => {
+        it('should return all relations when no relationType is specified', async () => {
+            const mockRelations = {
+                data: {
+                    relations: [
+                        { person: 'John Doe', type: 'manager' },
+                        { person: 'Jane Doe', type: 'spouse' },
+                        { person: 'Bob Smith', type: 'assistant' },
+                    ],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            const result = await peopleService.getUserRelations({});
+
+            expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
+                resourceName: 'people/me',
+                personFields: 'relations',
+            });
+            expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
+                relations: mockRelations.data.relations,
+            });
+        });
+
+        it('should filter relations by relationType when specified', async () => {
+            const mockRelations = {
+                data: {
+                    relations: [
+                        { person: 'John Doe', type: 'manager' },
+                        { person: 'Jane Doe', type: 'spouse' },
+                        { person: 'Bob Smith', type: 'assistant' },
+                    ],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            const result = await peopleService.getUserRelations({ relationType: 'manager' });
+
+            expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
+                relationType: 'manager',
+                relations: [{ person: 'John Doe', type: 'manager' }],
+            });
+        });
+
+        it('should filter relations case-insensitively', async () => {
+            const mockRelations = {
+                data: {
+                    relations: [
+                        { person: 'John Doe', type: 'Manager' },
+                    ],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            const result = await peopleService.getUserRelations({ relationType: 'MANAGER' });
+
+            expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
+                relationType: 'MANAGER',
+                relations: [{ person: 'John Doe', type: 'Manager' }],
+            });
+        });
+
+        it('should return empty relations array when no relations exist', async () => {
+            const mockRelations = {
+                data: {},
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            const result = await peopleService.getUserRelations({});
+
+            expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
+                relations: [],
+            });
+        });
+
+        it('should return empty array when filtering for non-existent relationType', async () => {
+            const mockRelations = {
+                data: {
+                    relations: [
+                        { person: 'John Doe', type: 'manager' },
+                    ],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            const result = await peopleService.getUserRelations({ relationType: 'spouse' });
+
+            expect(JSON.parse(result.content[0].text)).toEqual({
+                resourceName: 'people/me',
+                relationType: 'spouse',
+                relations: [],
+            });
+        });
+
+        it('should handle errors during getUserRelations', async () => {
+            const apiError = new Error('API Error');
+            mockPeopleAPI.people.get.mockRejectedValue(apiError);
+
+            const result = await peopleService.getUserRelations({});
+
+            expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
+        });
+
+        it('should call with the correct resourceName when a userId is provided', async () => {
+            const mockRelations = {
+                data: {
+                    relations: [
+                        { person: 'John Doe', type: 'manager' },
+                    ],
+                },
+            };
+            mockPeopleAPI.people.get.mockResolvedValue(mockRelations);
+
+            await peopleService.getUserRelations({ userId: '110001608645105799644' });
+
+            expect(mockPeopleAPI.people.get).toHaveBeenCalledWith({
+                resourceName: 'people/110001608645105799644',
+                personFields: 'relations',
+            });
+        });
+    });
 });
