@@ -20,6 +20,7 @@ import { PeopleService } from "./services/PeopleService";
 import { SlidesService } from "./services/SlidesService";
 import { SheetsService } from "./services/SheetsService";
 import { GMAIL_SEARCH_MAX_RESULTS } from "./utils/constants";
+import { CHAT_FORMATTING_SHORT } from "./utils/formatting/constants";
 import { extractDocId } from "./utils/IdUtils";
 
 import { setLoggingEnabled } from "./utils/logger";
@@ -458,7 +459,7 @@ async function main() {
             description: 'Sends a message to a Google Chat space.',
             inputSchema: {
                 spaceName: z.string().describe('The name of the space to send the message to (e.g., spaces/AAAAN2J52O8).'),
-                message: z.string().describe('The message to send.'),
+                message: z.string().describe('The message to send. ' + CHAT_FORMATTING_SHORT),
             }
         },
         chatService.sendMessage
@@ -485,7 +486,7 @@ async function main() {
             description: 'Sends a direct message to a user.',
             inputSchema: {
                 email: z.string().email().describe('The email address of the user to send the message to.'),
-                message: z.string().describe('The message to send.'),
+                message: z.string().describe('The message to send. ' + CHAT_FORMATTING_SHORT),
             }
         },
         chatService.sendDm
