@@ -112,25 +112,24 @@ export class PeopleService {
             logToFile(`[PeopleService] Finished getUserRelations API call`);
 
             const relations = res.data?.relations || [];
-            let responseData;
+            
+            const filteredRelations = relationType
+                ? relations.filter(
+                    (relation) => relation.type?.toLowerCase() === relationType.toLowerCase()
+                )
+                : relations;
 
             if (relationType) {
-                const filteredRelations = relations.filter(
-                    (relation) => relation.type?.toLowerCase() === relationType.toLowerCase()
-                );
                 logToFile(`[PeopleService] Filtered to ${filteredRelations.length} relations of type: ${relationType}`);
-                responseData = {
-                    resourceName: targetUser,
-                    relationType,
-                    relations: filteredRelations,
-                };
             } else {
-                logToFile(`[PeopleService] Returning all ${relations.length} relations`);
-                responseData = {
-                    resourceName: targetUser,
-                    relations,
-                };
+                logToFile(`[PeopleService] Returning all ${filteredRelations.length} relations`);
             }
+
+            const responseData = {
+                resourceName: targetUser,
+                ...(relationType && { relationType }),
+                relations: filteredRelations,
+            };
 
             return {
                 content: [{
