@@ -1,0 +1,64 @@
+name: Weekly Preview Release
+
+on:
+  schedule:
+    # Every Monday at 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.date.outputs.tag_name }}
+    steps:
+      - name: Get current date
+        id: date
+        run: echo "tag_name=preview-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+  release:
+    needs: prepare
+    name: Build and Release
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: darwin
+          - os: windows-latest
+            platform: win32
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
+        run: npm run build --workspace=workspace-server
+
+      - name: Create release assets
+        shell: bash
+        env:
+          GITHUB_REF_NAME: ${{ needs.prepare.outputs.tag_name }}
+        run: npm run release -- --platform=${{ matrix.platform }}
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: Weekly Preview ${{ needs.prepare.outputs.tag_name }}
+          prerelease: true
+          files: release/${{ matrix.platform }}.google-workspace-extension.tar.gz
