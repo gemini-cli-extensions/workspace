@@ -5,6 +5,7 @@ export const CHAT_FORMATTING_SHORT = [
   '<url|text> links, <users/{user}> mentions.',
   'No nested lists: use "- -- child" for depth.',
   'Convert: **bold** → *bold*, *italic* → _italic_, [text](url) → <url|text>.',
+  '# headings and > blockquotes are also unsupported syntax.',
 ].join(' ');
 
 export const CHAT_FORMATTING = `
@@ -22,4 +23,6 @@ Unsupported (convert these):
 - **double asterisks** for bold
 - [text](url) markdown links
 - Nested lists (flatten with dashes: "- parent", "- -- child")
+- # headings
+- > blockquotes
 `.trim();
