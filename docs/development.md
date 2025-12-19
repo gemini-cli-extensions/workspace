@@ -100,6 +100,19 @@ To separately lint the code in this project, run the following command from the 
 npm run lint
 ```
 
+#### Testing with Gemini CLI
+
+To test you code changes with Gemini CLI you can run:
+
+```bash
+gemini extensions uninstall google-workspace
+npm install
+gemini extensions link .
+gemini extensions list
+gemini --debug
+# Prompt to test your feature/bug fix
+```
+
 ### Coding Conventions
 
 - Please adhere to the coding style, patterns, and conventions used throughout the existing codebase.
