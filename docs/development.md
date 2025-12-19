@@ -102,7 +102,7 @@ npm run lint
 
 #### Testing with Gemini CLI
 
-To test you code changes with Gemini CLI you can run:
+To test your code changes with Gemini CLI you can run:
 
 ```bash
 gemini extensions uninstall google-workspace
