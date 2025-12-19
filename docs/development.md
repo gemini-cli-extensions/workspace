@@ -106,7 +106,7 @@ To test your code changes with Gemini CLI you can run:
 
 ```bash
 gemini extensions uninstall google-workspace
-npm install
+npm run build
 gemini extensions link .
 gemini extensions list
 gemini --debug
