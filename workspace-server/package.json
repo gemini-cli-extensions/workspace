@@ -11,7 +11,8 @@
     "start": "ts-node src/index.ts",
     "clean": "rm -rf dist node_modules",
     "build": "node esbuild.config.js",
-    "build:auth-utils": "node esbuild.auth-utils.js"
+    "build:auth-utils": "node esbuild.auth-utils.js",
+    "typecheck": "npx tsc --noEmit"
   },
   "keywords": [],
   "author": "Allen Hutchison",

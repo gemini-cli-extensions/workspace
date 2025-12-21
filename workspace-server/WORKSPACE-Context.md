@@ -239,4 +239,11 @@ Choose output format based on use case:
 - Thread-aware messaging
 - Unread message filtering
 
+### Google Tasks
+- **Task List Selection**: If the user doesn't specify a task list, default to listing all task lists first to let them choose, or ask for clarification.
+- **Task Creation**: When creating tasks, prompt for a due date if one isn't provided, as it's helpful for organization.
+- **Completion**: Use `tasks.complete` for a simple "mark as done" action. Use `tasks.update` if you need to set other properties simultaneously.
+- **Assigned Tasks**: To find tasks assigned from Google Docs or Chat, use `showAssigned=true` when listing tasks.
+- **Timestamps**: Ensure due dates are in RFC 3339 format (e.g., `2024-01-15T12:00:00Z`).
+
 Remember: This guide focuses on **how to think** about using these tools effectively. For specific parameter details, refer to the tool descriptions themselves.

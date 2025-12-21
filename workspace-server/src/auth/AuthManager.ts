@@ -177,6 +177,11 @@ export class AuthManager {
         return this.client;
     }
 
+    public async getTasksClient() {
+        const client = await this.getAuthenticatedClient();
+        return google.tasks({ version: 'v1', auth: client });
+    }
+
     public async clearAuth(): Promise<void> {
         logToFile('Clearing authentication...');
         this.client = null;
