@@ -49,7 +49,7 @@
     "@types/jsdom": "^27.0.0",
     "@types/node": "^25.0.2",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
-    "@typescript-eslint/parser": "^8.49.0",
+    "@typescript-eslint/parser": "^8.50.1",
     "@vercel/ncc": "^0.38.3",
     "archiver": "^7.0.1",
     "esbuild": "^0.27.1",
