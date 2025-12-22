@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0 # Not strictly needed but good practice for some build tools
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm # Cache npm dependencies
