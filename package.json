@@ -62,7 +62,7 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
     "vitepress": "^1.6.4",
-    "vue": "^3.5.25"
+    "vue": "^3.5.26"
   },
   "repository": {
     "type": "git",
