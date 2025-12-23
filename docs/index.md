@@ -70,4 +70,5 @@ The extension provides the following tools:
 ### People
 - `people.getUserProfile`: Gets a user's profile information.
 - `people.getMe`: Gets the profile information of the authenticated user.
+- `people.getUserRelations`: Gets a user's relations (e.g., manager, spouse, assistant).
 
