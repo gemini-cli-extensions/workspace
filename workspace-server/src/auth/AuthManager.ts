@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as url from 'node:url';
+import * as readline from 'node:readline';
 import { logToFile } from '../utils/logger';
 import open from '../utils/open-wrapper';
 import { shouldLaunchBrowser } from '../utils/secure-browser-launcher';
@@ -65,6 +66,71 @@ export class AuthManager {
         }
 
         return false;
+    }
+
+    private async authManual(client: Auth.OAuth2Client): Promise<void> {
+        logToFile(`Requesting manual authentication with scopes: ${this.scopes.join(', ')}`);
+
+        // SECURITY: Generate a random token for CSRF protection.
+        const csrfToken = crypto.randomBytes(32).toString('hex');
+
+        // The state now contains a JSON payload indicating the flow mode and CSRF token.
+        const statePayload = {
+            manual: true,
+            csrf: csrfToken,
+        };
+        const state = Buffer.from(JSON.stringify(statePayload)).toString('base64');
+
+        // The redirect URI for Google's auth server is the cloud function
+        const cloudFunctionRedirectUri = 'https://google-workspace-extension.geminicli.com';
+
+        const authUrl = client.generateAuthUrl({
+            redirect_uri: cloudFunctionRedirectUri, // Tell Google to go to the cloud function
+            access_type: 'offline',
+            scope: this.scopes,
+            state: state, // Pass our JSON payload in the state
+            prompt: 'consent', // Make sure we get a refresh token
+        });
+
+        console.error('Browser launch not supported or disabled.');
+        console.error('Please open the following URL in your browser to authenticate:');
+        console.error('\n' + authUrl + '\n');
+        console.error('After authenticating, copy the JSON credential block and paste it here.');
+
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stderr, // Use stderr so prompts don't interfere with stdout
+        });
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                rl.close();
+                reject(new Error('Manual authentication timed out after 10 minutes. Please try again.'));
+            }, 10 * 60 * 1000); // 10 minutes
+
+            rl.question('Paste credentials JSON here: ', (answer) => {
+                clearTimeout(timeout);
+                rl.close();
+                try {
+                    const tokens = JSON.parse(answer.trim());
+                    
+                    if (tokens.csrf_token_for_validation !== csrfToken) {
+                         reject(new Error('CSRF token mismatch. Authentication aborted.'));
+                         return;
+                    }
+
+                    if (tokens.access_token) {
+                        client.setCredentials(tokens);
+                        logToFile('Manual authentication successful');
+                        resolve();
+                    } else {
+                        reject(new Error('Invalid credentials JSON: missing access_token'));
+                    }
+                } catch (e) {
+                    reject(new Error(`Failed to parse credentials JSON: ${e instanceof Error ? e.message : String(e)}`));
+                }
+            });
+        });
     }
 
     public async getAuthenticatedClient(): Promise<Auth.OAuth2Client> {
@@ -154,23 +220,27 @@ export class AuthManager {
             }
         }
 
-        const webLogin = await this.authWithWeb(oAuth2Client);
-        await open(webLogin.authUrl);
-        console.log('Waiting for authentication...');
+        if (shouldLaunchBrowser()) {
+            const webLogin = await this.authWithWeb(oAuth2Client);
+            await open(webLogin.authUrl);
+            console.error('Waiting for authentication...');
 
-        // Add timeout to prevent infinite waiting when browser tab gets stuck
-        const authTimeout = 5 * 60 * 1000; // 5 minutes timeout
-        const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-            reject(
-            new Error(
-                'Authentication timed out after 5 minutes. The browser tab may have gotten stuck in a loading state. ' +
-                'Please try again.',
-            ),
-            );
-        }, authTimeout);
-        });
-        await Promise.race([webLogin.loginCompletePromise, timeoutPromise]);
+            // Add timeout to prevent infinite waiting when browser tab gets stuck
+            const authTimeout = 5 * 60 * 1000; // 5 minutes timeout
+            const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+                reject(
+                new Error(
+                    'Authentication timed out after 5 minutes. The browser tab may have gotten stuck in a loading state. ' +
+                    'Please try again.',
+                ),
+                );
+            }, authTimeout);
+            });
+            await Promise.race([webLogin.loginCompletePromise, timeoutPromise]);
+        } else {
+            await this.authManual(oAuth2Client);
+        }
 
         await OAuthCredentialStorage.saveCredentials(oAuth2Client.credentials);
         this.client = oAuth2Client;
