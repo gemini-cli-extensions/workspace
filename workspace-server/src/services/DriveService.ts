@@ -69,6 +69,47 @@ export class DriveService {
         }
     }
 
+    public createFolder = async ({ name, parentId }: { name: string, parentId?: string }) => {
+        logToFile(`Creating folder with name: ${name} ${parentId ? `in parent: ${parentId}` : ''}`);
+        try {
+            const drive = await this.getDriveClient();
+            const fileMetadata: drive_v3.Schema$File = {
+                name: name,
+                mimeType: 'application/vnd.google-apps.folder',
+            };
+
+            if (parentId) {
+                fileMetadata.parents = [parentId];
+            }
+
+            const file = await drive.files.create({
+                requestBody: fileMetadata,
+                fields: 'id, name',
+            });
+
+            logToFile(`Created folder: ${file.data.name} (${file.data.id})`);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        id: file.data.id,
+                        name: file.data.name
+                    })
+                }]
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logToFile(`Error during drive.createFolder: ${errorMessage}`);
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({ error: errorMessage })
+                }]
+            };
+        }
+    }
+
     public search = async ({ query, pageSize = 10, pageToken, corpus, unreadOnly, sharedWithMe }: { query?: string, pageSize?: number, pageToken?: string, corpus?: string, unreadOnly?: boolean, sharedWithMe?: boolean }) => {
         const drive = await this.getDriveClient();
         let q = query;

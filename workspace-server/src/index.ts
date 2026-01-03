@@ -163,6 +163,18 @@ async function main() {
     );
 
     server.registerTool(
+        "drive.createFolder",
+        {
+            description: 'Creates a new folder in Google Drive.',
+            inputSchema: {
+                name: z.string().describe('The name of the new folder.'),
+                parentId: z.string().optional().describe('The ID of the parent folder. If not provided, creates in the root directory.'),
+            }
+        },
+        driveService.createFolder
+    );
+
+    server.registerTool(
         "docs.move",
         {
             description: 'Moves a document to a specified folder.',

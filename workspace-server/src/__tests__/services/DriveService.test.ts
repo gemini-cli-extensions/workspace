@@ -129,6 +129,58 @@ describe('DriveService', () => {
     });
   });
 
+  describe('createFolder', () => {
+    it('should create a folder successfully', async () => {
+      const mockFolder = { id: 'new-folder-id', name: 'New Folder' };
+
+      mockDriveAPI.files.create.mockResolvedValue({
+        data: mockFolder,
+      });
+
+      const result = await driveService.createFolder({ name: 'New Folder' });
+
+      expect(mockDriveAPI.files.create).toHaveBeenCalledWith({
+        requestBody: {
+          name: 'New Folder',
+          mimeType: 'application/vnd.google-apps.folder',
+        },
+        fields: 'id, name',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockFolder);
+    });
+
+    it('should create a folder in a parent folder', async () => {
+      const mockFolder = { id: 'new-folder-id', name: 'New Folder' };
+
+      mockDriveAPI.files.create.mockResolvedValue({
+        data: mockFolder,
+      });
+
+      const result = await driveService.createFolder({ name: 'New Folder', parentId: 'parent-id' });
+
+      expect(mockDriveAPI.files.create).toHaveBeenCalledWith({
+        requestBody: {
+          name: 'New Folder',
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: ['parent-id'],
+        },
+        fields: 'id, name',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockFolder);
+    });
+
+    it('should handle API errors gracefully', async () => {
+      const apiError = new Error('API request failed');
+      mockDriveAPI.files.create.mockRejectedValue(apiError);
+
+      const result = await driveService.createFolder({ name: 'New Folder' });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API request failed' });
+    });
+  });
+
   describe('search', () => {
     it('should search files with custom query', async () => {
       const mockFiles = [
