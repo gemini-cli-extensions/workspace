@@ -167,8 +167,8 @@ async function main() {
         {
             description: 'Creates a new folder in Google Drive.',
             inputSchema: {
-                name: z.string().describe('The name of the new folder.'),
-                parentId: z.string().optional().describe('The ID of the parent folder. If not provided, creates in the root directory.'),
+                name: z.string().trim().min(1).describe('The name of the new folder.'),
+                parentId: z.string().trim().min(1).optional().describe('The ID of the parent folder. If not provided, creates in the root directory.'),
             }
         },
         driveService.createFolder
