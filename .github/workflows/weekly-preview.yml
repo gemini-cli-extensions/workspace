@@ -16,8 +16,21 @@ jobs:
         id: date
         run: echo "tag_name=preview-$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-  release:
+  create-release:
     needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: Weekly Preview ${{ needs.prepare.outputs.tag_name }}
+          prerelease: true
+
+  release:
+    needs: [prepare, create-release]
     name: Build and Release
     strategy:
       matrix:
@@ -59,6 +72,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
-          name: Weekly Preview ${{ needs.prepare.outputs.tag_name }}
-          prerelease: true
           files: release/${{ matrix.platform }}.google-workspace-extension.tar.gz
