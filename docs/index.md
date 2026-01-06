@@ -73,3 +73,16 @@ The extension provides the following tools:
 - `people.getMe`: Gets the profile information of the authenticated user.
 - `people.getUserRelations`: Gets a user's relations (e.g., manager, spouse, assistant). Defaults to the authenticated user and supports filtering by relation type.
 
+## Custom Commands
+
+The extension includes several pre-configured commands for common tasks:
+
+- `/calendar/get-schedule`: Show your schedule for today, or a specified date.
+- `/calendar/clear-schedule`: Clear all events for a specific date or range by deleting or declining them.
+- `/drive/search`: Searches Google Drive for files matching a query and displays their name and ID.
+- `/gmail/search`: Searches for emails in Gmail matching a query and displays the sender, subject, and snippet.
+
+## Release Notes
+
+See the [Release Notes](release_notes.md) for details on new features and changes.
+
