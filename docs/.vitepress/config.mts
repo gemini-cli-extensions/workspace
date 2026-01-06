@@ -10,7 +10,8 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Development', link: '/development' },
-      { text: 'Release', link: '/release' }
+      { text: 'Release', link: '/release' },
+      { text: 'Release Notes', link: '/release_notes' }
     ],
 
     sidebar: [
@@ -19,7 +20,8 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Development Guide', link: '/development' },
-          { text: 'Release Guide', link: '/release' }
+          { text: 'Release Guide', link: '/release' },
+          { text: 'Release Notes', link: '/release_notes' }
         ]
       }
     ],
