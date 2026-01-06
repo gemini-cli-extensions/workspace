@@ -8,7 +8,7 @@
 - **People**: Added `people.getUserRelations` to retrieve user relationships (manager, reports, etc.).
 - **Google Chat**: Added threading support to `chat.sendMessage` and `chat.sendDm`, and filtering by thread in `chat.getMessages`.
 - **Gmail**: Added `gmail.downloadAttachment` to download email attachments.
-- **Drive**: Added `drive.downloadFile` to download files from Google Drive.
+- **Google Drive**: Added `drive.downloadFile` to download files from Google Drive.
 - **Calendar**: Added `calendar.deleteEvent` to delete calendar events.
 - **Google Docs**: Added support for Tabs in DocsService.
 
