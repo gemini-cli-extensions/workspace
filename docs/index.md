@@ -30,6 +30,7 @@ The extension provides the following tools:
 ### Google Drive
 - `drive.search`: Searches for files and folders in Google Drive.
 - `drive.findFolder`: Finds a folder by name in Google Drive.
+- `drive.createFolder`: Creates a new folder in Google Drive.
 - `drive.downloadFile`: Downloads a file from Google Drive to a local path.
 
 ### Google Calendar
