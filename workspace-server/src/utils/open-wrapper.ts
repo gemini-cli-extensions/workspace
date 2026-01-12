@@ -33,7 +33,7 @@ const createMockChildProcess = () => ({
 const openWrapper = async (url: string): Promise<any> => {
   // Check if we should launch the browser
   if (!shouldLaunchBrowser()) {
-    console.log(`Browser launch not supported. Please open this URL in your browser: ${url}`);
+    console.error(`Browser launch not supported. Please open this URL in your browser: ${url}`);
     return createMockChildProcess();
   }
 
@@ -42,7 +42,7 @@ const openWrapper = async (url: string): Promise<any> => {
     await openBrowserSecurely(url);
     return createMockChildProcess();
   } catch {
-    console.log(`Failed to open browser. Please open this URL in your browser: ${url}`);
+    console.error(`Failed to open browser. Please open this URL in your browser: ${url}`);
     return createMockChildProcess();
   }
 };
