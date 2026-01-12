@@ -53,6 +53,24 @@ Searches your Google Drive for files matching the given query.
 - [Documentation](docs/index.md): Detailed documentation on all the available tools.
 - [GitHub Issues](https://github.com/gemini-cli-extensions/workspace/issues): Report bugs or request features.
 
+## Headless Mode / Remote VMs
+
+If you're running the MCP server on a remote VM or headless environment where a browser cannot be opened, you can use headless mode with port-forwarding:
+
+```python
+env = {
+  "GEMINI_CLI_WORKSPACE_HEADLESS": "true",
+  "OAUTH_CALLBACK_PORT": "8585"
+}
+```
+
+**Steps:**
+1. Set up port-forwarding from your VM: `ssh -L 8585:localhost:8585 your-vm`
+2. Run the MCP server with the environment variables above
+3. Copy the authentication URL printed to stderr
+4. Open the URL in your local browser and complete authentication
+5. The OAuth callback will be forwarded to the VM, completing the flow
+
 ## Important security consideration: Indirect Prompt Injection Risk
 
 When exposing any language model to untrusted data, there's a risk of an [indirect prompt injection attack](https://en.wikipedia.org/wiki/Prompt_injection). Agentic tools like Gemini CLI, connected to MCP servers, have access to a wide array of tools and APIs.
