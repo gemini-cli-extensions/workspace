@@ -31,20 +31,21 @@ const createMockChildProcess = () => ({
 });
 
 const openWrapper = async (url: string): Promise<any> => {
-  // Check if we should launch the browser
+  // Always print the URL to stderr first for headless/VM environments
+  console.error(`\nPlease open this URL in your browser to authenticate:\n${url}\n`);
+
+  // Check if we should also try to launch the browser
   if (!shouldLaunchBrowser()) {
-    console.error(`Browser launch not supported. Please open this URL in your browser: ${url}`);
     return createMockChildProcess();
   }
 
-  // Try to open the browser securely
+  // Try to open the browser securely (best effort, don't fail if it doesn't work)
   try {
     await openBrowserSecurely(url);
-    return createMockChildProcess();
   } catch {
-    console.error(`Failed to open browser. Please open this URL in your browser: ${url}`);
-    return createMockChildProcess();
+    // Browser launch failed, but URL is already printed above
   }
+  return createMockChildProcess();
 };
 
 // Use standard ES Module export and let the compiler generate the CommonJS correct output.
