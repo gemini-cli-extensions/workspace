@@ -155,6 +155,16 @@ export class AuthManager {
         }
 
         const webLogin = await this.authWithWeb(oAuth2Client);
+
+        // Print port-forwarding instructions when in headless mode
+        const isHeadless = process.env['GEMINI_CLI_WORKSPACE_HEADLESS'] === 'true' ||
+            process.env['GEMINI_CLI_WORKSPACE_HEADLESS'] === '1';
+        if (isHeadless) {
+            const port = process.env['OAUTH_CALLBACK_PORT'] || 'dynamically assigned';
+            console.error(`\n[Headless Mode] If you are on a remote instance, ensure port ${port} is forwarded to your local machine.`);
+            console.error(`Example: ssh -L ${port}:localhost:${port} your-remote-host\n`);
+        }
+
         await open(webLogin.authUrl);
         console.error('Waiting for authentication...');
 
@@ -275,13 +285,19 @@ export class AuthManager {
 
         const isGuiAvailable = shouldLaunchBrowser();
 
+        // GEMINI_CLI_WORKSPACE_HEADLESS: Don't launch browser, but still use callback server for redirect
+        // This enables headless/VM environments with port-forwarding to work
+        const isMcpHeadless = process.env['GEMINI_CLI_WORKSPACE_HEADLESS'] === 'true' || process.env['GEMINI_CLI_WORKSPACE_HEADLESS'] === '1';
+        const useCallbackServer = isGuiAvailable || isMcpHeadless;
+
         // SECURITY: Generate a random token for CSRF protection.
         const csrfToken = crypto.randomBytes(32).toString('hex');
 
         // The state now contains a JSON payload indicating the flow mode and CSRF token.
+        // When using callback server (GUI mode or MCP_HEADLESS), include the URI and set manual: false
         const statePayload = {
-            uri: isGuiAvailable ? localRedirectUri : undefined,
-            manual: !isGuiAvailable,
+            uri: useCallbackServer ? localRedirectUri : undefined,
+            manual: !useCallbackServer,
             csrf: csrfToken,
         };
         const state = Buffer.from(JSON.stringify(statePayload)).toString('base64');

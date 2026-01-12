@@ -192,6 +192,12 @@ export async function openBrowserSecurely(
  * @returns True if the tool should attempt to launch a browser
  */
 export function shouldLaunchBrowser(): boolean {
+  // GEMINI_CLI_WORKSPACE_HEADLESS: Skip browser launch but still use callback server for OAuth redirect
+  // This is useful for headless/VM environments with port-forwarding
+  if (process.env.GEMINI_CLI_WORKSPACE_HEADLESS === 'true' || process.env.GEMINI_CLI_WORKSPACE_HEADLESS === '1') {
+    return false;
+  }
+
   // A list of browser names that indicate we should not attempt to open a
   // web browser for the user.
   const browserBlocklist = ['www-browser'];

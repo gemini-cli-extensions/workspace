@@ -183,16 +183,40 @@ async function handleCallback(req, res) {
 
             <div class="instructions">
               <h4>Keychain Storage Instructions:</h4>
-              <ol>
-                <li>Open your OS Keychain/Credential Manager.</li>
-                <li>Create a new secure entry (e.g., a "Generic Password" on macOS, a "Windows Credential", or similar on Linux).</li>
-                <li>Set the **Service** (or equivalent field) to: <code>${KEYCHAIN_SERVICE_NAME}</code></li>
-                <li>Set the **Account** (or username field) to: <code>${KEYCHAIN_ACCOUNT_NAME}</code></li>
-                <li>Paste the copied JSON into the **Password/Secret** field.</li>
-                <li>Save the entry.</li>
-              </ol>
-              <p>Your local MCP server will now be able to find and use these credentials automatically.</p>
-              <p><small>(If keychain is unavailable, the server falls back to an encrypted file, but keychain is recommended.)</small></p>
+
+              <details open>
+                <summary><strong>Linux (CLI / Remote VM)</strong></summary>
+                <p>Run this command in your terminal, then paste the JSON and press <code>Ctrl+D</code>:</p>
+                <pre>secret-tool store --label="Gemini Workspace OAuth" service ${KEYCHAIN_SERVICE_NAME} username ${KEYCHAIN_ACCOUNT_NAME}</pre>
+                <p><small>Note: Requires <code>libsecret-tools</code>. Install with: <code>sudo apt install libsecret-tools</code></small></p>
+              </details>
+
+              <details>
+                <summary><strong>macOS</strong></summary>
+                <ol>
+                  <li>Open <strong>Keychain Access</strong> (Applications → Utilities).</li>
+                  <li>Click <strong>File → New Password Item</strong>.</li>
+                  <li>Set <strong>Keychain Item Name</strong> to: <code>${KEYCHAIN_SERVICE_NAME}</code></li>
+                  <li>Set <strong>Account Name</strong> to: <code>${KEYCHAIN_ACCOUNT_NAME}</code></li>
+                  <li>Paste the JSON into the <strong>Password</strong> field.</li>
+                  <li>Click <strong>Add</strong>.</li>
+                </ol>
+              </details>
+              
+              <details>
+                <summary><strong>Windows</strong></summary>
+                <ol>
+                  <li>Open <strong>Credential Manager</strong> (search in Start menu).</li>
+                  <li>Select <strong>Windows Credentials</strong> → <strong>Add a generic credential</strong>.</li>
+                  <li>Set <strong>Internet or network address</strong> to: <code>${KEYCHAIN_SERVICE_NAME}</code></li>
+                  <li>Set <strong>User name</strong> to: <code>${KEYCHAIN_ACCOUNT_NAME}</code></li>
+                  <li>Paste the JSON into the <strong>Password</strong> field.</li>
+                  <li>Click <strong>OK</strong>.</li>
+                </ol>
+              </details>
+
+              <p style="margin-top: 1rem;">After storing, <strong>restart your MCP server</strong>. It will automatically find and use the credentials.</p>
+              <p><small>(If keychain is unavailable, set <code>GEMINI_CLI_WORKSPACE_FORCE_FILE_STORAGE=true</code> to use encrypted file storage.)</small></p>
             </div>
           </div>
 
