@@ -40,4 +40,4 @@ release/
 
 # VitePress
 docs/.vitepress/dist
-docs/.vitepress/cache
+docs/.vitepress/cachePR.md
