@@ -672,6 +672,17 @@ There are a list of system labels that can be modified on a message:
         gmailService.listLabels
     );
 
+    server.registerTool(
+        "gmail.createLabel",
+        {
+            description: 'Create a new Gmail label. Labels help organize emails into categories.',
+            inputSchema: {
+                name: z.string().describe('The display name of the label.'),
+            }
+        },
+        gmailService.createLabel
+    );
+
     // Time tools
     server.registerTool(
         "time.getCurrentDate",
