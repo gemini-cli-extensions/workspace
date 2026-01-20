@@ -396,29 +396,108 @@ async function main() {
     server.registerTool(
         "calendar.listEvents",
         {
-            description: 'Lists events from a specific calendar. Results are paginated.',
+            description: 'Lists events from a calendar. Defaults to upcoming events.',
             inputSchema: {
                 calendarId: z.string().describe('The ID of the calendar to list events from.'),
-                timeMin: z.string().optional().describe('Start of the time range in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z).'),
-                timeMax: z.string().optional().describe('End of the time range in strict ISO 8601 format with seconds and timezone.'),
-                maxResults: z.number().optional().describe('The maximum number of events to return.'),
-                pageToken: z.string().optional().describe('The token for the next page of results.'),
+                timeMin: z.string().optional().describe('The start time for the event search. Defaults to the current time.'),
+                timeMax: z.string().optional().describe('The end time for the event search.'),
+                attendeeResponseStatus: z.array(z.string()).optional().describe('The response status of the attendee.'),
             }
         },
         calendarService.listEvents
     );
 
-    // Chat tools
+    server.registerTool(
+        "calendar.getEvent",
+        {
+            description: 'Gets the details of a specific calendar event.',
+            inputSchema: {
+                eventId: z.string().describe('The ID of the event to retrieve.'),
+                calendarId: z.string().optional().describe('The ID of the calendar the event belongs to. Defaults to the primary calendar.'),
+            }
+        },
+        calendarService.getEvent
+    );
+
+    server.registerTool(
+        "calendar.findFreeTime",
+        {
+            description: 'Finds a free time slot for multiple people to meet.',
+            inputSchema: {
+                attendees: z.array(z.string()).describe('The email addresses of the attendees.'),
+                timeMin: z.string().describe('The start time for the search in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T09:00:00Z or 2024-01-15T09:00:00-05:00).'),
+                timeMax: z.string().describe('The end time for the search in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T18:00:00Z or 2024-01-15T18:00:00-05:00).'),
+                duration: z.number().describe('The duration of the meeting in minutes.'),
+            }
+        },
+        calendarService.findFreeTime
+    );
+
+    server.registerTool(
+        "calendar.updateEvent",
+        {
+            description: 'Updates an existing event in a calendar.',
+            inputSchema: {
+                eventId: z.string().describe('The ID of the event to update.'),
+                calendarId: z.string().optional().describe('The ID of the calendar to update the event in.'),
+                summary: z.string().optional().describe('The new summary or title of the event.'),
+                start: z.object({
+                    dateTime: z.string().describe('The new start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).'),
+                }).optional(),
+                end: z.object({
+                    dateTime: z.string().describe('The new end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00).'),
+                }).optional(),
+                attendees: z.array(z.string()).optional().describe('The new list of attendees for the event.'),
+            }
+        },
+        calendarService.updateEvent
+    );
+
+    server.registerTool(
+        "calendar.respondToEvent",
+        {
+            description: 'Responds to a meeting invitation (accept, decline, or tentative).',
+            inputSchema: {
+                eventId: z.string().describe('The ID of the event to respond to.'),
+                calendarId: z.string().optional().describe('The ID of the calendar containing the event.'),
+                responseStatus: z.enum(['accepted', 'declined', 'tentative']).describe('Your response to the invitation.'),
+                sendNotification: z.boolean().optional().describe('Whether to send a notification to the organizer (default: true).'),
+                responseMessage: z.string().optional().describe('Optional message to include with your response.'),
+            }
+        },
+        calendarService.respondToEvent
+    );
+
+    server.registerTool(
+        "calendar.deleteEvent",
+        {
+            description: 'Deletes an event from a calendar.',
+            inputSchema: {
+                eventId: z.string().describe('The ID of the event to delete.'),
+                calendarId: z.string().optional().describe('The ID of the calendar to delete the event from. Defaults to the primary calendar.'),
+            }
+        },
+        calendarService.deleteEvent
+    );
+
     server.registerTool(
         "chat.listSpaces",
         {
-            description: 'Lists Google Chat spaces (rooms and DMs) the user has access to.',
-            inputSchema: {
-                pageSize: z.number().optional().describe('The maximum number of spaces to return.'),
-                pageToken: z.string().optional().describe('The token for the next page of results.'),
-            }
+            description: 'Lists the spaces the user is a member of.',
+            inputSchema: {}
         },
         chatService.listSpaces
+    );
+
+    server.registerTool(
+        "chat.findSpaceByName",
+        {
+            description: 'Finds a Google Chat space by its display name.',
+            inputSchema: {
+                displayName: z.string().describe('The display name of the space to find.'),
+            }
+        },
+        chatService.findSpaceByName
     );
 
     server.registerTool(
