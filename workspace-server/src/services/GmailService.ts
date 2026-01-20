@@ -517,6 +517,9 @@ export class GmailService {
                     backgroundColor,
                     textColor
                 };
+            } else if (backgroundColor || textColor) {
+                // If only one color is provided, throw an error
+                throw new Error('To set a label color, both backgroundColor and textColor must be provided.');
             }
 
             const response = await gmail.users.labels.create({
@@ -572,7 +575,11 @@ export class GmailService {
             if (messageListVisibility !== undefined) {
                 requestBody.messageListVisibility = messageListVisibility;
             }
+            // Gmail API requires both colors to be provided when updating label color
             if (backgroundColor !== undefined || textColor !== undefined) {
+                if (backgroundColor === undefined || textColor === undefined) {
+                    throw new Error('To update a label color, both backgroundColor and textColor must be provided.');
+                }
                 requestBody.color = {
                     backgroundColor,
                     textColor
