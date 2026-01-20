@@ -290,15 +290,27 @@ async function main() {
 
     // Sheets tools
     server.registerTool(
-        "sheets.getData",
+        "sheets.getText",
         {
-            description: 'Retrieves data from a Google Sheets spreadsheet.',
+            description: 'Retrieves the content of a Google Sheets spreadsheet.',
             inputSchema: {
                 spreadsheetId: z.string().describe('The ID or URL of the spreadsheet to read.'),
-                range: z.string().optional().describe('The A1 notation range to read (e.g., "Sheet1!A1:D10"). If not provided, reads the entire first sheet.'),
+                format: z.enum(['text', 'csv', 'json']).optional().describe('Output format (default: text).'),
             }
         },
-        sheetsService.getData
+        sheetsService.getText
+    );
+
+    server.registerTool(
+        "sheets.getRange",
+        {
+            description: 'Gets values from a specific range in a Google Sheets spreadsheet.',
+            inputSchema: {
+                spreadsheetId: z.string().describe('The ID or URL of the spreadsheet.'),
+                range: z.string().describe('The A1 notation range to get (e.g., "Sheet1!A1:B10").'),
+            }
+        },
+        sheetsService.getRange
     );
 
     server.registerTool(
@@ -317,7 +329,7 @@ async function main() {
     server.registerTool(
         "sheets.getMetadata",
         {
-            description: 'Gets metadata about a Google Sheets spreadsheet, including sheet names and properties.',
+            description: 'Gets metadata about a Google Sheets spreadsheet.',
             inputSchema: {
                 spreadsheetId: z.string().describe('The ID or URL of the spreadsheet.'),
             }
@@ -325,79 +337,75 @@ async function main() {
         sheetsService.getMetadata
     );
 
-    // Calendar tools
     server.registerTool(
-        "calendar.list",
+        "drive.search",
         {
-            description: 'Lists calendars available in the user\'s account. This can be used to get calendars and their IDs in preparation for using other calendar tools.',
-            inputSchema: {}
+            description: 'Searches for files and folders in Google Drive. The query can be a simple search term, a Google Drive URL, or a full query string. For more information on query strings see: https://developers.google.com/drive/api/guides/search-files',
+            inputSchema: {
+                query: z.string().optional().describe('A simple search term (e.g., "Budget Q3"), a Google Drive URL, or a full query string (e.g., "name contains \'Budget\' and owners in \'user@example.com\'").'),
+                pageSize: z.number().optional().describe('The maximum number of results to return.'),
+                pageToken: z.string().optional().describe('The token for the next page of results.'),
+                corpus: z.string().optional().describe('The corpus of files to search (e.g., "user", "domain").'),
+                unreadOnly: z.boolean().optional().describe('Whether to filter for unread files only.'),
+                sharedWithMe: z.boolean().optional().describe('Whether to search for files shared with the user.'),
+            }
         },
-        calendarService.list
+        driveService.search
     );
 
     server.registerTool(
-        "calendar.getEvents",
+        "drive.downloadFile",
         {
-            description: 'Gets events from a calendar. Filters by time range and search query.',
+            description: 'Downloads the content of a file from Google Drive to a local path. Note: Google Docs, Sheets, and Slides require specialized handling.',
             inputSchema: {
-                calendarId: z.string().optional().describe('The calendar ID. Defaults to "primary" (the user\'s main calendar).'),
-                timeMin: z.string().optional().describe('Start of the time range (RFC3339 timestamp, e.g., "2024-01-01T00:00:00Z"). Defaults to now.'),
-                timeMax: z.string().optional().describe('End of the time range (RFC3339 timestamp). Defaults to 7 days from now.'),
-                q: z.string().optional().describe('Free-text search query to filter events.'),
-                maxResults: z.number().optional().describe('Maximum number of events to return. Defaults to 10.'),
-                singleEvents: z.boolean().optional().describe('Whether to expand recurring events. Defaults to true.'),
+                fileId: z.string().describe('The ID of the file to download.'),
+                localPath: z.string().describe('The local file path where the content should be saved (e.g., "downloads/report.pdf").'),
             }
         },
-        calendarService.getEvents
+        driveService.downloadFile
+    );
+
+    server.registerTool(
+        "calendar.list",
+        {
+            description: 'Lists all of the user\'s calendars.',
+            inputSchema: {}
+        },
+        calendarService.listCalendars
     );
 
     server.registerTool(
         "calendar.createEvent",
         {
-            description: 'Creates a new event on a calendar.',
+            description: 'Creates a new event in a calendar.',
             inputSchema: {
-                calendarId: z.string().optional().describe('The calendar ID. Defaults to "primary".'),
-                summary: z.string().describe('The title of the event.'),
-                description: z.string().optional().describe('The description of the event.'),
-                location: z.string().optional().describe('The location of the event.'),
-                start: z.string().describe('Start time (RFC3339 timestamp, e.g., "2024-01-15T10:00:00-05:00").'),
-                end: z.string().describe('End time (RFC3339 timestamp).'),
-                attendees: z.array(z.string()).optional().describe('Email addresses of attendees.'),
-                timeZone: z.string().optional().describe('Timezone for the event (e.g., "America/New_York"). Defaults to UTC.'),
+                calendarId: z.string().describe('The ID of the calendar to create the event in.'),
+                summary: z.string().describe('The summary or title of the event.'),
+                start: z.object({
+                    dateTime: z.string().describe('The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).'),
+                }),
+                end: z.object({
+                    dateTime: z.string().describe('The end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00).'),
+                }),
+                attendees: z.array(z.string()).optional().describe('The email addresses of the attendees.'),
             }
         },
         calendarService.createEvent
     );
 
     server.registerTool(
-        "calendar.updateEvent",
+        "calendar.listEvents",
         {
-            description: 'Updates an existing event on a calendar.',
+            description: 'Lists events from a specific calendar. Results are paginated.',
             inputSchema: {
-                calendarId: z.string().optional().describe('The calendar ID. Defaults to "primary".'),
-                eventId: z.string().describe('The ID of the event to update.'),
-                summary: z.string().optional().describe('The new title of the event.'),
-                description: z.string().optional().describe('The new description of the event.'),
-                location: z.string().optional().describe('The new location of the event.'),
-                start: z.string().optional().describe('New start time (RFC3339 timestamp).'),
-                end: z.string().optional().describe('New end time (RFC3339 timestamp).'),
-                attendees: z.array(z.string()).optional().describe('New list of attendee email addresses.'),
-                timeZone: z.string().optional().describe('Timezone for the event.'),
+                calendarId: z.string().describe('The ID of the calendar to list events from.'),
+                timeMin: z.string().optional().describe('Start of the time range in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z).'),
+                timeMax: z.string().optional().describe('End of the time range in strict ISO 8601 format with seconds and timezone.'),
+                maxResults: z.number().optional().describe('The maximum number of events to return.'),
+                pageToken: z.string().optional().describe('The token for the next page of results.'),
             }
         },
-        calendarService.updateEvent
-    );
-
-    server.registerTool(
-        "calendar.deleteEvent",
-        {
-            description: 'Deletes an event from a calendar.',
-            inputSchema: {
-                calendarId: z.string().optional().describe('The calendar ID. Defaults to "primary".'),
-                eventId: z.string().describe('The ID of the event to delete.'),
-            }
-        },
-        calendarService.deleteEvent
+        calendarService.listEvents
     );
 
     // Chat tools
@@ -406,7 +414,7 @@ async function main() {
         {
             description: 'Lists Google Chat spaces (rooms and DMs) the user has access to.',
             inputSchema: {
-                pageSize: z.number().optional().describe('The maximum number of spaces to return. Defaults to 100.'),
+                pageSize: z.number().optional().describe('The maximum number of spaces to return.'),
                 pageToken: z.string().optional().describe('The token for the next page of results.'),
             }
         },
@@ -615,13 +623,14 @@ Valid background colors: #000000, #434343, #666666, #999999, #cccccc, #efefef, #
 #e66550, #ffbc6b, #fcda83, #44b984, #68dfa9, #6d9eeb, #b694e8, #f7a7c0,
 #cc3a21, #eaa041, #f2c960, #149e60, #3dc789, #3c78d8, #8e63ce, #e07798,
 #ac2b16, #cf8933, #d5ae49, #0b804b, #2a9c68, #285bac, #653e9b, #b65775,
-#822111, #a46a21, #aa8831, #076239, #1a764d, #1c4587, #41236d, #83334c`,
+#822111, #a46a21, #aa8831, #076239, #1a764d, #1c4587, #41236d, #83334c
+Note: Both backgroundColor and textColor must be provided together when setting colors.`,
             inputSchema: {
                 name: z.string().describe('The display name of the label.'),
                 labelListVisibility: labelListVisibilitySchema.optional(),
                 messageListVisibility: messageListVisibilitySchema.optional(),
-                backgroundColor: z.string().optional().describe('Background color hex code (e.g., "#16a765"). Must be from Gmail\'s valid color palette.'),
-                textColor: z.string().optional().describe('Text color hex code (e.g., "#ffffff"). Must be from Gmail\'s valid color palette.'),
+                backgroundColor: z.string().optional().describe('Background color hex code (e.g., "#16a765"). Must provide textColor as well.'),
+                textColor: z.string().optional().describe('Text color hex code (e.g., "#ffffff"). Must provide backgroundColor as well.'),
             }
         },
         gmailService.createLabel
@@ -630,14 +639,14 @@ Valid background colors: #000000, #434343, #666666, #999999, #cccccc, #efefef, #
     server.registerTool(
         "gmail.updateLabel",
         {
-            description: 'Update an existing Gmail label. Can modify name, visibility settings, and colors. Only user-created labels can be updated (not system labels like INBOX, SENT, etc.).',
+            description: 'Update an existing Gmail label. Can modify name, visibility settings, and colors. Only user-created labels can be updated (not system labels like INBOX, SENT, etc.). Note: Both backgroundColor and textColor must be provided together when updating colors.',
             inputSchema: {
                 labelId: z.string().describe('The ID of the label to update.'),
                 name: z.string().optional().describe('New display name for the label.'),
                 labelListVisibility: labelListVisibilitySchema.optional(),
                 messageListVisibility: messageListVisibilitySchema.optional(),
-                backgroundColor: z.string().optional().describe('New background color hex code.'),
-                textColor: z.string().optional().describe('New text color hex code.'),
+                backgroundColor: z.string().optional().describe('New background color hex code. Must provide textColor as well.'),
+                textColor: z.string().optional().describe('New text color hex code. Must provide backgroundColor as well.'),
             }
         },
         gmailService.updateLabel
