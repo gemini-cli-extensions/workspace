@@ -31,6 +31,27 @@ interface GmailAttachment {
     size: number | null | undefined;
 }
 
+// Type definitions for label parameters
+type LabelVisibility = 'labelShow' | 'labelShowIfUnread' | 'labelHide';
+type MessageListVisibility = 'show' | 'hide';
+
+interface CreateLabelParams {
+    name: string;
+    labelListVisibility?: LabelVisibility;
+    messageListVisibility?: MessageListVisibility;
+    backgroundColor?: string;
+    textColor?: string;
+}
+
+interface UpdateLabelParams {
+    labelId: string;
+    name?: string;
+    labelListVisibility?: LabelVisibility;
+    messageListVisibility?: MessageListVisibility;
+    backgroundColor?: string;
+    textColor?: string;
+}
+
 export class GmailService {
     constructor(private authManager: AuthManager) {
     }
@@ -433,6 +454,185 @@ export class GmailService {
             };
         } catch (error) {
             return this.handleError(error, 'gmail.listLabels');
+        }
+    }
+
+    public getLabel = async ({ labelId }: { labelId: string }) => {
+        try {
+            logToFile(`Getting Gmail label: ${labelId}`);
+            
+            const gmail = await this.getGmailClient();
+            const response = await gmail.users.labels.get({
+                userId: 'me',
+                id: labelId
+            });
+
+            const label = response.data;
+            
+            logToFile(`Retrieved label: ${label.name}`);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        id: label.id,
+                        name: label.name,
+                        type: label.type,
+                        messageListVisibility: label.messageListVisibility,
+                        labelListVisibility: label.labelListVisibility,
+                        messagesTotal: label.messagesTotal,
+                        messagesUnread: label.messagesUnread,
+                        threadsTotal: label.threadsTotal,
+                        threadsUnread: label.threadsUnread,
+                        color: label.color
+                    }, null, 2)
+                }]
+            };
+        } catch (error) {
+            return this.handleError(error, 'gmail.getLabel');
+        }
+    }
+
+    public createLabel = async ({
+        name,
+        labelListVisibility = 'labelShow',
+        messageListVisibility = 'show',
+        backgroundColor,
+        textColor
+    }: CreateLabelParams) => {
+        try {
+            logToFile(`Creating Gmail label: ${name}`);
+            
+            const gmail = await this.getGmailClient();
+            
+            const requestBody: gmail_v1.Schema$Label = {
+                name,
+                labelListVisibility,
+                messageListVisibility,
+            };
+
+            // Only add color if both background and text colors are provided
+            if (backgroundColor && textColor) {
+                requestBody.color = {
+                    backgroundColor,
+                    textColor
+                };
+            }
+
+            const response = await gmail.users.labels.create({
+                userId: 'me',
+                requestBody
+            });
+
+            const label = response.data;
+            
+            logToFile(`Created label: ${label.name} with id: ${label.id}`);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        id: label.id,
+                        name: label.name,
+                        type: label.type,
+                        messageListVisibility: label.messageListVisibility,
+                        labelListVisibility: label.labelListVisibility,
+                        color: label.color,
+                        status: 'created'
+                    }, null, 2)
+                }]
+            };
+        } catch (error) {
+            return this.handleError(error, 'gmail.createLabel');
+        }
+    }
+
+    public updateLabel = async ({
+        labelId,
+        name,
+        labelListVisibility,
+        messageListVisibility,
+        backgroundColor,
+        textColor
+    }: UpdateLabelParams) => {
+        try {
+            logToFile(`Updating Gmail label: ${labelId}`);
+            
+            const gmail = await this.getGmailClient();
+            
+            const requestBody: gmail_v1.Schema$Label = {};
+
+            // Only include fields that are provided
+            if (name !== undefined) {
+                requestBody.name = name;
+            }
+            if (labelListVisibility !== undefined) {
+                requestBody.labelListVisibility = labelListVisibility;
+            }
+            if (messageListVisibility !== undefined) {
+                requestBody.messageListVisibility = messageListVisibility;
+            }
+            if (backgroundColor !== undefined || textColor !== undefined) {
+                requestBody.color = {
+                    backgroundColor,
+                    textColor
+                };
+            }
+
+            const response = await gmail.users.labels.patch({
+                userId: 'me',
+                id: labelId,
+                requestBody
+            });
+
+            const label = response.data;
+            
+            logToFile(`Updated label: ${label.name}`);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        id: label.id,
+                        name: label.name,
+                        type: label.type,
+                        messageListVisibility: label.messageListVisibility,
+                        labelListVisibility: label.labelListVisibility,
+                        color: label.color,
+                        status: 'updated'
+                    }, null, 2)
+                }]
+            };
+        } catch (error) {
+            return this.handleError(error, 'gmail.updateLabel');
+        }
+    }
+
+    public deleteLabel = async ({ labelId }: { labelId: string }) => {
+        try {
+            logToFile(`Deleting Gmail label: ${labelId}`);
+            
+            const gmail = await this.getGmailClient();
+            
+            await gmail.users.labels.delete({
+                userId: 'me',
+                id: labelId
+            });
+            
+            logToFile(`Deleted label: ${labelId}`);
+
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: JSON.stringify({
+                        labelId,
+                        status: 'deleted',
+                        message: `Label ${labelId} has been successfully deleted.`
+                    }, null, 2)
+                }]
+            };
+        } catch (error) {
+            return this.handleError(error, 'gmail.deleteLabel');
         }
     }
 
