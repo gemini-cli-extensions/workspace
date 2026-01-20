@@ -19,6 +19,8 @@ import { TimeService } from "./services/TimeService";
 import { PeopleService } from "./services/PeopleService";
 import { SlidesService } from "./services/SlidesService";
 import { SheetsService } from "./services/SheetsService";
+import { KeepService } from "./services/KeepService";
+
 import { GMAIL_SEARCH_MAX_RESULTS } from "./utils/constants";
 import { extractDocId } from "./utils/IdUtils";
 
@@ -46,7 +48,9 @@ const SCOPES = [
     'https://www.googleapis.com/auth/directory.readonly',
     'https://www.googleapis.com/auth/presentations.readonly',
     'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/keep.readonly',
 ];
+
 
 // Dynamically import version from package.json
 import { version } from '../package.json';
@@ -70,6 +74,8 @@ async function main() {
     const timeService = new TimeService();
     const slidesService = new SlidesService(authManager);
     const sheetsService = new SheetsService(authManager);
+    const keepService = new KeepService(authManager);
+
 
     // 2. Create the server instance
     const server = new McpServer({
@@ -559,15 +565,15 @@ async function main() {
     );
 
     server.registerTool(
-      'chat.setUpSpace',
-      {
-        description: 'Sets up a new Google Chat space with a display name and a list of members.',
-        inputSchema: {
-            displayName: z.string().describe('The display name of the space.'),
-            userNames: z.array(z.string()).describe('The user names of the members to add to the space (e.g. users/12345678)'),
-        }
-      },
-      chatService.setUpSpace
+        'chat.setUpSpace',
+        {
+            description: 'Sets up a new Google Chat space with a display name and a list of members.',
+            inputSchema: {
+                displayName: z.string().describe('The display name of the space.'),
+                userNames: z.array(z.string()).describe('The user names of the members to add to the space (e.g. users/12345678)'),
+            }
+        },
+        chatService.setUpSpace
     );
 
 
@@ -735,10 +741,36 @@ There are a list of system labels that can be modified on a message:
         peopleService.getUserRelations
     );
 
+    // Keep tools
+    server.registerTool(
+        "keep.list",
+        {
+            description: 'Lists Google Keep notes. Note: Every list call returns a page of results. If there are more notes, it provides a nextPageToken.',
+            inputSchema: {
+                filter: z.string().optional().describe('Filter for list results (e.g., "trashed=true").'),
+                pageSize: z.number().optional().describe('The maximum number of results to return.'),
+                pageToken: z.string().optional().describe('The token for the next page of results.'),
+            }
+        },
+        keepService.listNotes
+    );
+
+    server.registerTool(
+        "keep.get",
+        {
+            description: 'Gets a specific Google Keep note by name (ID).',
+            inputSchema: {
+                name: z.string().describe('The name of the note to retrieve (e.g., "notes/abc123").'),
+            }
+        },
+        keepService.getNote
+    );
+
+
     // 4. Connect the transport layer and start listening
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    
+
     console.error("Google Workspace MCP Server is running (registerTool). Listening for requests...");
 }
 
