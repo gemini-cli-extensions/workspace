@@ -667,60 +667,32 @@ describe('DriveService', () => {
       expect(responseData.files).toEqual(mockFiles);
     });
 
-        it('should not wrap a valid query in full-text search', async () => {
+    it('should not wrap a valid query in full-text search', async () => {
+      const mockFiles = [
+        { id: 'file1', name: 'My File.pdf', mimeType: 'application/pdf' },
+      ];
 
-          const mockFiles = [
+      mockDriveAPI.files.list.mockResolvedValue({
+        data: {
+          files: mockFiles,
+        },
+      });
 
-            { id: 'file1', name: 'My File.pdf', mimeType: 'application/pdf' },
+      const result = await driveService.search({
+        query: "'me' in owners",
+        pageSize: 10,
+      });
+      expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
+        q: "'me' in owners",
+        pageSize: 10,
+        pageToken: undefined,
+        corpus: undefined,
+        fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+      });
 
-          ];
-
-    
-
-          mockDriveAPI.files.list.mockResolvedValue({
-
-            data: {
-
-              files: mockFiles,
-
-            },
-
-          });
-
-    
-
-          const result = await driveService.search({
-
-            query: "'me' in owners",
-
-            pageSize: 10,
-
-          });
-
-    
-
-          expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
-
-            q: "'me' in owners",
-
-            pageSize: 10,
-
-            pageToken: undefined,
-
-            corpus: undefined,
-
-            fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
-
-          });
-
-    
-
-          const responseData = JSON.parse(result.content[0].text);
-
-          expect(responseData.files).toEqual(mockFiles);
-
-        });
-
+      const responseData = JSON.parse(result.content[0].text);
+      expect(responseData.files).toEqual(mockFiles);
+    });
   });
 
   describe('downloadFile', () => {
