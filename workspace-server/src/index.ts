@@ -373,6 +373,7 @@ async function main() {
             inputSchema: {
                 calendarId: z.string().describe('The ID of the calendar to create the event in.'),
                 summary: z.string().describe('The summary or title of the event.'),
+                description: z.string().optional().describe('The description of the event.'),
                 start: z.object({
                     dateTime: z.string().describe('The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).'),
                 }),
@@ -433,6 +434,7 @@ async function main() {
                 eventId: z.string().describe('The ID of the event to update.'),
                 calendarId: z.string().optional().describe('The ID of the calendar to update the event in.'),
                 summary: z.string().optional().describe('The new summary or title of the event.'),
+                description: z.string().optional().describe('The new description of the event.'),
                 start: z.object({
                     dateTime: z.string().describe('The new start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).'),
                 }).optional(),

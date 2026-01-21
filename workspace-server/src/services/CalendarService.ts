@@ -89,8 +89,8 @@ export class CalendarService {
     }
   }
 
-  createEvent = async (input: { calendarId?: string, summary: string, start: { dateTime: string }, end: { dateTime: string }, attendees?: string[] }) => {
-    const { calendarId, summary, start, end, attendees } = input;
+  createEvent = async (input: { calendarId?: string, summary: string, description?: string, start: { dateTime: string }, end: { dateTime: string }, attendees?: string[] }) => {
+    const { calendarId, summary, description, start, end, attendees } = input;
     
     // Validate datetime formats
     try {
@@ -106,12 +106,14 @@ export class CalendarService {
     const finalCalendarId = calendarId || await this.getPrimaryCalendarId();
     logToFile(`Creating event in calendar: ${finalCalendarId}`);
     logToFile(`Event summary: ${summary}`);
+    if (description) logToFile(`Event description: ${description}`);
     logToFile(`Event start: ${start.dateTime}`);
     logToFile(`Event end: ${end.dateTime}`);
     logToFile(`Event attendees: ${attendees?.join(', ')}`);
     try {
       const event = {
         summary,
+        description,
         start,
         end,
         attendees: attendees?.map(email => ({ email }))
@@ -257,8 +259,8 @@ export class CalendarService {
     }
   }
 
-  updateEvent = async (input: { eventId: string, calendarId?: string, summary?: string, start?: { dateTime: string }, end?: { dateTime: string }, attendees?: string[] }) => {
-    const { eventId, calendarId, summary, start, end, attendees } = input;
+  updateEvent = async (input: { eventId: string, calendarId?: string, summary?: string, description?: string, start?: { dateTime: string }, end?: { dateTime: string }, attendees?: string[] }) => {
+    const { eventId, calendarId, summary, description, start, end, attendees } = input;
 
     // Validate datetime formats if provided
     try {
@@ -284,6 +286,7 @@ export class CalendarService {
       // Build request body with only the fields to update (patch semantics)
       const requestBody: calendar_v3.Schema$Event = {};
       if (summary !== undefined) requestBody.summary = summary;
+      if (description !== undefined) requestBody.description = description;
       if (start) requestBody.start = start;
       if (end) requestBody.end = end;
       if (attendees) requestBody.attendees = attendees.map(email => ({ email }));

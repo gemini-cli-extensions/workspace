@@ -192,6 +192,43 @@ describe('CalendarService', () => {
       expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
     });
 
+    it('should create a calendar event with a description', async () => {
+      const eventInput = {
+        calendarId: 'primary',
+        summary: 'Team Meeting',
+        description: 'Monthly strategy sync',
+        start: { dateTime: '2024-01-15T10:00:00-07:00' },
+        end: { dateTime: '2024-01-15T11:00:00-07:00' },
+      };
+
+      const mockCreatedEvent = {
+        id: 'event123',
+        summary: 'Team Meeting',
+        description: 'Monthly strategy sync',
+        start: eventInput.start,
+        end: eventInput.end,
+        status: 'confirmed',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.createEvent(eventInput);
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        requestBody: {
+          summary: 'Team Meeting',
+          description: 'Monthly strategy sync',
+          start: eventInput.start,
+          end: eventInput.end,
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
     it('should handle event creation errors', async () => {
       const eventInput = {
         calendarId: 'primary',
@@ -674,6 +711,31 @@ describe('CalendarService', () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult.id).toBe('event123');
       expect(parsedResult.summary).toBe('Updated Meeting');
+    });
+
+    it('should update an event with a description', async () => {
+      const updatedEvent = {
+        id: 'event123',
+        description: 'New updated description',
+      };
+
+      mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+
+      const result = await calendarService.updateEvent({
+        eventId: 'event123',
+        description: 'New updated description',
+      });
+
+      expect(mockCalendarAPI.events.update).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        eventId: 'event123',
+        requestBody: {
+          description: 'New updated description',
+        },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.description).toBe('New updated description');
     });
 
     it('should handle update errors', async () => {
