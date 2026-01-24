@@ -32,9 +32,14 @@ interface OauthWebLogin {
 export class AuthManager {
     private client: Auth.OAuth2Client | null = null;
     private scopes: string[];
+    private onStatusUpdate: ((message: string) => void) | null = null;
 
     constructor(scopes: string[]) {
         this.scopes = scopes;
+    }
+
+    public setOnStatusUpdate(callback: (message: string) => void) {
+        this.onStatusUpdate = callback;
     }
 
     private isTokenExpiringSoon(credentials: Auth.Credentials): boolean {
@@ -156,7 +161,11 @@ export class AuthManager {
 
         const webLogin = await this.authWithWeb(oAuth2Client);
         await open(webLogin.authUrl);
-        console.log('Waiting for authentication...');
+        const msg = 'Waiting for authentication... Check your browser.';
+        logToFile(msg);
+        if (this.onStatusUpdate) {
+            this.onStatusUpdate(msg);
+        }
 
         // Add timeout to prevent infinite waiting when browser tab gets stuck
         const authTimeout = 5 * 60 * 1000; // 5 minutes timeout
@@ -164,8 +173,8 @@ export class AuthManager {
         setTimeout(() => {
             reject(
             new Error(
-                'Authentication timed out after 5 minutes. The browser tab may have gotten stuck in a loading state. ' +
-                'Please try again.',
+                'User is not authenticated. Authentication timed out after 5 minutes. The user did not complete the login process in the browser. ' +
+                'Please ask the user to check their browser and try again.',
             ),
             );
         }, authTimeout);

@@ -59,7 +59,22 @@ async function main() {
 
     const authManager = new AuthManager(SCOPES);
     // Trigger auth flow immediately on startup
-    await authManager.getAuthenticatedClient();
+    // await authManager.getAuthenticatedClient();
+
+    // 2. Create the server instance
+    const server = new McpServer({
+        name: "google-workspace-server",
+        version,
+    });
+
+    authManager.setOnStatusUpdate((message) => {
+        server.sendLoggingMessage({
+            level: 'info',
+            data: message
+        }).catch(err => {
+            console.error('Failed to send logging message:', err);
+        });
+    });
 
     const driveService = new DriveService(authManager);
     const docsService = new DocsService(authManager, driveService);
@@ -71,12 +86,7 @@ async function main() {
     const slidesService = new SlidesService(authManager);
     const sheetsService = new SheetsService(authManager);
 
-    // 2. Create the server instance
-    const server = new McpServer({
-        name: "google-workspace-server",
-        version,
-    });
-
+    
     // 3. Register tools directly on the server
     server.registerTool(
         "auth.clear",
