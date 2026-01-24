@@ -58,8 +58,6 @@ async function main() {
     }
 
     const authManager = new AuthManager(SCOPES);
-    // Trigger auth flow immediately on startup
-    // await authManager.getAuthenticatedClient();
 
     // 2. Create the server instance
     const server = new McpServer({
