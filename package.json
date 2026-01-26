@@ -47,7 +47,7 @@
     "@types/dompurify": "^3.2.0",
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^27.0.0",
-    "@types/node": "^25.0.9",
+    "@types/node": "^25.0.10",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.0",
     "@vercel/ncc": "^0.38.3",
