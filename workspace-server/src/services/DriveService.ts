@@ -45,6 +45,8 @@ export class DriveService {
                 q: query,
                 fields: 'files(id, name)',
                 spaces: 'drive',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true,
             });
 
             const folders = res.data.files || [];
@@ -85,6 +87,7 @@ export class DriveService {
             const file = await drive.files.create({
                 requestBody: fileMetadata,
                 fields: 'id, name',
+                supportsAllDrives: true,
             });
 
             logToFile(`Created folder: ${file.data.name} (${file.data.id})`);
@@ -137,7 +140,11 @@ export class DriveService {
 
                 if (urlType === 'unknown') {
                     try {
-                        const file = await drive.files.get({ fileId, fields: 'mimeType' });
+                        const file = await drive.files.get({
+                            fileId,
+                            fields: 'mimeType',
+                            supportsAllDrives: true,
+                        });
                         if (file.data.mimeType === 'application/vnd.google-apps.folder') {
                             isFolder = true;
                         }
@@ -155,6 +162,7 @@ export class DriveService {
                         const res = await drive.files.get({
                             fileId: fileId,
                             fields: 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
+                            supportsAllDrives: true,
                         });
                         return {
                             content: [{
@@ -224,7 +232,7 @@ export class DriveService {
                 q = "sharedWithMe";
             }
         }
-        
+
         logToFile(`Executing Drive search with query: ${q}`);
         if (corpus) {
             logToFile(`Using corpus: ${corpus}`);
@@ -240,6 +248,8 @@ export class DriveService {
                 pageToken: pageToken,
                 corpus: corpus as 'user' | 'domain' | undefined,
                 fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true,
             });
 
             let files = res.data.files || [];
@@ -279,11 +289,12 @@ export class DriveService {
         logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
         try {
             const drive = await this.getDriveClient();
-            
+
             // 1. Check if it's a Google Doc (special handling required, export instead of download)
             const metadata = await drive.files.get({
                 fileId: fileId,
                 fields: 'id, name, mimeType',
+                supportsAllDrives: true,
             });
             const mimeType = metadata.data.mimeType || '';
 
@@ -304,7 +315,7 @@ export class DriveService {
             }
 
             if (mimeType.includes('vnd.google-apps.')) {
-                 return {
+                return {
                     content: [{
                         type: "text" as const,
                         text: `This is a Google Workspace file type (${mimeType}). Direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`
@@ -316,6 +327,7 @@ export class DriveService {
             const response = await drive.files.get({
                 fileId: fileId,
                 alt: 'media',
+                supportsAllDrives: true,
             }, { responseType: 'arraybuffer' });
 
             const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
@@ -323,7 +335,7 @@ export class DriveService {
             // 3. Save to localPath
             const absolutePath = path.isAbsolute(localPath) ? localPath : path.resolve(PROJECT_ROOT, localPath);
             const dir = path.dirname(absolutePath);
-            
+
             await fs.promises.mkdir(dir, { recursive: true });
 
             await fs.promises.writeFile(absolutePath, buffer);

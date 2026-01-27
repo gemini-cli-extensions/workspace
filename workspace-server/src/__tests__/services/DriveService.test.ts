@@ -101,6 +101,8 @@ describe('DriveService', () => {
         q: "mimeType='application/vnd.google-apps.folder' and name = 'TestFolder'",
         fields: 'files(id, name)',
         spaces: 'drive',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockFolders);
@@ -116,6 +118,10 @@ describe('DriveService', () => {
       const result = await driveService.findFolder({ folderName: 'NonExistentFolder' });
 
       expect(mockDriveAPI.files.list).toHaveBeenCalledTimes(1);
+      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(expect.objectContaining({
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      }));
       expect(JSON.parse(result.content[0].text)).toEqual([]);
     });
 
@@ -145,6 +151,7 @@ describe('DriveService', () => {
           mimeType: 'application/vnd.google-apps.folder',
         },
         fields: 'id, name',
+        supportsAllDrives: true,
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockFolder);
@@ -166,6 +173,7 @@ describe('DriveService', () => {
           parents: ['parent-id'],
         },
         fields: 'id, name',
+        supportsAllDrives: true,
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockFolder);
@@ -206,6 +214,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -237,6 +247,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -267,6 +279,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -296,6 +310,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -324,6 +340,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -351,6 +369,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -404,6 +424,8 @@ describe('DriveService', () => {
         pageToken: 'previous-token',
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
     });
 
@@ -425,6 +447,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: 'domain',
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
     });
 
@@ -454,6 +478,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
     });
 
@@ -479,6 +505,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -508,6 +536,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -529,6 +559,7 @@ describe('DriveService', () => {
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: 'file456',
         fields: 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
+        supportsAllDrives: true,
       });
       expect(mockDriveAPI.files.list).not.toHaveBeenCalled();
 
@@ -552,6 +583,7 @@ describe('DriveService', () => {
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: 'doc789',
         fields: 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
+        supportsAllDrives: true,
       });
       expect(mockDriveAPI.files.list).not.toHaveBeenCalled();
 
@@ -597,6 +629,7 @@ describe('DriveService', () => {
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: 'folder789',
         fields: 'mimeType',
+        supportsAllDrives: true,
       });
       expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
         q: "'folder789' in parents",
@@ -604,6 +637,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -627,10 +662,12 @@ describe('DriveService', () => {
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: 'file123',
         fields: 'mimeType',
+        supportsAllDrives: true,
       });
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: 'file123',
         fields: 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
+        supportsAllDrives: true,
       });
       expect(mockDriveAPI.files.list).not.toHaveBeenCalled();
 
@@ -661,6 +698,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -688,6 +727,8 @@ describe('DriveService', () => {
         pageToken: undefined,
         corpus: undefined,
         fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const responseData = JSON.parse(result.content[0].text);
@@ -704,12 +745,12 @@ describe('DriveService', () => {
 
       mockDriveAPI.files.get.mockImplementation((params: any) => {
         if (params.alt === 'media') {
-            return Promise.resolve({
-                data: mockBuffer,
-            });
+          return Promise.resolve({
+            data: mockBuffer,
+          });
         }
         return Promise.resolve({
-            data: { id: mockFileId, name: 'test.txt', mimeType: 'text/plain' },
+          data: { id: mockFileId, name: 'test.txt', mimeType: 'text/plain' },
         });
       });
 
@@ -718,10 +759,11 @@ describe('DriveService', () => {
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith({
         fileId: mockFileId,
         fields: 'id, name, mimeType',
+        supportsAllDrives: true,
       });
 
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
-        { fileId: mockFileId, alt: 'media' },
+        { fileId: mockFileId, alt: 'media', supportsAllDrives: true },
         { responseType: 'arraybuffer' }
       );
 
@@ -751,6 +793,58 @@ describe('DriveService', () => {
       const result = await driveService.downloadFile({ fileId: mockFileId, localPath: 'any' });
 
       expect(JSON.parse(result.content[0].text)).toEqual({ error: 'API Error' });
+    });
+  });
+
+  describe('Shared Drive Support', () => {
+    it('findFolder should include shared drive flags (currently fails to do so)', async () => {
+      mockDriveAPI.files.list.mockResolvedValue({ data: { files: [] } });
+
+      await driveService.findFolder({ folderName: 'SharedFolder' });
+
+      // This test is intended to fail until we add shared drive support
+      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(expect.objectContaining({
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      }));
+    });
+
+    it('search should include shared drive flags (currently fails to do so)', async () => {
+      mockDriveAPI.files.list.mockResolvedValue({ data: { files: [] } });
+
+      await driveService.search({ query: 'test' });
+
+      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(expect.objectContaining({
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true
+      }));
+    });
+
+    it('createFolder should include supportsAllDrives flag (currently fails to do so)', async () => {
+      mockDriveAPI.files.create.mockResolvedValue({ data: { id: 'new-id', name: 'new' } });
+
+      await driveService.createFolder({ name: 'New Folder', parentId: 'shared-drive-parent-id' });
+
+      expect(mockDriveAPI.files.create).toHaveBeenCalledWith(expect.objectContaining({
+        supportsAllDrives: true
+      }));
+    });
+
+    it('downloadFile should include supportsAllDrives flag for metadata and media (currently fails to do so)', async () => {
+      mockDriveAPI.files.get.mockResolvedValueOnce({ data: { mimeType: 'text/plain', name: 'test.txt' } });
+      mockDriveAPI.files.get.mockResolvedValueOnce({ data: { data: Buffer.from('content') } });
+
+      await driveService.downloadFile({ fileId: 'shared-file-id', localPath: 'test.txt' });
+
+      // First call for metadata
+      expect(mockDriveAPI.files.get).toHaveBeenNthCalledWith(1, expect.objectContaining({
+        supportsAllDrives: true
+      }));
+
+      // Second call for media
+      expect(mockDriveAPI.files.get).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        supportsAllDrives: true
+      }), expect.any(Object));
     });
   });
 });
