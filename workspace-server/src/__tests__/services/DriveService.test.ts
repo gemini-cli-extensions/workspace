@@ -745,12 +745,12 @@ describe('DriveService', () => {
 
       mockDriveAPI.files.get.mockImplementation((params: any) => {
         if (params.alt === 'media') {
-          return Promise.resolve({
-            data: mockBuffer,
-          });
+            return Promise.resolve({
+                data: mockBuffer,
+            });
         }
         return Promise.resolve({
-          data: { id: mockFileId, name: 'test.txt', mimeType: 'text/plain' },
+            data: { id: mockFileId, name: 'test.txt', mimeType: 'text/plain' },
         });
       });
 

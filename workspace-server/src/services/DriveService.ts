@@ -232,7 +232,7 @@ export class DriveService {
                 q = "sharedWithMe";
             }
         }
-
+        
         logToFile(`Executing Drive search with query: ${q}`);
         if (corpus) {
             logToFile(`Using corpus: ${corpus}`);
@@ -289,7 +289,7 @@ export class DriveService {
         logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
         try {
             const drive = await this.getDriveClient();
-
+            
             // 1. Check if it's a Google Doc (special handling required, export instead of download)
             const metadata = await drive.files.get({
                 fileId: fileId,
@@ -315,7 +315,7 @@ export class DriveService {
             }
 
             if (mimeType.includes('vnd.google-apps.')) {
-                return {
+                 return {
                     content: [{
                         type: "text" as const,
                         text: `This is a Google Workspace file type (${mimeType}). Direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`
@@ -335,7 +335,7 @@ export class DriveService {
             // 3. Save to localPath
             const absolutePath = path.isAbsolute(localPath) ? localPath : path.resolve(PROJECT_ROOT, localPath);
             const dir = path.dirname(absolutePath);
-
+            
             await fs.promises.mkdir(dir, { recursive: true });
 
             await fs.promises.writeFile(absolutePath, buffer);
