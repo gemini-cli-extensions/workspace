@@ -35,6 +35,9 @@ jobs:
     - name: Run linter
       run: npm run lint
     
+    - name: Run Prettier check
+      run: npm run format:check
+    
     - name: Run type checking
       run: npx tsc --noEmit --project workspace-server
     
