@@ -6,7 +6,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      dependencies:
+      npm-root:
         patterns:
           - "*"
     labels:
@@ -22,7 +22,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      dependencies:
+      npm-workspace-server:
         patterns:
           - "*"
     labels:
@@ -38,7 +38,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     groups:
-      dependencies:
+      github-actions:
         patterns:
           - "*"
     labels:
