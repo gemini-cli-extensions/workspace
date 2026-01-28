@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "npm"
@@ -17,6 +21,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "npm"
@@ -29,6 +37,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      dependencies:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "github-actions"
