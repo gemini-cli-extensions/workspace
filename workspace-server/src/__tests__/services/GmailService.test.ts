@@ -830,4 +830,86 @@ describe('GmailService', () => {
       expect(response.error).toBe('Failed to list labels');
     });
   });
+
+  describe('createLabel', () => {
+    it('should create a label with default visibility', async () => {
+      const mockLabel = {
+        id: 'Label_1',
+        name: 'Test Label',
+        type: 'user',
+        labelListVisibility: 'labelShow',
+        messageListVisibility: 'show',
+      };
+
+      mockGmailAPI.users.labels.create.mockResolvedValue({
+        data: mockLabel,
+      });
+
+      const result = await gmailService.createLabel({
+        name: 'Test Label',
+      });
+
+      expect(mockGmailAPI.users.labels.create).toHaveBeenCalledWith({
+        userId: 'me',
+        requestBody: {
+          name: 'Test Label',
+          labelListVisibility: 'labelShow',
+          messageListVisibility: 'show',
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response).toEqual({
+        ...mockLabel,
+        status: 'created',
+      });
+    });
+
+    it('should create a label with custom visibility settings', async () => {
+      const mockLabel = {
+        id: 'Label_2',
+        name: 'Hidden Label',
+        type: 'user',
+        labelListVisibility: 'labelHide',
+        messageListVisibility: 'hide',
+      };
+
+      mockGmailAPI.users.labels.create.mockResolvedValue({
+        data: mockLabel,
+      });
+
+      const result = await gmailService.createLabel({
+        name: 'Hidden Label',
+        labelListVisibility: 'labelHide',
+        messageListVisibility: 'hide',
+      });
+
+      expect(mockGmailAPI.users.labels.create).toHaveBeenCalledWith({
+        userId: 'me',
+        requestBody: {
+          name: 'Hidden Label',
+          labelListVisibility: 'labelHide',
+          messageListVisibility: 'hide',
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response).toEqual({
+        ...mockLabel,
+        status: 'created',
+      });
+    });
+
+    it('should handle create label errors', async () => {
+      const apiError = new Error('Label already exists');
+      mockGmailAPI.users.labels.create.mockRejectedValue(apiError);
+
+      const result = await gmailService.createLabel({
+        name: 'Duplicate Label',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Label already exists');
+    });
+  });
 });

@@ -1002,6 +1002,30 @@ There are a list of system labels that can be modified on a message:
     gmailService.listLabels,
   );
 
+  server.registerTool(
+    'gmail.createLabel',
+    {
+      description:
+        'Create a new Gmail label. Labels help organize emails into categories.',
+      inputSchema: {
+        name: z.string().min(1).describe('The display name of the label.'),
+        labelListVisibility: z
+          .enum(['labelShow', 'labelHide', 'labelShowIfUnread'])
+          .optional()
+          .describe(
+            'Visibility of the label in the label list. Defaults to "labelShow".',
+          ),
+        messageListVisibility: z
+          .enum(['show', 'hide'])
+          .optional()
+          .describe(
+            'Visibility of messages with this label in the message list. Defaults to "show".',
+          ),
+      },
+    },
+    gmailService.createLabel,
+  );
+
   // Time tools
   server.registerTool(
     'time.getCurrentDate',

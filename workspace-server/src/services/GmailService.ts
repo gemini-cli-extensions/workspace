@@ -489,6 +489,57 @@ export class GmailService {
     }
   };
 
+  public createLabel = async ({
+    name,
+    labelListVisibility = 'labelShow',
+    messageListVisibility = 'show',
+  }: {
+    name: string;
+    labelListVisibility?: 'labelShow' | 'labelHide' | 'labelShowIfUnread';
+    messageListVisibility?: 'show' | 'hide';
+  }) => {
+    try {
+      logToFile(`Creating Gmail label: ${name}`);
+
+      const gmail = await this.getGmailClient();
+
+      const response = await gmail.users.labels.create({
+        userId: 'me',
+        requestBody: {
+          name,
+          labelListVisibility,
+          messageListVisibility,
+        },
+      });
+
+      const label = response.data;
+
+      logToFile(`Created label: ${label.name} with id: ${label.id}`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(
+              {
+                id: label.id,
+                name: label.name,
+                type: label.type,
+                messageListVisibility: label.messageListVisibility,
+                labelListVisibility: label.labelListVisibility,
+                status: 'created',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError(error, 'gmail.createLabel');
+    }
+  };
+
   private extractAttachmentsAndBody(
     payload: gmail_v1.Schema$MessagePart,
     result: { body: string; attachments: GmailAttachment[] } = {
