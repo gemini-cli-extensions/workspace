@@ -377,7 +377,7 @@ async function main() {
     'slides.getImages',
     {
       description:
-        'Retrieves all images embedded in a Google Slides presentation.',
+        'Retrieves and downloads all images embedded in a Google Slides presentation.',
       inputSchema: {
         presentationId: z
           .string()
@@ -386,9 +386,8 @@ async function main() {
           ),
         downloadDir: z
           .string()
-          .optional()
           .describe(
-            'Optional: The absolute local directory path to download the images to.',
+            'The absolute local directory path to download the images to (e.g., "/Users/name/downloads/images").',
           ),
       },
     },
@@ -399,7 +398,7 @@ async function main() {
     'slides.getSlideThumbnail',
     {
       description:
-        'Gets a thumbnail URL for a specific slide in a Google Slides presentation.',
+        'Gets a thumbnail image for a specific slide in a Google Slides presentation and saves it locally.',
       inputSchema: {
         presentationId: z
           .string()
@@ -411,9 +410,8 @@ async function main() {
           ),
         localPath: z
           .string()
-          .optional()
           .describe(
-            'Optional: The absolute local file path to download the thumbnail to.',
+            'The absolute local file path to download the thumbnail to (e.g., "/Users/name/downloads/slide1.png").',
           ),
       },
     },

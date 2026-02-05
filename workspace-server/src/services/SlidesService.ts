@@ -266,10 +266,10 @@ export class SlidesService {
     downloadDir,
   }: {
     presentationId: string;
-    downloadDir?: string;
+    downloadDir: string;
   }) => {
     logToFile(
-      `[SlidesService] Starting getImages for presentation: ${presentationId}${downloadDir ? ` (downloadDir: ${downloadDir})` : ''}`,
+      `[SlidesService] Starting getImages for presentation: ${presentationId} (downloadDir: ${downloadDir})`,
     );
     try {
       const id = extractDocId(presentationId) || presentationId;
@@ -295,7 +295,7 @@ export class SlidesService {
                 sourceUrl: element.image?.sourceUrl,
               };
 
-              if (downloadDir && imageData.contentUrl) {
+              if (imageData.contentUrl) {
                 const filename = `slide_${imageData.slideIndex}_${element.objectId}.png`;
                 const localPath = path.join(downloadDir, filename);
                 try {
@@ -347,10 +347,10 @@ export class SlidesService {
   }: {
     presentationId: string;
     slideObjectId: string;
-    localPath?: string;
+    localPath: string;
   }) => {
     logToFile(
-      `[SlidesService] Starting getSlideThumbnail for presentation: ${presentationId}, slide: ${slideObjectId}${localPath ? ` (localPath: ${localPath})` : ''}`,
+      `[SlidesService] Starting getSlideThumbnail for presentation: ${presentationId}, slide: ${slideObjectId} (localPath: ${localPath})`,
     );
     try {
       const id = extractDocId(presentationId) || presentationId;
@@ -362,7 +362,7 @@ export class SlidesService {
 
       const result: any = { ...thumbnail.data };
 
-      if (localPath && result.contentUrl) {
+      if (result.contentUrl) {
         try {
           await this.downloadToLocal(result.contentUrl, localPath);
           result.localPath = localPath;

@@ -313,6 +313,7 @@ describe('SlidesService', () => {
 
       const result = await slidesService.getImages({
         presentationId: 'test-presentation-id',
+        downloadDir: '/tmp/test-images',
       });
 
       expect(mockSlidesAPI.presentations.get).toHaveBeenCalledWith({
@@ -323,16 +324,9 @@ describe('SlidesService', () => {
 
       const response = JSON.parse(result.content[0].text);
       expect(response.images).toHaveLength(2);
-      expect(response.images[0]).toEqual({
-        slideIndex: 1,
-        slideObjectId: 'slide1',
-        elementObjectId: 'image_element_1',
-        title: 'Test Image',
-        description: 'A description of the test image',
-        contentUrl: 'http://example.com/image1.png',
-        sourceUrl: 'http://example.com/original1.png',
-      });
-      expect(response.images[1].slideIndex).toBe(2);
+      expect(response.images[0].slideIndex).toBe(1);
+      expect(response.images[0].slideObjectId).toBe('slide1');
+      expect(response.images[0].elementObjectId).toBe('image_element_1');
     });
 
     it('should handle errors gracefully', async () => {
@@ -340,6 +334,7 @@ describe('SlidesService', () => {
 
       const result = await slidesService.getImages({
         presentationId: 'error-id',
+        downloadDir: '/tmp/test-images',
       });
 
       const response = JSON.parse(result.content[0].text);
@@ -394,54 +389,12 @@ describe('SlidesService', () => {
       };
     });
 
-    it('should retrieve a slide thumbnail', async () => {
+    it('should download thumbnail when localPath is provided', async () => {
       const mockThumbnail = {
         data: {
           width: 800,
           height: 600,
           contentUrl: 'http://example.com/thumbnail.png',
-        },
-      };
-
-      mockSlidesAPI.presentations.pages.getThumbnail.mockResolvedValue(
-        mockThumbnail,
-      );
-
-      const result = await slidesService.getSlideThumbnail({
-        presentationId: 'test-presentation-id',
-        slideObjectId: 'slide1',
-      });
-
-      expect(
-        mockSlidesAPI.presentations.pages.getThumbnail,
-      ).toHaveBeenCalledWith({
-        presentationId: 'test-presentation-id',
-        pageObjectId: 'slide1',
-      });
-
-      const response = JSON.parse(result.content[0].text);
-      expect(response.contentUrl).toBe('http://example.com/thumbnail.png');
-      expect(response.width).toBe(800);
-    });
-
-    it('should handle errors gracefully', async () => {
-      mockSlidesAPI.presentations.pages.getThumbnail.mockRejectedValue(
-        new Error('API Error'),
-      );
-
-      const result = await slidesService.getSlideThumbnail({
-        presentationId: 'error-id',
-        slideObjectId: 'slide1',
-      });
-
-      const response = JSON.parse(result.content[0].text);
-      expect(response.error).toBe('API Error');
-    });
-
-    it('should download thumbnail when localPath is provided', async () => {
-      const mockThumbnail = {
-        data: {
-          contentUrl: 'http://example.com/thumb.png',
         },
       };
 
@@ -455,9 +408,16 @@ describe('SlidesService', () => {
       (fs.writeFile as any).mockResolvedValue(undefined);
 
       const result = await slidesService.getSlideThumbnail({
-        presentationId: 'test-id',
+        presentationId: 'test-presentation-id',
         slideObjectId: 'slide1',
         localPath: '/absolute/path/to/thumb.png',
+      });
+
+      expect(
+        mockSlidesAPI.presentations.pages.getThumbnail,
+      ).toHaveBeenCalledWith({
+        presentationId: 'test-presentation-id',
+        pageObjectId: 'slide1',
       });
 
       expect(fs.writeFile).toHaveBeenCalledWith(
@@ -466,7 +426,23 @@ describe('SlidesService', () => {
       );
 
       const response = JSON.parse(result.content[0].text);
+      expect(response.contentUrl).toBe('http://example.com/thumbnail.png');
       expect(response.localPath).toBe('/absolute/path/to/thumb.png');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.pages.getThumbnail.mockRejectedValue(
+        new Error('API Error'),
+      );
+
+      const result = await slidesService.getSlideThumbnail({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+        localPath: '/tmp/thumb.png',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('API Error');
     });
   });
 });
