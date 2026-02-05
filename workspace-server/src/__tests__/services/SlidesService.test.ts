@@ -270,4 +270,120 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Metadata Error');
     });
   });
+
+  describe('getImages', () => {
+    it('should extract images from a presentation', async () => {
+      const mockPresentation = {
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              pageElements: [
+                {
+                  image: {
+                    contentUrl: 'http://example.com/image1.png',
+                    sourceUrl: 'http://example.com/original1.png',
+                  },
+                },
+              ],
+            },
+            {
+              objectId: 'slide2',
+              pageElements: [
+                {
+                  image: {
+                    contentUrl: 'http://example.com/image2.png',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      mockSlidesAPI.presentations.get.mockResolvedValue(mockPresentation);
+
+      const result = await slidesService.getImages({
+        presentationId: 'test-presentation-id',
+      });
+
+      expect(mockSlidesAPI.presentations.get).toHaveBeenCalledWith({
+        presentationId: 'test-presentation-id',
+        fields: 'slides(objectId,pageElements(image(contentUrl,sourceUrl)))',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.images).toHaveLength(2);
+      expect(response.images[0]).toEqual({
+        slideIndex: 1,
+        slideObjectId: 'slide1',
+        contentUrl: 'http://example.com/image1.png',
+        sourceUrl: 'http://example.com/original1.png',
+      });
+      expect(response.images[1].slideIndex).toBe(2);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.get.mockRejectedValue(new Error('API Error'));
+
+      const result = await slidesService.getImages({
+        presentationId: 'error-id',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('API Error');
+    });
+  });
+
+  describe('getSlideThumbnail', () => {
+    it('should retrieve a slide thumbnail', async () => {
+      mockSlidesAPI.presentations.pages = {
+        getThumbnail: jest.fn(),
+      };
+      const mockThumbnail = {
+        data: {
+          width: 800,
+          height: 600,
+          contentUrl: 'http://example.com/thumbnail.png',
+        },
+      };
+
+      mockSlidesAPI.presentations.pages.getThumbnail.mockResolvedValue(
+        mockThumbnail,
+      );
+
+      const result = await slidesService.getSlideThumbnail({
+        presentationId: 'test-presentation-id',
+        slideObjectId: 'slide1',
+      });
+
+      expect(mockSlidesAPI.presentations.pages.getThumbnail).toHaveBeenCalledWith(
+        {
+          presentationId: 'test-presentation-id',
+          pageObjectId: 'slide1',
+        },
+      );
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.contentUrl).toBe('http://example.com/thumbnail.png');
+      expect(response.width).toBe(800);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.pages = {
+        getThumbnail: jest.fn(),
+      };
+      mockSlidesAPI.presentations.pages.getThumbnail.mockRejectedValue(
+        new Error('API Error'),
+      );
+
+      const result = await slidesService.getSlideThumbnail({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('API Error');
+    });
+  });
 });

@@ -237,4 +237,104 @@ export class SlidesService {
       };
     }
   };
+
+  public getImages = async ({ presentationId }: { presentationId: string }) => {
+    logToFile(
+      `[SlidesService] Starting getImages for presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+      const presentation = await slides.presentations.get({
+        presentationId: id,
+        fields: 'slides(objectId,pageElements(image(contentUrl,sourceUrl)))',
+      });
+
+      const images: any[] = [];
+      if (presentation.data.slides) {
+        presentation.data.slides.forEach((slide, index) => {
+          if (slide.pageElements) {
+            slide.pageElements.forEach((element) => {
+              if (element.image) {
+                images.push({
+                  slideIndex: index + 1,
+                  slideObjectId: slide.objectId,
+                  contentUrl: element.image.contentUrl,
+                  sourceUrl: element.image.sourceUrl,
+                });
+              }
+            });
+          }
+        });
+      }
+
+      logToFile(`[SlidesService] Finished getImages for presentation: ${id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ images }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[SlidesService] Error during slides.getImages: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public getSlideThumbnail = async ({
+    presentationId,
+    slideObjectId,
+  }: {
+    presentationId: string;
+    slideObjectId: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Starting getSlideThumbnail for presentation: ${presentationId}, slide: ${slideObjectId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+      const thumbnail = await slides.presentations.pages.getThumbnail({
+        presentationId: id,
+        pageObjectId: slideObjectId,
+      });
+
+      logToFile(
+        `[SlidesService] Finished getSlideThumbnail for slide: ${slideObjectId}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(thumbnail.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[SlidesService] Error during slides.getSlideThumbnail: ${errorMessage}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
 }
