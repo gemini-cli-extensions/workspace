@@ -247,7 +247,7 @@ export class SlidesService {
       const slides = await this.getSlidesClient();
       const presentation = await slides.presentations.get({
         presentationId: id,
-        fields: 'slides(objectId,pageElements(objectId,image(contentUrl,sourceUrl)))',
+        fields: 'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
       });
 
       const images: any[] = [];
@@ -260,6 +260,8 @@ export class SlidesService {
                   slideIndex: index + 1,
                   slideObjectId: slide.objectId,
                   elementObjectId: element.objectId,
+                  title: element.title,
+                  description: element.description,
                   contentUrl: element.image.contentUrl,
                   sourceUrl: element.image.sourceUrl,
                 });

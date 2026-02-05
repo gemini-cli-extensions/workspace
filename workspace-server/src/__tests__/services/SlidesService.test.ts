@@ -281,6 +281,8 @@ describe('SlidesService', () => {
               pageElements: [
                 {
                   objectId: 'image_element_1',
+                  title: 'Test Image',
+                  description: 'A description of the test image',
                   image: {
                     contentUrl: 'http://example.com/image1.png',
                     sourceUrl: 'http://example.com/original1.png',
@@ -311,7 +313,7 @@ describe('SlidesService', () => {
 
       expect(mockSlidesAPI.presentations.get).toHaveBeenCalledWith({
         presentationId: 'test-presentation-id',
-        fields: 'slides(objectId,pageElements(objectId,image(contentUrl,sourceUrl)))',
+        fields: 'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
       });
 
       const response = JSON.parse(result.content[0].text);
@@ -320,6 +322,8 @@ describe('SlidesService', () => {
         slideIndex: 1,
         slideObjectId: 'slide1',
         elementObjectId: 'image_element_1',
+        title: 'Test Image',
+        description: 'A description of the test image',
         contentUrl: 'http://example.com/image1.png',
         sourceUrl: 'http://example.com/original1.png',
       });
