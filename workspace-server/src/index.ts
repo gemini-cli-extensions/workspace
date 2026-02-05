@@ -376,11 +376,14 @@ async function main() {
   server.registerTool(
     'slides.getImages',
     {
-      description: 'Retrieves all images embedded in a Google Slides presentation.',
+      description:
+        'Retrieves all images embedded in a Google Slides presentation.',
       inputSchema: {
         presentationId: z
           .string()
-          .describe('The ID or URL of the presentation to extract images from.'),
+          .describe(
+            'The ID or URL of the presentation to extract images from.',
+          ),
       },
     },
     slidesService.getImages,
@@ -389,14 +392,17 @@ async function main() {
   server.registerTool(
     'slides.getSlideThumbnail',
     {
-      description: 'Gets a thumbnail URL for a specific slide in a Google Slides presentation.',
+      description:
+        'Gets a thumbnail URL for a specific slide in a Google Slides presentation.',
       inputSchema: {
         presentationId: z
           .string()
           .describe('The ID or URL of the presentation.'),
         slideObjectId: z
           .string()
-          .describe('The object ID of the slide (can be found via slides.getMetadata or slides.getText).'),
+          .describe(
+            'The object ID of the slide (can be found via slides.getMetadata or slides.getText).',
+          ),
       },
     },
     slidesService.getSlideThumbnail,

@@ -247,7 +247,8 @@ export class SlidesService {
       const slides = await this.getSlidesClient();
       const presentation = await slides.presentations.get({
         presentationId: id,
-        fields: 'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
+        fields:
+          'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
       });
 
       const images = (presentation.data.slides ?? []).flatMap((slide, index) =>
@@ -276,7 +277,9 @@ export class SlidesService {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logToFile(`[SlidesService] Error during slides.getImages: ${errorMessage}`);
+      logToFile(
+        `[SlidesService] Error during slides.getImages: ${errorMessage}`,
+      );
       return {
         content: [
           {

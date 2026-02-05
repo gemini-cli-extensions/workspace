@@ -313,7 +313,8 @@ describe('SlidesService', () => {
 
       expect(mockSlidesAPI.presentations.get).toHaveBeenCalledWith({
         presentationId: 'test-presentation-id',
-        fields: 'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
+        fields:
+          'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
       });
 
       const response = JSON.parse(result.content[0].text);
@@ -367,12 +368,12 @@ describe('SlidesService', () => {
         slideObjectId: 'slide1',
       });
 
-      expect(mockSlidesAPI.presentations.pages.getThumbnail).toHaveBeenCalledWith(
-        {
-          presentationId: 'test-presentation-id',
-          pageObjectId: 'slide1',
-        },
-      );
+      expect(
+        mockSlidesAPI.presentations.pages.getThumbnail,
+      ).toHaveBeenCalledWith({
+        presentationId: 'test-presentation-id',
+        pageObjectId: 'slide1',
+      });
 
       const response = JSON.parse(result.content[0].text);
       expect(response.contentUrl).toBe('http://example.com/thumbnail.png');
