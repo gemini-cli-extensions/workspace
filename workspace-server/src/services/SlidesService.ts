@@ -250,26 +250,19 @@ export class SlidesService {
         fields: 'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
       });
 
-      const images: any[] = [];
-      if (presentation.data.slides) {
-        presentation.data.slides.forEach((slide, index) => {
-          if (slide.pageElements) {
-            slide.pageElements.forEach((element) => {
-              if (element.image) {
-                images.push({
-                  slideIndex: index + 1,
-                  slideObjectId: slide.objectId,
-                  elementObjectId: element.objectId,
-                  title: element.title,
-                  description: element.description,
-                  contentUrl: element.image.contentUrl,
-                  sourceUrl: element.image.sourceUrl,
-                });
-              }
-            });
-          }
-        });
-      }
+      const images = (presentation.data.slides ?? []).flatMap((slide, index) =>
+        (slide.pageElements ?? [])
+          .filter((element) => element.image)
+          .map((element) => ({
+            slideIndex: index + 1,
+            slideObjectId: slide.objectId,
+            elementObjectId: element.objectId,
+            title: element.title,
+            description: element.description,
+            contentUrl: element.image!.contentUrl,
+            sourceUrl: element.image!.sourceUrl,
+          })),
+      );
 
       logToFile(`[SlidesService] Finished getImages for presentation: ${id}`);
       return {
