@@ -15,10 +15,14 @@ import {
 import { SlidesService } from '../../services/SlidesService';
 import { AuthManager } from '../../auth/AuthManager';
 import { google } from 'googleapis';
+import { request } from 'gaxios';
+import * as fs from 'node:fs/promises';
 
 // Mock the googleapis module
 jest.mock('googleapis');
 jest.mock('../../utils/logger');
+jest.mock('gaxios');
+jest.mock('node:fs/promises');
 
 describe('SlidesService', () => {
   let slidesService: SlidesService;
@@ -341,6 +345,46 @@ describe('SlidesService', () => {
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('API Error');
     });
+
+    it('should download images when downloadDir is provided', async () => {
+      const mockPresentation = {
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              pageElements: [
+                {
+                  objectId: 'image1',
+                  image: { contentUrl: 'http://example.com/image1.png' },
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      mockSlidesAPI.presentations.get.mockResolvedValue(mockPresentation);
+      (request as any).mockResolvedValue({
+        data: Buffer.from('fake-image-data'),
+      });
+      (fs.mkdir as any).mockResolvedValue(undefined);
+      (fs.writeFile as any).mockResolvedValue(undefined);
+
+      const result = await slidesService.getImages({
+        presentationId: 'test-id',
+        downloadDir: '/absolute/path/to/dir',
+      });
+
+      expect(fs.mkdir).toHaveBeenCalledWith('/absolute/path/to/dir', {
+        recursive: true,
+      });
+      expect(fs.writeFile).toHaveBeenCalled();
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.images[0].localPath).toBe(
+        '/absolute/path/to/dir/slide_1_image1.png',
+      );
+    });
   });
 
   describe('getSlideThumbnail', () => {
@@ -392,6 +436,37 @@ describe('SlidesService', () => {
 
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('API Error');
+    });
+
+    it('should download thumbnail when localPath is provided', async () => {
+      const mockThumbnail = {
+        data: {
+          contentUrl: 'http://example.com/thumb.png',
+        },
+      };
+
+      mockSlidesAPI.presentations.pages.getThumbnail.mockResolvedValue(
+        mockThumbnail,
+      );
+      (request as any).mockResolvedValue({
+        data: Buffer.from('fake-thumb-data'),
+      });
+      (fs.mkdir as any).mockResolvedValue(undefined);
+      (fs.writeFile as any).mockResolvedValue(undefined);
+
+      const result = await slidesService.getSlideThumbnail({
+        presentationId: 'test-id',
+        slideObjectId: 'slide1',
+        localPath: '/absolute/path/to/thumb.png',
+      });
+
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        '/absolute/path/to/thumb.png',
+        expect.any(Buffer),
+      );
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.localPath).toBe('/absolute/path/to/thumb.png');
     });
   });
 });

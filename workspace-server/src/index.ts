@@ -384,6 +384,12 @@ async function main() {
           .describe(
             'The ID or URL of the presentation to extract images from.',
           ),
+        downloadDir: z
+          .string()
+          .optional()
+          .describe(
+            'Optional: The absolute local directory path to download the images to.',
+          ),
       },
     },
     slidesService.getImages,
@@ -402,6 +408,12 @@ async function main() {
           .string()
           .describe(
             'The object ID of the slide (can be found via slides.getMetadata or slides.getText).',
+          ),
+        localPath: z
+          .string()
+          .optional()
+          .describe(
+            'Optional: The absolute local file path to download the thumbnail to.',
           ),
       },
     },

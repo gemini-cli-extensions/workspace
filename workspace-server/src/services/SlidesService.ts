@@ -5,6 +5,9 @@
  */
 
 import { google, slides_v1, drive_v3 } from 'googleapis';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import { request } from 'gaxios';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
@@ -238,9 +241,35 @@ export class SlidesService {
     }
   };
 
-  public getImages = async ({ presentationId }: { presentationId: string }) => {
+  private async downloadToLocal(url: string, localPath: string) {
+    logToFile(`[SlidesService] Downloading from ${url} to ${localPath}`);
+    if (!path.isAbsolute(localPath)) {
+      throw new Error('localPath must be an absolute path.');
+    }
+
+    // Ensure directory exists
+    await fs.mkdir(path.dirname(localPath), { recursive: true });
+
+    const response = await request({
+      url,
+      responseType: 'arraybuffer',
+      ...gaxiosOptions,
+    });
+
+    await fs.writeFile(localPath, Buffer.from(response.data as ArrayBuffer));
+    logToFile(`[SlidesService] Downloaded successfully to ${localPath}`);
+    return localPath;
+  }
+
+  public getImages = async ({
+    presentationId,
+    downloadDir,
+  }: {
+    presentationId: string;
+    downloadDir?: string;
+  }) => {
     logToFile(
-      `[SlidesService] Starting getImages for presentation: ${presentationId}`,
+      `[SlidesService] Starting getImages for presentation: ${presentationId}${downloadDir ? ` (downloadDir: ${downloadDir})` : ''}`,
     );
     try {
       const id = extractDocId(presentationId) || presentationId;
@@ -251,18 +280,38 @@ export class SlidesService {
           'slides(objectId,pageElements(objectId,title,description,image(contentUrl,sourceUrl)))',
       });
 
-      const images = (presentation.data.slides ?? []).flatMap((slide, index) =>
-        (slide.pageElements ?? [])
-          .filter((element) => element.image)
-          .map((element) => ({
-            slideIndex: index + 1,
-            slideObjectId: slide.objectId,
-            elementObjectId: element.objectId,
-            title: element.title,
-            description: element.description,
-            contentUrl: element.image?.contentUrl,
-            sourceUrl: element.image?.sourceUrl,
-          })),
+      const images = await Promise.all(
+        (presentation.data.slides ?? []).flatMap((slide, index) =>
+          (slide.pageElements ?? [])
+            .filter((element) => element.image)
+            .map(async (element) => {
+              const imageData: any = {
+                slideIndex: index + 1,
+                slideObjectId: slide.objectId,
+                elementObjectId: element.objectId,
+                title: element.title,
+                description: element.description,
+                contentUrl: element.image?.contentUrl,
+                sourceUrl: element.image?.sourceUrl,
+              };
+
+              if (downloadDir && imageData.contentUrl) {
+                const filename = `slide_${imageData.slideIndex}_${element.objectId}.png`;
+                const localPath = path.join(downloadDir, filename);
+                try {
+                  await this.downloadToLocal(imageData.contentUrl, localPath);
+                  imageData.localPath = localPath;
+                } catch (downloadError) {
+                  logToFile(
+                    `[SlidesService] Failed to download image ${element.objectId}: ${downloadError}`,
+                  );
+                  imageData.downloadError = String(downloadError);
+                }
+              }
+
+              return imageData;
+            }),
+        ),
       );
 
       logToFile(`[SlidesService] Finished getImages for presentation: ${id}`);
@@ -294,12 +343,14 @@ export class SlidesService {
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,
+    localPath,
   }: {
     presentationId: string;
     slideObjectId: string;
+    localPath?: string;
   }) => {
     logToFile(
-      `[SlidesService] Starting getSlideThumbnail for presentation: ${presentationId}, slide: ${slideObjectId}`,
+      `[SlidesService] Starting getSlideThumbnail for presentation: ${presentationId}, slide: ${slideObjectId}${localPath ? ` (localPath: ${localPath})` : ''}`,
     );
     try {
       const id = extractDocId(presentationId) || presentationId;
@@ -309,6 +360,20 @@ export class SlidesService {
         pageObjectId: slideObjectId,
       });
 
+      const result: any = { ...thumbnail.data };
+
+      if (localPath && result.contentUrl) {
+        try {
+          await this.downloadToLocal(result.contentUrl, localPath);
+          result.localPath = localPath;
+        } catch (downloadError) {
+          logToFile(
+            `[SlidesService] Failed to download thumbnail for slide ${slideObjectId}: ${downloadError}`,
+          );
+          result.downloadError = String(downloadError);
+        }
+      }
+
       logToFile(
         `[SlidesService] Finished getSlideThumbnail for slide: ${slideObjectId}`,
       );
@@ -316,7 +381,7 @@ export class SlidesService {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(thumbnail.data),
+            text: JSON.stringify(result),
           },
         ],
       };
