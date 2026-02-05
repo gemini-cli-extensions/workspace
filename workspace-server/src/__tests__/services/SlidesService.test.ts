@@ -23,6 +23,22 @@ jest.mock('googleapis');
 jest.mock('../../utils/logger');
 jest.mock('gaxios');
 jest.mock('node:fs/promises');
+jest.mock('node:path', () => {
+  const actualPath = jest.requireActual('node:path') as any;
+  return {
+    ...actualPath,
+    join: jest.fn((...args: string[]) =>
+      args.join('/').replace(/\\/g, '/').replace(/\/+/g, '/'),
+    ),
+    dirname: jest.fn((p: string) => {
+      const normalized = p.replace(/\\/g, '/');
+      return normalized.substring(0, normalized.lastIndexOf('/'));
+    }),
+    isAbsolute: jest.fn(
+      (p: string) => p.startsWith('/') || /^[a-zA-Z]:/.test(p),
+    ),
+  };
+});
 
 describe('SlidesService', () => {
   let slidesService: SlidesService;
