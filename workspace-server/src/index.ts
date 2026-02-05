@@ -377,7 +377,7 @@ async function main() {
     'slides.getImages',
     {
       description:
-        'Retrieves and downloads all images embedded in a Google Slides presentation.',
+        'Downloads all images embedded in a Google Slides presentation to a local directory.',
       inputSchema: {
         presentationId: z
           .string()
@@ -398,7 +398,7 @@ async function main() {
     'slides.getSlideThumbnail',
     {
       description:
-        'Gets a thumbnail image for a specific slide in a Google Slides presentation and saves it locally.',
+        'Downloads a thumbnail image for a specific slide in a Google Slides presentation to a local path.',
       inputSchema: {
         presentationId: z
           .string()
