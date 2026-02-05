@@ -384,7 +384,7 @@ async function main() {
           .describe(
             'The ID or URL of the presentation to extract images from.',
           ),
-        downloadDir: z
+        localPath: z
           .string()
           .describe(
             'The absolute local directory path to download the images to (e.g., "/Users/name/downloads/images").',

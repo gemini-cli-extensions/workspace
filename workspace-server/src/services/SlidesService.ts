@@ -263,13 +263,13 @@ export class SlidesService {
 
   public getImages = async ({
     presentationId,
-    downloadDir,
+    localPath,
   }: {
     presentationId: string;
-    downloadDir: string;
+    localPath: string;
   }) => {
     logToFile(
-      `[SlidesService] Starting getImages for presentation: ${presentationId} (downloadDir: ${downloadDir})`,
+      `[SlidesService] Starting getImages for presentation: ${presentationId} (localPath: ${localPath})`,
     );
     try {
       const id = extractDocId(presentationId) || presentationId;
@@ -297,10 +297,10 @@ export class SlidesService {
 
               if (imageData.contentUrl) {
                 const filename = `slide_${imageData.slideIndex}_${element.objectId}.png`;
-                const localPath = path.join(downloadDir, filename);
+                const fullPath = path.join(localPath, filename);
                 try {
-                  await this.downloadToLocal(imageData.contentUrl, localPath);
-                  imageData.localPath = localPath;
+                  await this.downloadToLocal(imageData.contentUrl, fullPath);
+                  imageData.localPath = fullPath;
                 } catch (downloadError) {
                   logToFile(
                     `[SlidesService] Failed to download image ${element.objectId}: ${downloadError}`,

@@ -313,7 +313,7 @@ describe('SlidesService', () => {
 
       const result = await slidesService.getImages({
         presentationId: 'test-presentation-id',
-        downloadDir: '/tmp/test-images',
+        localPath: '/tmp/test-images',
       });
 
       expect(mockSlidesAPI.presentations.get).toHaveBeenCalledWith({
@@ -334,14 +334,14 @@ describe('SlidesService', () => {
 
       const result = await slidesService.getImages({
         presentationId: 'error-id',
-        downloadDir: '/tmp/test-images',
+        localPath: '/tmp/test-images',
       });
 
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('API Error');
     });
 
-    it('should download images when downloadDir is provided', async () => {
+    it('should download images when localPath is provided', async () => {
       const mockPresentation = {
         data: {
           slides: [
@@ -367,7 +367,7 @@ describe('SlidesService', () => {
 
       const result = await slidesService.getImages({
         presentationId: 'test-id',
-        downloadDir: '/absolute/path/to/dir',
+        localPath: '/absolute/path/to/dir',
       });
 
       expect(fs.mkdir).toHaveBeenCalledWith('/absolute/path/to/dir', {
