@@ -63,6 +63,13 @@ describe('SlidesService', () => {
     mockAuthManager.getAuthenticatedClient.mockResolvedValue(
       mockAuthClient as any,
     );
+
+    // Default mocks for downloads
+    (request as any).mockResolvedValue({
+      data: Buffer.from('test-data'),
+    });
+    (fs.mkdir as any).mockResolvedValue(undefined);
+    (fs.writeFile as any).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -327,6 +334,7 @@ describe('SlidesService', () => {
       expect(response.images[0].slideIndex).toBe(1);
       expect(response.images[0].slideObjectId).toBe('slide1');
       expect(response.images[0].elementObjectId).toBe('image_element_1');
+      expect(response.images[1].slideIndex).toBe(2);
     });
 
     it('should handle errors gracefully', async () => {
@@ -359,11 +367,6 @@ describe('SlidesService', () => {
       };
 
       mockSlidesAPI.presentations.get.mockResolvedValue(mockPresentation);
-      (request as any).mockResolvedValue({
-        data: Buffer.from('fake-image-data'),
-      });
-      (fs.mkdir as any).mockResolvedValue(undefined);
-      (fs.writeFile as any).mockResolvedValue(undefined);
 
       const result = await slidesService.getImages({
         presentationId: 'test-id',
@@ -401,11 +404,6 @@ describe('SlidesService', () => {
       mockSlidesAPI.presentations.pages.getThumbnail.mockResolvedValue(
         mockThumbnail,
       );
-      (request as any).mockResolvedValue({
-        data: Buffer.from('fake-thumb-data'),
-      });
-      (fs.mkdir as any).mockResolvedValue(undefined);
-      (fs.writeFile as any).mockResolvedValue(undefined);
 
       const result = await slidesService.getSlideThumbnail({
         presentationId: 'test-presentation-id',
