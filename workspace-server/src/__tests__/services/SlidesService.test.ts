@@ -343,10 +343,13 @@ describe('SlidesService', () => {
   });
 
   describe('getSlideThumbnail', () => {
-    it('should retrieve a slide thumbnail', async () => {
+    beforeEach(() => {
       mockSlidesAPI.presentations.pages = {
         getThumbnail: jest.fn(),
       };
+    });
+
+    it('should retrieve a slide thumbnail', async () => {
       const mockThumbnail = {
         data: {
           width: 800,
@@ -377,9 +380,6 @@ describe('SlidesService', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockSlidesAPI.presentations.pages = {
-        getThumbnail: jest.fn(),
-      };
       mockSlidesAPI.presentations.pages.getThumbnail.mockRejectedValue(
         new Error('API Error'),
       );

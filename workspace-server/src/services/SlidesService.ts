@@ -259,8 +259,8 @@ export class SlidesService {
             elementObjectId: element.objectId,
             title: element.title,
             description: element.description,
-            contentUrl: element.image!.contentUrl,
-            sourceUrl: element.image!.sourceUrl,
+            contentUrl: element.image?.contentUrl,
+            sourceUrl: element.image?.sourceUrl,
           })),
       );
 
