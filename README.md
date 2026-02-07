@@ -56,7 +56,8 @@ Searches your Google Drive for files matching the given query.
 
 ## Deployment
 
-If you want to host your own version of this extension's infrastructure, see the [GCP Recreation Guide](docs/GCP-RECREATION.md).
+If you want to host your own version of this extension's infrastructure, see the
+[GCP Recreation Guide](docs/GCP-RECREATION.md).
 
 ## Resources
 
