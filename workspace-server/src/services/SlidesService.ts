@@ -210,7 +210,7 @@ export class SlidesService {
         title: presentation.data.title,
         slideCount: presentation.data.slides?.length || 0,
         slides:
-          presentation.data.slides?.map((s) => ({ objectId: s.objectId })) ||
+          presentation.data.slides?.map(({ objectId }) => ({ objectId })) ??
           [],
         pageSize: presentation.data.pageSize,
         hasMasters: !!presentation.data.masters?.length,
