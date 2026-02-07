@@ -18,7 +18,7 @@ describe('MimeHelper', () => {
 
       // Decode the message to verify its structure
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('To: recipient@example.com');
       expect(decoded).toContain('Subject: =?utf-8?B?VGVzdCBTdWJqZWN0?=');
       expect(decoded).toContain('Content-Type: text/plain; charset=utf-8');
@@ -34,7 +34,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('Content-Type: text/html; charset=utf-8');
       expect(decoded).toContain('<h1>Hello World</h1>');
     });
@@ -51,7 +51,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('From: sender@example.com');
       expect(decoded).toContain('To: recipient@example.com');
       expect(decoded).toContain('Cc: cc@example.com');
@@ -67,14 +67,16 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       // The subject should be base64 encoded
       expect(decoded).toContain('Subject: =?utf-8?B?');
-      
+
       // Decode the subject to verify it's correct
       const subjectMatch = decoded.match(/Subject: =\?utf-8\?B\?([^?]+)\?=/);
       if (subjectMatch) {
-        const decodedSubject = Buffer.from(subjectMatch[1], 'base64').toString('utf-8');
+        const decodedSubject = Buffer.from(subjectMatch[1], 'base64').toString(
+          'utf-8',
+        );
         expect(decodedSubject).toBe('Test with emoji 🎉 and special chars é ñ');
       }
     });
@@ -87,7 +89,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       // Should use CRLF (\r\n) as line separators
       expect(decoded).toContain('\r\n');
       expect(decoded.split('\r\n').length).toBeGreaterThan(3);
@@ -101,8 +103,10 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
-      expect(decoded).toContain('To: recipient1@example.com, recipient2@example.com');
+
+      expect(decoded).toContain(
+        'To: recipient1@example.com, recipient2@example.com',
+      );
     });
 
     it('should encode to base64url format (no padding, URL-safe characters)', () => {
@@ -116,7 +120,7 @@ describe('MimeHelper', () => {
       expect(encoded).not.toContain('+');
       expect(encoded).not.toContain('/');
       expect(encoded).not.toContain('=');
-      
+
       // Should only contain base64url characters
       expect(encoded).toMatch(/^[A-Za-z0-9\-_]+$/);
     });
@@ -131,7 +135,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       // Should not contain multipart boundary
       expect(decoded).not.toContain('Content-Type: multipart/mixed');
       expect(decoded).toContain('Content-Type: text/plain; charset=utf-8');
@@ -154,9 +158,11 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('Content-Type: multipart/mixed; boundary=');
-      expect(decoded).toContain('Content-Disposition: attachment; filename="test.txt"');
+      expect(decoded).toContain(
+        'Content-Disposition: attachment; filename="test.txt"',
+      );
       expect(decoded).toContain('Content-Type: text/plain');
       expect(decoded).toContain('Content-Transfer-Encoding: base64');
     });
@@ -183,7 +189,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('filename="file1.txt"');
       expect(decoded).toContain('filename="file2.pdf"');
       expect(decoded).toContain('Content-Type: text/plain');
@@ -206,7 +212,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('Content-Type: application/octet-stream');
     });
 
@@ -227,13 +233,13 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       // Find the base64 encoded attachment content
       const lines = decoded.split('\r\n');
-      const attachmentStart = lines.findIndex(line => 
-        line.includes('Content-Transfer-Encoding: base64')
+      const attachmentStart = lines.findIndex((line) =>
+        line.includes('Content-Transfer-Encoding: base64'),
       );
-      
+
       if (attachmentStart !== -1) {
         // Check lines after the attachment header
         for (let i = attachmentStart + 2; i < lines.length; i++) {
@@ -264,9 +270,11 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       // Body should be HTML
-      expect(decoded).toMatch(/Content-Type: text\/html; charset=utf-8\r\n\r\n<p>HTML Message Body<\/p>/);
+      expect(decoded).toMatch(
+        /Content-Type: text\/html; charset=utf-8\r\n\r\n<p>HTML Message Body<\/p>/,
+      );
       // Attachment should also be present
       expect(decoded).toContain('filename="doc.html"');
     });
@@ -290,7 +298,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(encoded);
-      
+
       expect(decoded).toContain('From: sender@example.com');
       expect(decoded).toContain('Cc: cc@example.com');
       expect(decoded).toContain('Bcc: bcc@example.com');
@@ -321,10 +329,10 @@ describe('MimeHelper', () => {
 
       const decoded1 = MimeHelper.decodeBase64Url(encoded1);
       const decoded2 = MimeHelper.decodeBase64Url(encoded2);
-      
+
       const boundary1Match = decoded1.match(/boundary="([^"]+)"/);
       const boundary2Match = decoded2.match(/boundary="([^"]+)"/);
-      
+
       expect(boundary1Match).toBeTruthy();
       expect(boundary2Match).toBeTruthy();
       expect(boundary1Match![1]).not.toBe(boundary2Match![1]);
@@ -339,30 +347,30 @@ describe('MimeHelper', () => {
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
-      
+
       const decoded = MimeHelper.decodeBase64Url(base64url);
-      
+
       expect(decoded).toBe(original);
     });
 
     it('should handle strings without padding', () => {
       const base64url = 'SGVsbG8'; // "Hello" without padding
       const decoded = MimeHelper.decodeBase64Url(base64url);
-      
+
       expect(decoded).toBe('Hello');
     });
 
     it('should convert URL-safe characters back to standard base64', () => {
       const base64url = 'SGVsbG8-V29ybGRfIQ'; // Contains - and _
       const decoded = MimeHelper.decodeBase64Url(base64url);
-      
+
       expect(decoded).toBeTruthy();
       expect(typeof decoded).toBe('string');
     });
 
     it('should handle empty strings', () => {
       const decoded = MimeHelper.decodeBase64Url('');
-      
+
       expect(decoded).toBe('');
     });
 
@@ -374,7 +382,7 @@ describe('MimeHelper', () => {
       });
 
       const decoded = MimeHelper.decodeBase64Url(mimeMessage);
-      
+
       expect(decoded).toContain('To: test@example.com');
       expect(decoded).toContain('Test body');
     });

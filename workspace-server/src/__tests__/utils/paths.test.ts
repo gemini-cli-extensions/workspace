@@ -14,9 +14,12 @@ describe('paths utils', () => {
       // The project root should contain gemini-extension.json
       // Since we are searching for gemini-extension.json which is in the root 'workspace',
       // not 'workspace-server', the path should NOT end with 'workspace-server'.
-      const extensionConfigPath = path.join(PROJECT_ROOT, 'gemini-extension.json');
+      const extensionConfigPath = path.join(
+        PROJECT_ROOT,
+        'gemini-extension.json',
+      );
       expect(fs.existsSync(extensionConfigPath)).toBe(true);
-      
+
       // The root should be the parent of workspace-server in this monorepo setup
       // PROJECT_ROOT = .../workspace
       // __dirname = .../workspace/workspace-server/src/__tests__/utils

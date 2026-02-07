@@ -20,6 +20,8 @@ console.log(`Analyzing dependencies for: ${targetPackages.join(', ')}`);
 const allDeps = getTransitiveDependencies(root, targetPackages);
 
 console.log('\nTransitive Dependencies:');
-Array.from(allDeps).sort().forEach(dep => {
-  console.log(`- ${dep}`);
-});
+Array.from(allDeps)
+  .sort()
+  .forEach((dep) => {
+    console.log(`- ${dep}`);
+  });

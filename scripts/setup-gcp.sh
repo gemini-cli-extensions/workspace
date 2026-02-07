@@ -61,11 +61,16 @@ if gcloud secrets describe "$SECRET_ID" &> /dev/null; then
     echo "Secret $SECRET_ID already exists."
 else
     echo "Creating secret $SECRET_ID..."
-    gcloud secrets create "$SECRET_ID" --replication-policy=\"automatic\"
+    gcloud secrets create "$SECRET_ID" --replication-policy=automatic
 fi
 
 echo -e "${YELLOW}Please enter your OAuth 2.0 Client Secret (from Google Cloud Console):${NC}"
 read -s CLIENT_SECRET
+echo
+if [ -z "$CLIENT_SECRET" ]; then
+    echo -e "${RED}Error: Client Secret cannot be empty.${NC}"
+    exit 1
+fi
 echo "$CLIENT_SECRET" | gcloud secrets versions add "$SECRET_ID" --data-file=-
 
 echo -e "${GREEN}Secret stored successfully.${NC}"
@@ -74,6 +79,10 @@ echo -e "${GREEN}Secret stored successfully.${NC}"
 echo -e "\n${YELLOW}Step 3: Deploying Cloud Function...${NC}"
 echo -e "${YELLOW}Please enter the OAuth 2.0 Client ID:${NC}"
 read CLIENT_ID
+if [ -z "$CLIENT_ID" ]; then
+    echo -e "${RED}Error: Client ID cannot be empty.${NC}"
+    exit 1
+fi
 
 echo -e "${YELLOW}Please enter the GCP region for your Cloud Function (e.g., us-central1):${NC}"
 read REGION
@@ -95,28 +104,10 @@ gcloud functions deploy "$FUNCTION_NAME" \
     --allow-unauthenticated \
     --set-env-vars "CLIENT_ID=$CLIENT_ID,SECRET_NAME=projects/$PROJECT_ID/secrets/$SECRET_ID/versions/latest,REDIRECT_URI=$FUNCTION_URL"
 
-echo "Deploying Cloud Function..."
-gcloud functions deploy "$FUNCTION_NAME" \
-    --gen2 \
-    --runtime=nodejs20 \
-    --region="$REGION" \
-    --source="./cloud_function" \
-    --entry-point=oauthHandler \
-    --trigger-http \
-    --allow-unauthenticated \
-    --set-env-vars "CLIENT_ID=$CLIENT_ID,SECRET_NAME=projects/$PROJECT_ID/secrets/$SECRET_ID/versions/latest"
-
-# Get the URL of the deployed function
+# Get the actual URL of the deployed function
 FUNCTION_URL=$(gcloud functions describe "$FUNCTION_NAME" --region="$REGION" --format='value(serviceConfig.uri)')
 
 echo -e "${GREEN}Cloud Function deployed at: $FUNCTION_URL${NC}"
-
-# Update REDIRECT_URI env var now that we have the URL
-echo "Updating REDIRECT_URI environment variable..."
-gcloud functions deploy "$FUNCTION_NAME" \
-    --gen2 \
-    --region="$REGION" \
-    --update-env-vars "REDIRECT_URI=$FUNCTION_URL"
 
 # 4. Grant Permissions
 echo -e "\n${YELLOW}Step 4: Granting Secret Manager Access to Cloud Function...${NC}"

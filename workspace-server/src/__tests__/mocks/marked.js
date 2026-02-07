@@ -18,10 +18,10 @@ markedMock.parse = jest.fn((text) => {
 markedMock.parseInline = jest.fn((text) => {
   // Simple markdown to HTML conversion for testing
   return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **bold** -> <strong>bold</strong>
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *italic* -> <em>italic</em>
-    .replace(/_(.*?)_/g, '<em>$1</em>')                // _italic_ -> <em>italic</em>
-    .replace(/`(.*?)`/g, '<code>$1</code>');           // `code` -> <code>code</code>
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **bold** -> <strong>bold</strong>
+    .replace(/\*(.*?)\*/g, '<em>$1</em>') // *italic* -> <em>italic</em>
+    .replace(/_(.*?)_/g, '<em>$1</em>') // _italic_ -> <em>italic</em>
+    .replace(/`(.*?)`/g, '<code>$1</code>'); // `code` -> <code>code</code>
 });
 markedMock.use = jest.fn();
 markedMock.setOptions = jest.fn();

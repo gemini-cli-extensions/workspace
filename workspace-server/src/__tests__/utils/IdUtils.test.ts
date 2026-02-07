@@ -10,13 +10,15 @@ import { extractDocId } from '../../utils/IdUtils';
 describe('IdUtils', () => {
   describe('extractDocId', () => {
     it('should extract document ID from a full Google Docs URL', () => {
-      const url = 'https://docs.google.com/document/d/1a2b3c4d5e6f7g8h9i0j/edit';
+      const url =
+        'https://docs.google.com/document/d/1a2b3c4d5e6f7g8h9i0j/edit';
       const result = extractDocId(url);
       expect(result).toBe('1a2b3c4d5e6f7g8h9i0j');
     });
 
     it('should extract document ID from URL with additional parameters', () => {
-      const url = 'https://docs.google.com/document/d/abc123-XYZ_789/edit?usp=sharing';
+      const url =
+        'https://docs.google.com/document/d/abc123-XYZ_789/edit?usp=sharing';
       const result = extractDocId(url);
       expect(result).toBe('abc123-XYZ_789');
     });
@@ -102,13 +104,15 @@ describe('IdUtils', () => {
     });
 
     it('should extract document ID from a complex URL with resourcekey', () => {
-      const url = 'https://docs.google.com/document/d/1MGqTbt5joTs40QS-YZTP9QH1-TxQ5tij7RgXPFWMPiI/edit?resourcekey=0-X_p2TPxpk0visLTHHMF7Yg&tab=t.0';
+      const url =
+        'https://docs.google.com/document/d/1MGqTbt5joTs40QS-YZTP9QH1-TxQ5tij7RgXPFWMPiI/edit?resourcekey=0-X_p2TPxpk0visLTHHMF7Yg&tab=t.0';
       const result = extractDocId(url);
       expect(result).toBe('1MGqTbt5joTs40QS-YZTP9QH1-TxQ5tij7RgXPFWMPiI');
     });
 
     it('should extract document ID from a URL without a trailing slash', () => {
-      const url = 'https://docs.google.com/document/d/1MGqTbt5joTs40QS-YZTP9QH1-TxQ5tij7RgXPFWMPiI';
+      const url =
+        'https://docs.google.com/document/d/1MGqTbt5joTs40QS-YZTP9QH1-TxQ5tij7RgXPFWMPiI';
       const result = extractDocId(url);
       expect(result).toBe('1MGqTbt5joTs40QS-YZTP9QH1-TxQ5tij7RgXPFWMPiI');
     });

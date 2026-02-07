@@ -5,17 +5,21 @@ module.exports = {
   projects: [
     {
       displayName: 'workspace-server',
-      testMatch: ['<rootDir>/workspace-server/src/**/*.test.ts', '<rootDir>/workspace-server/src/**/*.spec.ts'],
-      transform: {
-        '^.+\\.ts$': ['ts-jest', {
-          tsconfig: {
-            strict: false
-          }
-        }],
-      },
-      transformIgnorePatterns: [
-        'node_modules/(?!(marked)/)',
+      testMatch: [
+        '<rootDir>/workspace-server/src/**/*.test.ts',
+        '<rootDir>/workspace-server/src/**/*.spec.ts',
       ],
+      transform: {
+        '^.+\\.ts$': [
+          'ts-jest',
+          {
+            tsconfig: {
+              strict: false,
+            },
+          },
+        ],
+      },
+      transformIgnorePatterns: ['node_modules/(?!(marked)/)'],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/workspace-server/src/$1',
         '\\.wasm$': '<rootDir>/workspace-server/src/__tests__/mocks/wasm.js',
@@ -40,7 +44,7 @@ module.exports = {
           statements: 60,
         },
       },
-    }
+    },
   ],
   coverageReporters: ['text', 'lcov', 'html'],
   testTimeout: 10000,

@@ -6,7 +6,10 @@
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { BaseTokenStorage } from '../../../auth/token-storage/base-token-storage';
-import type { OAuthCredentials, OAuthToken } from '../../../auth/token-storage/types';
+import type {
+  OAuthCredentials,
+  OAuthToken,
+} from '../../../auth/token-storage/types';
 
 class TestTokenStorage extends BaseTokenStorage {
   private storage = new Map<string, OAuthCredentials>();
@@ -39,8 +42,6 @@ class TestTokenStorage extends BaseTokenStorage {
   override validateCredentials(credentials: OAuthCredentials): void {
     super.validateCredentials(credentials);
   }
-
-
 
   override sanitizeServerName(serverName: string): string {
     return super.sanitizeServerName(serverName);
@@ -138,8 +139,6 @@ describe('BaseTokenStorage', () => {
       );
     });
   });
-
-
 
   describe('sanitizeServerName', () => {
     it('should keep valid characters', () => {

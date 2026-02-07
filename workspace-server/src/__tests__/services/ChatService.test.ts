@@ -4,7 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  jest,
+  beforeEach,
+  afterEach,
+} from '@jest/globals';
 import { ChatService } from '../../services/ChatService';
 import { AuthManager } from '../../auth/AuthManager';
 import { google } from 'googleapis';
@@ -59,7 +66,9 @@ describe('ChatService', () => {
     chatService = new ChatService(mockAuthManager);
 
     const mockAuthClient = { access_token: 'test-token' };
-    mockAuthManager.getAuthenticatedClient.mockResolvedValue(mockAuthClient as any);
+    mockAuthManager.getAuthenticatedClient.mockResolvedValue(
+      mockAuthClient as any,
+    );
   });
 
   afterEach(() => {
@@ -104,7 +113,9 @@ describe('ChatService', () => {
       const result = await chatService.listSpaces();
 
       const response = JSON.parse(result.content[0].text);
-      expect(response.error).toBe('An error occurred while listing chat spaces.');
+      expect(response.error).toBe(
+        'An error occurred while listing chat spaces.',
+      );
       expect(response.details).toBe('Chat API failed');
     });
   });
@@ -173,7 +184,9 @@ describe('ChatService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
-      expect(response.error).toBe('An error occurred while sending the message.');
+      expect(response.error).toBe(
+        'An error occurred while sending the message.',
+      );
       expect(response.details).toBe('Failed to send message');
     });
   });
@@ -193,7 +206,9 @@ describe('ChatService', () => {
         },
       });
 
-      const result = await chatService.findSpaceByName({ displayName: 'Team Chat' });
+      const result = await chatService.findSpaceByName({
+        displayName: 'Team Chat',
+      });
 
       expect(mockChatAPI.spaces.list).toHaveBeenCalled();
       const foundSpaces = JSON.parse(result.content[0].text);
@@ -225,7 +240,9 @@ describe('ChatService', () => {
           },
         });
 
-      const result = await chatService.findSpaceByName({ displayName: 'Team Chat' });
+      const result = await chatService.findSpaceByName({
+        displayName: 'Team Chat',
+      });
 
       expect(mockChatAPI.spaces.list).toHaveBeenCalledTimes(2);
       const foundSpaces = JSON.parse(result.content[0].text);
@@ -236,16 +253,18 @@ describe('ChatService', () => {
     it('should return error when space not found', async () => {
       mockChatAPI.spaces.list.mockResolvedValue({
         data: {
-          spaces: [
-            { name: 'spaces/space1', displayName: 'Other Chat' },
-          ],
+          spaces: [{ name: 'spaces/space1', displayName: 'Other Chat' }],
         },
       });
 
-      const result = await chatService.findSpaceByName({ displayName: 'Non-existent Chat' });
+      const result = await chatService.findSpaceByName({
+        displayName: 'Non-existent Chat',
+      });
 
       const response = JSON.parse(result.content[0].text);
-      expect(response.error).toBe('No space found with display name: Non-existent Chat');
+      expect(response.error).toBe(
+        'No space found with display name: Non-existent Chat',
+      );
     });
   });
 
@@ -283,9 +302,7 @@ describe('ChatService', () => {
       const mockPerson = {
         data: {
           metadata: {
-            sources: [
-              { type: 'PROFILE', id: 'user123' },
-            ],
+            sources: [{ type: 'PROFILE', id: 'user123' }],
           },
         },
       };
@@ -337,9 +354,7 @@ describe('ChatService', () => {
       const mockPerson = {
         data: {
           metadata: {
-            sources: [
-              { type: 'PROFILE', id: 'user123' },
-            ],
+            sources: [{ type: 'PROFILE', id: 'user123' }],
           },
         },
       };
@@ -352,7 +367,10 @@ describe('ChatService', () => {
       ];
 
       const mockMessages = [
-        { name: 'spaces/space1/messages/msg1', text: 'All messages are unread' },
+        {
+          name: 'spaces/space1/messages/msg1',
+          text: 'All messages are unread',
+        },
       ];
 
       mockPeopleAPI.people.get.mockResolvedValue(mockPerson);
@@ -440,9 +458,7 @@ describe('ChatService', () => {
       const mockPerson = {
         data: {
           metadata: {
-            sources: [
-              { type: 'PROFILE', id: 'user123' },
-            ],
+            sources: [{ type: 'PROFILE', id: 'user123' }],
           },
         },
       };
@@ -455,7 +471,10 @@ describe('ChatService', () => {
       ];
 
       const mockMessages = [
-        { name: 'spaces/space1/messages/msg1', text: 'Unread message in thread' },
+        {
+          name: 'spaces/space1/messages/msg1',
+          text: 'Unread message in thread',
+        },
       ];
 
       mockPeopleAPI.people.get.mockResolvedValue(mockPerson);
@@ -608,7 +627,9 @@ describe('ChatService', () => {
         data: mockSpace,
       });
 
-      const result = await chatService.findDmByEmail({ email: 'user@example.com' });
+      const result = await chatService.findDmByEmail({
+        email: 'user@example.com',
+      });
 
       expect(mockChatAPI.spaces.setup).toHaveBeenCalledWith({
         requestBody: {
@@ -634,10 +655,14 @@ describe('ChatService', () => {
       const apiError = new Error('Failed to setup DM space');
       mockChatAPI.spaces.setup.mockRejectedValue(apiError);
 
-      const result = await chatService.findDmByEmail({ email: 'user@example.com' });
+      const result = await chatService.findDmByEmail({
+        email: 'user@example.com',
+      });
 
       const response = JSON.parse(result.content[0].text);
-      expect(response.error).toBe('An error occurred while finding the DM space.');
+      expect(response.error).toBe(
+        'An error occurred while finding the DM space.',
+      );
       expect(response.details).toBe('Failed to setup DM space');
     });
   });
@@ -693,7 +718,9 @@ describe('ChatService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
-      expect(response.error).toBe('An error occurred while creating the space.');
+      expect(response.error).toBe(
+        'An error occurred while creating the space.',
+      );
       expect(response.details).toBe('Failed to create space');
     });
   });

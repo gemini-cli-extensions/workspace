@@ -28,7 +28,7 @@ describe('secure-browser-launcher', () => {
   beforeEach(() => {
     mockChild = new EventEmitter();
     mockExecFile = jest.fn().mockReturnValue(mockChild as ChildProcess);
-    mockPlatform.mockReturnValue('darwin');  // Default to macOS
+    mockPlatform.mockReturnValue('darwin'); // Default to macOS
   });
 
   afterEach(() => {
@@ -51,7 +51,7 @@ describe('secure-browser-launcher', () => {
     it('should allow valid HTTP URLs', async () => {
       const openPromise = openBrowserSecurely(
         'http://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
@@ -59,14 +59,14 @@ describe('secure-browser-launcher', () => {
         'open',
         ['http://example.com'],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
     it('should allow valid HTTPS URLs', async () => {
       const openPromise = openBrowserSecurely(
         'https://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
@@ -74,28 +74,28 @@ describe('secure-browser-launcher', () => {
         'open',
         ['https://example.com'],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
     it('should reject non-HTTP(S) protocols', async () => {
       await expect(
-        openBrowserSecurely('file:///etc/passwd', mockExecFile as any)
+        openBrowserSecurely('file:///etc/passwd', mockExecFile as any),
       ).rejects.toThrow('Unsafe protocol');
       await expect(
-        openBrowserSecurely('javascript:alert(1)', mockExecFile as any)
+        openBrowserSecurely('javascript:alert(1)', mockExecFile as any),
       ).rejects.toThrow('Unsafe protocol');
       await expect(
-        openBrowserSecurely('ftp://example.com', mockExecFile as any)
+        openBrowserSecurely('ftp://example.com', mockExecFile as any),
       ).rejects.toThrow('Unsafe protocol');
     });
 
     it('should reject invalid URLs', async () => {
       await expect(
-        openBrowserSecurely('not-a-url', mockExecFile as any)
+        openBrowserSecurely('not-a-url', mockExecFile as any),
       ).rejects.toThrow('Invalid URL');
       await expect(
-        openBrowserSecurely('', mockExecFile as any)
+        openBrowserSecurely('', mockExecFile as any),
       ).rejects.toThrow('Invalid URL');
     });
 
@@ -103,17 +103,17 @@ describe('secure-browser-launcher', () => {
       await expect(
         openBrowserSecurely(
           'http://example.com\nmalicious-command',
-          mockExecFile as any
-        )
+          mockExecFile as any,
+        ),
       ).rejects.toThrow('invalid characters');
       await expect(
         openBrowserSecurely(
           'http://example.com\rmalicious-command',
-          mockExecFile as any
-        )
+          mockExecFile as any,
+        ),
       ).rejects.toThrow('invalid characters');
       await expect(
-        openBrowserSecurely('http://example.com\x00', mockExecFile as any)
+        openBrowserSecurely('http://example.com\x00', mockExecFile as any),
       ).rejects.toThrow('invalid characters');
     });
   });
@@ -124,7 +124,10 @@ describe('secure-browser-launcher', () => {
       const maliciousUrl =
         "http://127.0.0.1:8080/?param=example#$(Invoke-Expression([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('Y2FsYy5leGU='))))";
 
-      const openPromise = openBrowserSecurely(maliciousUrl, mockExecFile as any);
+      const openPromise = openBrowserSecurely(
+        maliciousUrl,
+        mockExecFile as any,
+      );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
 
@@ -139,7 +142,7 @@ describe('secure-browser-launcher', () => {
           `Start-Process '${maliciousUrl.replace(/'/g, "''")}'`,
         ],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
@@ -161,7 +164,7 @@ describe('secure-browser-launcher', () => {
           'open',
           [url],
           expect.any(Object),
-          expect.any(Function)
+          expect.any(Function),
         );
       }
     });
@@ -173,7 +176,7 @@ describe('secure-browser-launcher', () => {
 
       const openPromise = openBrowserSecurely(
         urlWithSingleQuotes,
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
@@ -189,7 +192,7 @@ describe('secure-browser-launcher', () => {
           `Start-Process 'http://example.com/path?name=O''Brien&test=''value'''`,
         ],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
   });
@@ -198,7 +201,7 @@ describe('secure-browser-launcher', () => {
     it('should use correct command on macOS', async () => {
       const openPromise = openBrowserSecurely(
         'https://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
@@ -206,7 +209,7 @@ describe('secure-browser-launcher', () => {
         'open',
         ['https://example.com'],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
@@ -214,7 +217,7 @@ describe('secure-browser-launcher', () => {
       mockPlatform.mockReturnValue('win32');
       const openPromise = openBrowserSecurely(
         'https://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
@@ -229,7 +232,7 @@ describe('secure-browser-launcher', () => {
           `Start-Process 'https://example.com'`,
         ],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
@@ -237,7 +240,7 @@ describe('secure-browser-launcher', () => {
       mockPlatform.mockReturnValue('linux');
       const openPromise = openBrowserSecurely(
         'https://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateSuccess();
       await expect(openPromise).resolves.toBeUndefined();
@@ -245,14 +248,14 @@ describe('secure-browser-launcher', () => {
         'xdg-open',
         ['https://example.com'],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
 
     it('should throw on unsupported platforms', async () => {
       mockPlatform.mockReturnValue('aix');
       await expect(
-        openBrowserSecurely('https://example.com', mockExecFile as any)
+        openBrowserSecurely('https://example.com', mockExecFile as any),
       ).rejects.toThrow('Unsupported platform');
     });
   });
@@ -261,7 +264,7 @@ describe('secure-browser-launcher', () => {
     it('should handle browser launch failures gracefully', async () => {
       const openPromise = openBrowserSecurely(
         'https://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
       simulateFailure();
       await expect(openPromise).rejects.toThrow('Failed to open browser');
@@ -287,7 +290,7 @@ describe('secure-browser-launcher', () => {
 
       const openPromise = openBrowserSecurely(
         'https://example.com',
-        mockExecFile as any
+        mockExecFile as any,
       );
 
       await expect(openPromise).resolves.toBeUndefined();
@@ -298,14 +301,14 @@ describe('secure-browser-launcher', () => {
         'xdg-open',
         ['https://example.com'],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
       expect(mockExecFile).toHaveBeenNthCalledWith(
         2,
         'gnome-open',
         ['https://example.com'],
         expect.any(Object),
-        expect.any(Function)
+        expect.any(Function),
       );
     });
   });

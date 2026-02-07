@@ -12,9 +12,7 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": [
-    "workspace-server/src/**/*"
-  ],
+  "include": ["workspace-server/src/**/*"],
   "exclude": [
     "node_modules",
     "**/node_modules",

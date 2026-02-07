@@ -140,8 +140,6 @@ export class FileTokenStorage extends BaseTokenStorage {
       return null;
     }
 
-
-
     return credentials;
   }
 

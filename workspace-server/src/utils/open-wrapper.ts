@@ -11,7 +11,10 @@
  * 2. Prints the URL to console if browser launch should be skipped or fails
  */
 
-import { openBrowserSecurely, shouldLaunchBrowser } from './secure-browser-launcher';
+import {
+  openBrowserSecurely,
+  shouldLaunchBrowser,
+} from './secure-browser-launcher';
 
 // Create a mock child process object that matches what open returns
 const createMockChildProcess = () => ({
@@ -33,7 +36,9 @@ const createMockChildProcess = () => ({
 const openWrapper = async (url: string): Promise<any> => {
   // Check if we should launch the browser
   if (!shouldLaunchBrowser()) {
-    console.log(`Browser launch not supported. Please open this URL in your browser: ${url}`);
+    console.log(
+      `Browser launch not supported. Please open this URL in your browser: ${url}`,
+    );
     return createMockChildProcess();
   }
 
@@ -42,7 +47,9 @@ const openWrapper = async (url: string): Promise<any> => {
     await openBrowserSecurely(url);
     return createMockChildProcess();
   } catch {
-    console.log(`Failed to open browser. Please open this URL in your browser: ${url}`);
+    console.log(
+      `Failed to open browser. Please open this URL in your browser: ${url}`,
+    );
     return createMockChildProcess();
   }
 };

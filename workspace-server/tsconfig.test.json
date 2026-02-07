@@ -4,8 +4,5 @@
     "strict": false,
     "noImplicitAny": false
   },
-  "include": [
-    "src/**/*.test.ts",
-    "src/**/*.spec.ts"
-  ]
+  "include": ["src/**/*.test.ts", "src/**/*.spec.ts"]
 }

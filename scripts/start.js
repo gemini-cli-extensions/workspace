@@ -19,7 +19,11 @@ function runCommand(command, args, options) {
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`Command failed with code ${code}: ${command} ${args.join(' ')}`));
+        reject(
+          new Error(
+            `Command failed with code ${code}: ${command} ${args.join(' ')}`,
+          ),
+        );
       } else {
         resolve();
       }
@@ -32,10 +36,20 @@ function runCommand(command, args, options) {
 
 async function main() {
   try {
-    await runCommand('npm', ['install'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    await runCommand('npm', ['install'], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
 
-    const SERVER_PATH = path.join(__dirname, '..', 'workspace-server', 'dist', 'index.js');
-    await runCommand('node', [SERVER_PATH, '--debug'], { stdio: 'inherit' });
+    const SERVER_PATH = path.join(
+      __dirname,
+      '..',
+      'workspace-server',
+      'dist',
+      'index.js',
+    );
+    await runCommand('node', [SERVER_PATH, '--debug', '--use-dot-names'], {
+      stdio: 'inherit',
+    });
   } catch (error) {
     console.error(error);
     process.exit(1);

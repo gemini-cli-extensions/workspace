@@ -25,7 +25,7 @@ describe('TimeService', () => {
       const result = await timeService.getCurrentDate();
       const parsed = JSON.parse(result.content[0].text);
       const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
+
       expect(parsed.utc).toEqual('2025-08-19');
       expect(parsed.local).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(parsed.timeZone).toEqual(expectedTimeZone);
@@ -37,7 +37,7 @@ describe('TimeService', () => {
       const result = await timeService.getCurrentTime();
       const parsed = JSON.parse(result.content[0].text);
       const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
+
       expect(parsed.utc).toEqual('12:34:56');
       expect(parsed.local).toMatch(/^\d{2}:\d{2}:\d{2}$/);
       expect(parsed.timeZone).toEqual(expectedTimeZone);
@@ -48,7 +48,9 @@ describe('TimeService', () => {
     it('should return the local timezone', async () => {
       const result = await timeService.getTimeZone();
       const expectedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      expect(result.content[0].text).toEqual(JSON.stringify({ timeZone: expectedTimeZone }));
+      expect(result.content[0].text).toEqual(
+        JSON.stringify({ timeZone: expectedTimeZone }),
+      );
     });
   });
 });

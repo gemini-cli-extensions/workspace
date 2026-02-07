@@ -11,23 +11,30 @@ export class TimeService {
     logToFile('TimeService initialized.');
   }
 
-  private async handleErrors<T>(fn: () => Promise<T>): Promise<{ content: [{ type: "text"; text: string; }] }> {
+  private async handleErrors<T>(
+    fn: () => Promise<T>,
+  ): Promise<{ content: [{ type: 'text'; text: string }] }> {
     try {
       const result = await fn();
       return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify(result)
-        }]
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(result),
+          },
+        ],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       logToFile(`Error in TimeService: ${errorMessage}`);
       return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({ error: errorMessage })
-        }]
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
       };
     }
   }
@@ -35,7 +42,7 @@ export class TimeService {
   private getTimeContext() {
     return {
       now: new Date(),
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
   }
 
@@ -46,10 +53,10 @@ export class TimeService {
       return {
         utc: now.toISOString().slice(0, 10),
         local: now.toLocaleDateString('en-CA', { timeZone }), // YYYY-MM-DD format
-        timeZone
+        timeZone,
       };
     });
-  }
+  };
 
   getCurrentTime = async () => {
     logToFile('getCurrentTime called');
@@ -58,15 +65,15 @@ export class TimeService {
       return {
         utc: now.toISOString().slice(11, 19),
         local: now.toLocaleTimeString('en-GB', { hour12: false, timeZone }), // HH:MM:SS format
-        timeZone
+        timeZone,
       };
     });
-  }
+  };
 
   getTimeZone = async () => {
     logToFile('getTimeZone called');
     return this.handleErrors(async () => {
       return { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
     });
-  }
+  };
 }

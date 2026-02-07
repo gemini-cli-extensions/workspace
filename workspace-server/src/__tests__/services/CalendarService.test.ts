@@ -4,7 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  jest,
+  beforeEach,
+  afterEach,
+} from '@jest/globals';
 import { CalendarService } from '../../services/CalendarService';
 import { google } from 'googleapis';
 
@@ -75,10 +82,10 @@ describe('CalendarService', () => {
       const result = await calendarService.listCalendars();
 
       expect(mockCalendarAPI.calendarList.list).toHaveBeenCalledTimes(1);
-      
-      const expectedResult = mockCalendars.map(c => ({ 
-        id: c.id, 
-        summary: c.summary 
+
+      const expectedResult = mockCalendars.map((c) => ({
+        id: c.id,
+        summary: c.summary,
       }));
       expect(JSON.parse(result.content[0].text)).toEqual(expectedResult);
     });
@@ -102,7 +109,9 @@ describe('CalendarService', () => {
 
       const result = await calendarService.listCalendars();
 
-      expect(JSON.parse(result.content[0].text)).toEqual({ error: 'Calendar API failed' });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Calendar API failed',
+      });
     });
 
     it('should handle undefined items in response', async () => {
@@ -192,6 +201,43 @@ describe('CalendarService', () => {
       expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
     });
 
+    it('should create a calendar event with a description', async () => {
+      const eventInput = {
+        calendarId: 'primary',
+        summary: 'Team Meeting',
+        description: 'Monthly strategy sync',
+        start: { dateTime: '2024-01-15T10:00:00-07:00' },
+        end: { dateTime: '2024-01-15T11:00:00-07:00' },
+      };
+
+      const mockCreatedEvent = {
+        id: 'event123',
+        summary: 'Team Meeting',
+        description: 'Monthly strategy sync',
+        start: eventInput.start,
+        end: eventInput.end,
+        status: 'confirmed',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.createEvent(eventInput);
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        requestBody: {
+          summary: 'Team Meeting',
+          description: 'Monthly strategy sync',
+          start: eventInput.start,
+          end: eventInput.end,
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
     it('should handle event creation errors', async () => {
       const eventInput = {
         calendarId: 'primary',
@@ -205,7 +251,9 @@ describe('CalendarService', () => {
 
       const errorResponse = JSON.parse(result.content[0].text);
       expect(errorResponse.error).toBe('Invalid input format');
-      expect(errorResponse.details).toContain('Invalid ISO 8601 datetime format');
+      expect(errorResponse.details).toContain(
+        'Invalid ISO 8601 datetime format',
+      );
     });
   });
 
@@ -252,7 +300,8 @@ describe('CalendarService', () => {
         timeMin: '2024-01-15T00:00:00Z',
         timeMax: '2024-01-16T00:00:00Z',
         singleEvents: true,
-        fields: 'items(id,summary,start,end,description,htmlLink,attendees,status)',
+        fields:
+          'items(id,summary,start,end,description,htmlLink,attendees,status)',
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvents);
@@ -293,7 +342,8 @@ describe('CalendarService', () => {
         timeMin: '2024-01-15T00:00:00Z',
         timeMax: '2024-01-16T00:00:00Z',
         singleEvents: true,
-        fields: 'items(id,summary,start,end,description,htmlLink,attendees,status)',
+        fields:
+          'items(id,summary,start,end,description,htmlLink,attendees,status)',
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvents);
@@ -396,7 +446,11 @@ describe('CalendarService', () => {
           summary: 'Meeting needs response',
           status: 'confirmed',
           attendees: [
-            { email: 'me@example.com', self: true, responseStatus: 'needsAction' },
+            {
+              email: 'me@example.com',
+              self: true,
+              responseStatus: 'needsAction',
+            },
           ],
         },
       ];
@@ -491,7 +545,9 @@ describe('CalendarService', () => {
         calendarId: 'primary',
       });
 
-      expect(JSON.parse(result.content[0].text)).toEqual({ error: 'Events API failed' });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Events API failed',
+      });
     });
 
     it('should handle empty events list', async () => {
@@ -533,7 +589,7 @@ describe('CalendarService', () => {
       expect(mockCalendarAPI.events.list).toHaveBeenCalledWith(
         expect.objectContaining({
           calendarId: 'primary',
-        })
+        }),
       );
     });
   });
@@ -568,7 +624,10 @@ describe('CalendarService', () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult.start).toBeDefined();
       expect(parsedResult.end).toBeDefined();
-      expect(new Date(parsedResult.end).getTime() - new Date(parsedResult.start).getTime()).toBe(60 * 60 * 1000);
+      expect(
+        new Date(parsedResult.end).getTime() -
+          new Date(parsedResult.start).getTime(),
+      ).toBe(60 * 60 * 1000);
     });
 
     it('should return an error if no free time is found', async () => {
@@ -676,6 +735,31 @@ describe('CalendarService', () => {
       expect(parsedResult.summary).toBe('Updated Meeting');
     });
 
+    it('should update an event with a description', async () => {
+      const updatedEvent = {
+        id: 'event123',
+        description: 'New updated description',
+      };
+
+      mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+
+      const result = await calendarService.updateEvent({
+        eventId: 'event123',
+        description: 'New updated description',
+      });
+
+      expect(mockCalendarAPI.events.update).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        eventId: 'event123',
+        requestBody: {
+          description: 'New updated description',
+        },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.description).toBe('New updated description');
+    });
+
     it('should handle update errors', async () => {
       const apiError = new Error('Update failed');
       mockCalendarAPI.events.update.mockRejectedValue(apiError);
@@ -726,7 +810,11 @@ describe('CalendarService', () => {
         id: 'event123',
         summary: 'Team Meeting',
         attendees: [
-          { email: 'me@example.com', self: true, responseStatus: 'needsAction' },
+          {
+            email: 'me@example.com',
+            self: true,
+            responseStatus: 'needsAction',
+          },
           { email: 'other@example.com', responseStatus: 'accepted' },
         ],
       };
@@ -778,7 +866,11 @@ describe('CalendarService', () => {
         id: 'event123',
         summary: 'Team Meeting',
         attendees: [
-          { email: 'me@example.com', self: true, responseStatus: 'needsAction' },
+          {
+            email: 'me@example.com',
+            self: true,
+            responseStatus: 'needsAction',
+          },
           { email: 'other@example.com', responseStatus: 'accepted' },
         ],
       };
@@ -786,7 +878,12 @@ describe('CalendarService', () => {
       const updatedEvent = {
         ...mockEvent,
         attendees: [
-          { email: 'me@example.com', self: true, responseStatus: 'declined', comment: 'Sorry, I have a conflict' },
+          {
+            email: 'me@example.com',
+            self: true,
+            responseStatus: 'declined',
+            comment: 'Sorry, I have a conflict',
+          },
           { email: 'other@example.com', responseStatus: 'accepted' },
         ],
       };
@@ -831,12 +928,23 @@ describe('CalendarService', () => {
         id: 'event123',
         summary: 'Team Meeting',
         attendees: [
-          { email: 'me@example.com', self: true, responseStatus: 'needsAction' },
+          {
+            email: 'me@example.com',
+            self: true,
+            responseStatus: 'needsAction',
+          },
         ],
       };
 
       mockCalendarAPI.events.get.mockResolvedValue({ data: mockEvent });
-      mockCalendarAPI.events.patch.mockResolvedValue({ data: { ...mockEvent, attendees: [{ ...mockEvent.attendees[0], responseStatus: 'tentative' }] } });
+      mockCalendarAPI.events.patch.mockResolvedValue({
+        data: {
+          ...mockEvent,
+          attendees: [
+            { ...mockEvent.attendees[0], responseStatus: 'tentative' },
+          ],
+        },
+      });
 
       const result = await calendarService.respondToEvent({
         eventId: 'event123',
@@ -909,12 +1017,23 @@ describe('CalendarService', () => {
         id: 'event123',
         summary: 'Team Meeting',
         attendees: [
-          { email: 'me@example.com', self: true, responseStatus: 'needsAction' },
+          {
+            email: 'me@example.com',
+            self: true,
+            responseStatus: 'needsAction',
+          },
         ],
       };
 
       mockCalendarAPI.events.get.mockResolvedValue({ data: mockEvent });
-      mockCalendarAPI.events.patch.mockResolvedValue({ data: { ...mockEvent, attendees: [{ ...mockEvent.attendees[0], responseStatus: 'accepted' }] } });
+      mockCalendarAPI.events.patch.mockResolvedValue({
+        data: {
+          ...mockEvent,
+          attendees: [
+            { ...mockEvent.attendees[0], responseStatus: 'accepted' },
+          ],
+        },
+      });
 
       await calendarService.respondToEvent({
         eventId: 'event123',
@@ -930,7 +1049,7 @@ describe('CalendarService', () => {
       expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith(
         expect.objectContaining({
           calendarId: 'custom-calendar-id',
-        })
+        }),
       );
     });
 
@@ -969,7 +1088,10 @@ describe('CalendarService', () => {
 
       mockCalendarAPI.events.get.mockResolvedValue({ data: mockEvent });
 
-      const result = await calendarService.getEvent({ eventId: 'event123', calendarId: 'primary' });
+      const result = await calendarService.getEvent({
+        eventId: 'event123',
+        calendarId: 'primary',
+      });
 
       expect(mockCalendarAPI.events.get).toHaveBeenCalledWith({
         calendarId: 'primary',
@@ -997,15 +1119,20 @@ describe('CalendarService', () => {
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvent);
-      });
+    });
 
     it('should handle API errors when getting an event', async () => {
       const apiError = new Error('Event not found');
       mockCalendarAPI.events.get.mockRejectedValue(apiError);
 
-      const result = await calendarService.getEvent({ eventId: 'non-existent-event', calendarId: 'primary' });
+      const result = await calendarService.getEvent({
+        eventId: 'non-existent-event',
+        calendarId: 'primary',
+      });
 
-      expect(JSON.parse(result.content[0].text)).toEqual({ error: 'Event not found' });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Event not found',
+      });
     });
   });
   describe('deleteEvent', () => {

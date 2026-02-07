@@ -2,96 +2,96 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [18.x, 20.x]
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        cache-dependency-path: workspace-mcp-server/package-lock.json
-    
-    - name: Install dependencies
-      run: npm ci
-      working-directory: workspace-mcp-server
-    
-    - name: Run linter
-      run: npm run lint --if-present
-      working-directory: workspace-mcp-server
-    
-    - name: Run type checking
-      run: npx tsc --noEmit
-      working-directory: workspace-mcp-server
-    
-    - name: Run tests
-      run: npm test
-      working-directory: workspace-mcp-server
-    
-    - name: Generate coverage report
-      run: npm run test:coverage
-      working-directory: workspace-mcp-server
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        directory: ./workspace-mcp-server/coverage
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: workspace-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: workspace-mcp-server
+
+      - name: Run linter
+        run: npm run lint --if-present
+        working-directory: workspace-mcp-server
+
+      - name: Run type checking
+        run: npx tsc --noEmit
+        working-directory: workspace-mcp-server
+
+      - name: Run tests
+        run: npm test
+        working-directory: workspace-mcp-server
+
+      - name: Generate coverage report
+        run: npm run test:coverage
+        working-directory: workspace-mcp-server
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./workspace-mcp-server/coverage
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
 
   build:
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        cache-dependency-path: workspace-mcp-server/package-lock.json
-    
-    - name: Install dependencies
-      run: npm ci
-      working-directory: workspace-mcp-server
-    
-    - name: Build
-      run: npm run build
-      working-directory: workspace-mcp-server
-    
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: workspace-mcp-server/dist/
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: workspace-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: workspace-mcp-server
+
+      - name: Build
+        run: npm run build
+        working-directory: workspace-mcp-server
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: workspace-mcp-server/dist/
 
   security:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run security audit
-      run: npm audit --audit-level=moderate
-      working-directory: workspace-mcp-server
-      continue-on-error: true
-    
-    - name: Check for known vulnerabilities
-      run: npx audit-ci --moderate
-      working-directory: workspace-mcp-server
-      continue-on-error: true
+      - uses: actions/checkout@v4
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+        working-directory: workspace-mcp-server
+        continue-on-error: true
+
+      - name: Check for known vulnerabilities
+        run: npx audit-ci --moderate
+        working-directory: workspace-mcp-server
+        continue-on-error: true

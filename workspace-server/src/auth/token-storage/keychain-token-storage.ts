@@ -42,7 +42,6 @@ export class KeychainTokenStorage extends BaseTokenStorage {
       const module = await import(moduleName);
       this.keytarModule = module.default || module;
     } catch (error) {
-      
       console.error(error);
     }
     return this.keytarModule;
@@ -67,8 +66,6 @@ export class KeychainTokenStorage extends BaseTokenStorage {
       }
 
       const credentials = JSON.parse(data) as OAuthCredentials;
-
-
 
       return credentials;
     } catch (error) {

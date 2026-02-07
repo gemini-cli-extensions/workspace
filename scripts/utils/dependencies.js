@@ -38,7 +38,7 @@ function getTransitiveDependencies(rootDir, startPkgs) {
     visited.add(pkg);
 
     const deps = getDependencies(rootDir, pkg);
-    deps.forEach(dep => {
+    deps.forEach((dep) => {
       if (!visited.has(dep)) {
         toVisit.push(dep);
       }
@@ -50,5 +50,5 @@ function getTransitiveDependencies(rootDir, startPkgs) {
 
 module.exports = {
   getDependencies,
-  getTransitiveDependencies
+  getTransitiveDependencies,
 };

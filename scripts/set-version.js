@@ -9,21 +9,34 @@ const path = require('node:path');
 
 const rootDir = path.join(__dirname, '..');
 const packageJsonPath = path.join(rootDir, 'package.json');
-const workspaceServerPackageJsonPath = path.join(rootDir, 'workspace-server', 'package.json');
-const workspaceServerIndexPath = path.join(rootDir, 'workspace-server', 'src', 'index.ts');
+const workspaceServerPackageJsonPath = path.join(
+  rootDir,
+  'workspace-server',
+  'package.json',
+);
+const workspaceServerIndexPath = path.join(
+  rootDir,
+  'workspace-server',
+  'src',
+  'index.ts',
+);
 
 const updateJsonFile = (filePath, version) => {
   try {
     const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     content.version = version;
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
-    console.log(`Updated ${path.relative(rootDir, filePath)} to version ${version}`);
+    console.log(
+      `Updated ${path.relative(rootDir, filePath)} to version ${version}`,
+    );
   } catch (error) {
-    console.error(`Failed to update JSON file at ${path.relative(rootDir, filePath)}:`, error);
+    console.error(
+      `Failed to update JSON file at ${path.relative(rootDir, filePath)}:`,
+      error,
+    );
     process.exit(1);
   }
 };
-
 
 const main = () => {
   let version = process.argv[2];
@@ -44,7 +57,6 @@ const main = () => {
   }
 
   updateJsonFile(workspaceServerPackageJsonPath, version);
-
 };
 
 main();

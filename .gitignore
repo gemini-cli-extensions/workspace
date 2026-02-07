@@ -32,7 +32,6 @@ token.json
 gemini-cli-workspace-token.json
 .gemini-cli-workspace-master-key
 
-.gemini/
 commit_message.txt
 
 # Release directory

@@ -4,13 +4,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { type OAuthCredentials, TokenStorageType } from '../../../auth/token-storage/types';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+} from '@jest/globals';
+import {
+  type OAuthCredentials,
+  TokenStorageType,
+} from '../../../auth/token-storage/types';
 
 // Mock paths
-const KEYCHAIN_TOKEN_STORAGE_PATH = '../../../auth/token-storage/keychain-token-storage';
-const FILE_TOKEN_STORAGE_PATH = '../../../auth/token-storage/file-token-storage';
-const HYBRID_TOKEN_STORAGE_PATH = '../../../auth/token-storage/hybrid-token-storage';
+const KEYCHAIN_TOKEN_STORAGE_PATH =
+  '../../../auth/token-storage/keychain-token-storage';
+const FILE_TOKEN_STORAGE_PATH =
+  '../../../auth/token-storage/file-token-storage';
+const HYBRID_TOKEN_STORAGE_PATH =
+  '../../../auth/token-storage/hybrid-token-storage';
 
 interface MockStorage {
   isAvailable?: ReturnType<typeof jest.fn>;
@@ -54,7 +67,9 @@ describe('HybridTokenStorage', () => {
     };
 
     jest.doMock(KEYCHAIN_TOKEN_STORAGE_PATH, () => ({
-      KeychainTokenStorage: jest.fn().mockImplementation(() => mockKeychainStorage),
+      KeychainTokenStorage: jest
+        .fn()
+        .mockImplementation(() => mockKeychainStorage),
     }));
 
     jest.mock(FILE_TOKEN_STORAGE_PATH, () => ({

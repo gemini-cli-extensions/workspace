@@ -25,9 +25,8 @@ export class HybridTokenStorage extends BaseTokenStorage {
 
     if (!forceFileStorage) {
       try {
-        const { KeychainTokenStorage } = await import(
-          './keychain-token-storage'
-        );
+        const { KeychainTokenStorage } =
+          await import('./keychain-token-storage');
         const keychainStorage = new KeychainTokenStorage(this.serviceName);
 
         const isAvailable = await keychainStorage.isAvailable();
@@ -38,7 +37,10 @@ export class HybridTokenStorage extends BaseTokenStorage {
         }
       } catch (e) {
         // Fallback to file storage if keychain fails to initialize.
-        console.warn('Keychain initialization failed, falling back to file storage:', e);
+        console.warn(
+          'Keychain initialization failed, falling back to file storage:',
+          e,
+        );
       }
     }
 

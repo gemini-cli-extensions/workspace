@@ -16,334 +16,440 @@ import { PROJECT_ROOT } from '../utils/paths';
 const MIN_DRIVE_ID_LENGTH = 25;
 
 const URL_PATTERNS = [
-    { pattern: /\/folders\/([a-zA-Z0-9-_]+)/, type: 'folder' as const },
-    { pattern: /\/file\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
-    { pattern: /\/document\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
-    { pattern: /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
-    { pattern: /\/presentation\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
-    { pattern: /\/forms\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
-    { pattern: /[?&]id=([a-zA-Z0-9-_]+)/, type: 'unknown' as const }
+  { pattern: /\/folders\/([a-zA-Z0-9-_]+)/, type: 'folder' as const },
+  { pattern: /\/file\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
+  { pattern: /\/document\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
+  { pattern: /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
+  { pattern: /\/presentation\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
+  { pattern: /\/forms\/d\/([a-zA-Z0-9-_]+)/, type: 'file' as const },
+  { pattern: /[?&]id=([a-zA-Z0-9-_]+)/, type: 'unknown' as const },
 ];
 
 export class DriveService {
-    constructor(private authManager: AuthManager) {
-    }
+  constructor(private authManager: AuthManager) {}
 
-    private async getDriveClient(): Promise<drive_v3.Drive> {
-        const auth = await this.authManager.getAuthenticatedClient();
-        const options = { ...gaxiosOptions, auth };
-        return google.drive({ version: 'v3', ...options });
-    }
+  private async getDriveClient(): Promise<drive_v3.Drive> {
+    const auth = await this.authManager.getAuthenticatedClient();
+    const options = { ...gaxiosOptions, auth };
+    return google.drive({ version: 'v3', ...options });
+  }
 
-    public findFolder = async ({ folderName }: { folderName: string }) => {
-        logToFile(`Searching for folder with name: ${folderName}`);
-        try {
-            const drive = await this.getDriveClient();
-            const query = `mimeType='application/vnd.google-apps.folder' and name = '${folderName}'`;
-            logToFile(`Executing Drive API query: ${query}`);
-            const res = await drive.files.list({
-                q: query,
-                fields: 'files(id, name)',
-                spaces: 'drive',
+  public findFolder = async ({ folderName }: { folderName: string }) => {
+    logToFile(`Searching for folder with name: ${folderName}`);
+    try {
+      const drive = await this.getDriveClient();
+      const query = `mimeType='application/vnd.google-apps.folder' and name = '${folderName}'`;
+      logToFile(`Executing Drive API query: ${query}`);
+      const res = await drive.files.list({
+        q: query,
+        fields: 'files(id, name)',
+        spaces: 'drive',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+
+      const folders = res.data.files || [];
+      logToFile(`Found ${folders.length} folders.`);
+      logToFile(`API Response: ${JSON.stringify(folders, null, 2)}`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(folders),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during drive.findFolder: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public createFolder = async ({
+    name,
+    parentId,
+  }: {
+    name: string;
+    parentId?: string;
+  }) => {
+    logToFile(
+      `Creating folder with name: ${name} ${parentId ? `in parent: ${parentId}` : ''}`,
+    );
+    try {
+      const drive = await this.getDriveClient();
+      const fileMetadata: drive_v3.Schema$File = {
+        name: name,
+        mimeType: 'application/vnd.google-apps.folder',
+      };
+
+      if (parentId) {
+        fileMetadata.parents = [parentId];
+      }
+
+      const file = await drive.files.create({
+        requestBody: fileMetadata,
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      logToFile(`Created folder: ${file.data.name} (${file.data.id})`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              id: file.data.id,
+              name: file.data.name,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during drive.createFolder: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public search = async ({
+    query,
+    pageSize = 10,
+    pageToken,
+    corpus,
+    unreadOnly,
+    sharedWithMe,
+  }: {
+    query?: string;
+    pageSize?: number;
+    pageToken?: string;
+    corpus?: string;
+    unreadOnly?: boolean;
+    sharedWithMe?: boolean;
+  }) => {
+    const drive = await this.getDriveClient();
+    let q = query;
+    let isProcessed = false;
+
+    // Check if query is a Google Drive URL
+    if (
+      query &&
+      (query.includes('drive.google.com') || query.includes('docs.google.com'))
+    ) {
+      isProcessed = true;
+      logToFile(`Detected Google Drive URL in query: ${query}`);
+
+      let fileId: string | null = null;
+      let urlType: 'file' | 'folder' | 'unknown' = 'unknown';
+
+      for (const urlPattern of URL_PATTERNS) {
+        const match = query.match(urlPattern.pattern);
+        if (match) {
+          fileId = match[1];
+          urlType = urlPattern.type;
+          break;
+        }
+      }
+
+      if (fileId) {
+        let isFolder = urlType === 'folder';
+
+        if (urlType === 'unknown') {
+          try {
+            const file = await drive.files.get({
+              fileId,
+              fields: 'mimeType',
+              supportsAllDrives: true,
             });
-
-            const folders = res.data.files || [];
-            logToFile(`Found ${folders.length} folders.`);
-            logToFile(`API Response: ${JSON.stringify(folders, null, 2)}`);
-
-            return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify(folders)
-                }]
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            logToFile(`Error during drive.findFolder: ${errorMessage}`);
-            return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify({ error: errorMessage })
-                }]
-            };
-        }
-    }
-
-    public createFolder = async ({ name, parentId }: { name: string, parentId?: string }) => {
-        logToFile(`Creating folder with name: ${name} ${parentId ? `in parent: ${parentId}` : ''}`);
-        try {
-            const drive = await this.getDriveClient();
-            const fileMetadata: drive_v3.Schema$File = {
-                name: name,
-                mimeType: 'application/vnd.google-apps.folder',
-            };
-
-            if (parentId) {
-                fileMetadata.parents = [parentId];
+            if (file.data.mimeType === 'application/vnd.google-apps.folder') {
+              isFolder = true;
             }
+          } catch {
+            logToFile(
+              `Could not determine type of ID from URL, treating as file: ${fileId}`,
+            );
+          }
+        }
 
-            const file = await drive.files.create({
-                requestBody: fileMetadata,
-                fields: 'id, name',
+        if (isFolder) {
+          q = `'${fileId}' in parents`;
+          logToFile(
+            `Extracted Folder ID from URL: ${fileId}, using query: ${q}`,
+          );
+        } else {
+          logToFile(`Extracted File ID from URL: ${fileId}, using files.get`);
+          try {
+            const res = await drive.files.get({
+              fileId: fileId,
+              fields:
+                'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
+              supportsAllDrives: true,
             });
-
-            logToFile(`Created folder: ${file.data.name} (${file.data.id})`);
-
             return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify({
-                        id: file.data.id,
-                        name: file.data.name
-                    })
-                }]
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({
+                    files: [res.data],
+                    nextPageToken: null,
+                  }),
+                },
+              ],
             };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            logToFile(`Error during drive.createFolder: ${errorMessage}`);
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            logToFile(`Error during drive.files.get: ${errorMessage}`);
             return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify({ error: errorMessage })
-                }]
+              content: [
+                {
+                  type: 'text' as const,
+                  text: JSON.stringify({ error: errorMessage }),
+                },
+              ],
             };
+          }
         }
+      } else {
+        logToFile(`Could not extract file/folder ID from URL: ${query}`);
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                error:
+                  'Invalid Drive URL. Please provide a valid Google Drive URL or a search query.',
+                details:
+                  'Could not extract file or folder ID from the provided URL.',
+              }),
+            },
+          ],
+        };
+      }
     }
 
-    public search = async ({ query, pageSize = 10, pageToken, corpus, unreadOnly, sharedWithMe }: { query?: string, pageSize?: number, pageToken?: string, corpus?: string, unreadOnly?: boolean, sharedWithMe?: boolean }) => {
-        const drive = await this.getDriveClient();
-        let q = query;
-        let isProcessed = false;
+    if (query && !isProcessed) {
+      const titlePrefix = 'title:';
+      const trimmedQuery = query.trim();
 
-        // Check if query is a Google Drive URL
-        if (query && (query.includes('drive.google.com') || query.includes('docs.google.com'))) {
-            isProcessed = true;
-            logToFile(`Detected Google Drive URL in query: ${query}`);
-
-            let fileId: string | null = null;
-            let urlType: 'file' | 'folder' | 'unknown' = 'unknown';
-
-            for (const urlPattern of URL_PATTERNS) {
-                const match = query.match(urlPattern.pattern);
-                if (match) {
-                    fileId = match[1];
-                    urlType = urlPattern.type;
-                    break;
-                }
-            }
-
-            if (fileId) {
-                let isFolder = urlType === 'folder';
-
-                if (urlType === 'unknown') {
-                    try {
-                        const file = await drive.files.get({ fileId, fields: 'mimeType' });
-                        if (file.data.mimeType === 'application/vnd.google-apps.folder') {
-                            isFolder = true;
-                        }
-                    } catch {
-                        logToFile(`Could not determine type of ID from URL, treating as file: ${fileId}`);
-                    }
-                }
-
-                if (isFolder) {
-                    q = `'${fileId}' in parents`;
-                    logToFile(`Extracted Folder ID from URL: ${fileId}, using query: ${q}`);
-                } else {
-                    logToFile(`Extracted File ID from URL: ${fileId}, using files.get`);
-                    try {
-                        const res = await drive.files.get({
-                            fileId: fileId,
-                            fields: 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
-                        });
-                        return {
-                            content: [{
-                                type: "text" as const,
-                                text: JSON.stringify({
-                                    files: [res.data],
-                                    nextPageToken: null
-                                })
-                            }]
-                        };
-                    } catch (error) {
-                        const errorMessage = error instanceof Error ? error.message : String(error);
-                        logToFile(`Error during drive.files.get: ${errorMessage}`);
-                        return {
-                            content: [{
-                                type: "text" as const,
-                                text: JSON.stringify({ error: errorMessage })
-                            }]
-                        };
-                    }
-                }
-            } else {
-                logToFile(`Could not extract file/folder ID from URL: ${query}`);
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: JSON.stringify({
-                            error: "Invalid Drive URL. Please provide a valid Google Drive URL or a search query.",
-                            details: "Could not extract file or folder ID from the provided URL."
-                        })
-                    }]
-                };
-            }
+      if (trimmedQuery.startsWith(titlePrefix)) {
+        let searchTerm = trimmedQuery.substring(titlePrefix.length).trim();
+        if (
+          (searchTerm.startsWith("'") && searchTerm.endsWith("'")) ||
+          (searchTerm.startsWith('"') && searchTerm.endsWith('"'))
+        ) {
+          searchTerm = searchTerm.substring(1, searchTerm.length - 1);
         }
-
-        if (query && !isProcessed) {
-            const titlePrefix = 'title:';
-            const trimmedQuery = query.trim();
-
-            if (trimmedQuery.startsWith(titlePrefix)) {
-                let searchTerm = trimmedQuery.substring(titlePrefix.length).trim();
-                if ((searchTerm.startsWith("'") && searchTerm.endsWith("'")) ||
-                    (searchTerm.startsWith('"') && searchTerm.endsWith('"'))) {
-                    searchTerm = searchTerm.substring(1, searchTerm.length - 1);
-                }
-                q = `name contains '${escapeQueryString(searchTerm)}'`;
-            } else {
-                const driveIdPattern = new RegExp(`^[a-zA-Z0-9-_]{${MIN_DRIVE_ID_LENGTH},}$`);
-                if (driveIdPattern.test(trimmedQuery) && !trimmedQuery.includes(" ")) {
-                    q = `'${trimmedQuery}' in parents`;
-                    logToFile(`Detected Drive ID: ${trimmedQuery}, listing contents`);
-                } else {
-                    const looksLikeQuery = /( and | or | not | contains | in |=)/.test(trimmedQuery);
-                    if (!looksLikeQuery) {
-                        const escapedQuery = escapeQueryString(trimmedQuery);
-                        q = `fullText contains '${escapedQuery}'`;
-                    }
-                }
-            }
+        q = `name contains '${escapeQueryString(searchTerm)}'`;
+      } else {
+        const driveIdPattern = new RegExp(
+          `^[a-zA-Z0-9-_]{${MIN_DRIVE_ID_LENGTH},}$`,
+        );
+        if (driveIdPattern.test(trimmedQuery) && !trimmedQuery.includes(' ')) {
+          q = `'${trimmedQuery}' in parents`;
+          logToFile(`Detected Drive ID: ${trimmedQuery}, listing contents`);
+        } else {
+          const looksLikeQuery = /( and | or | not | contains | in |=)/.test(
+            trimmedQuery,
+          );
+          if (!looksLikeQuery) {
+            const escapedQuery = escapeQueryString(trimmedQuery);
+            q = `fullText contains '${escapedQuery}'`;
+          }
         }
-
-        if (sharedWithMe) {
-            logToFile('Searching for files shared with the user.');
-            if (q) {
-                q += " and sharedWithMe";
-            } else {
-                q = "sharedWithMe";
-            }
-        }
-        
-        logToFile(`Executing Drive search with query: ${q}`);
-        if (corpus) {
-            logToFile(`Using corpus: ${corpus}`);
-        }
-        if (unreadOnly) {
-            logToFile('Filtering for unread files only.');
-        }
-
-        try {
-            const res = await drive.files.list({
-                q: q,
-                pageSize: pageSize,
-                pageToken: pageToken,
-                corpus: corpus as 'user' | 'domain' | undefined,
-                fields: 'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
-            });
-
-            let files = res.data.files || [];
-            const nextPageToken = res.data.nextPageToken;
-
-            if (unreadOnly) {
-                files = files.filter(file => !file.viewedByMeTime);
-            }
-
-            logToFile(`Found ${files.length} files.`);
-            if (nextPageToken) {
-                logToFile(`Next page token: ${nextPageToken}`);
-            }
-
-            return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify({
-                        files: files,
-                        nextPageToken: nextPageToken
-                    })
-                }]
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            logToFile(`Error during drive.search: ${errorMessage}`);
-            return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify({ error: errorMessage })
-                }]
-            };
-        }
+      }
     }
 
-    public downloadFile = async ({ fileId, localPath }: { fileId: string, localPath: string }) => {
-        logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
-        try {
-            const drive = await this.getDriveClient();
-            
-            // 1. Check if it's a Google Doc (special handling required, export instead of download)
-            const metadata = await drive.files.get({
-                fileId: fileId,
-                fields: 'id, name, mimeType',
-            });
-            const mimeType = metadata.data.mimeType || '';
-
-            const googleWorkspaceFileMap: Record<string, { tool: string, idName: string, type: string }> = {
-                'application/vnd.google-apps.document': { tool: 'docs.getText', idName: 'documentId', type: 'Google Doc' },
-                'application/vnd.google-apps.spreadsheet': { tool: 'sheets.getText', idName: 'spreadsheetId', type: 'Google Sheet' },
-                'application/vnd.google-apps.presentation': { tool: 'slides.getText', idName: 'presentationId', type: 'Google Slide' },
-            };
-
-            if (mimeType in googleWorkspaceFileMap) {
-                const fileInfo = googleWorkspaceFileMap[mimeType];
-                return {
-                    content: [{
-                        type: "text" as const,
-                        text: `This is a ${fileInfo.type}. Direct download is not supported. Please use the '${fileInfo.tool}' tool with ${fileInfo.idName}: ${fileId}`
-                    }]
-                };
-            }
-
-            if (mimeType.includes('vnd.google-apps.')) {
-                 return {
-                    content: [{
-                        type: "text" as const,
-                        text: `This is a Google Workspace file type (${mimeType}). Direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`
-                    }]
-                };
-            }
-
-            // 2. Download media
-            const response = await drive.files.get({
-                fileId: fileId,
-                alt: 'media',
-            }, { responseType: 'arraybuffer' });
-
-            const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
-
-            // 3. Save to localPath
-            const absolutePath = path.isAbsolute(localPath) ? localPath : path.resolve(PROJECT_ROOT, localPath);
-            const dir = path.dirname(absolutePath);
-            
-            await fs.promises.mkdir(dir, { recursive: true });
-
-            await fs.promises.writeFile(absolutePath, buffer);
-
-            return {
-                content: [{
-                    type: "text" as const,
-                    text: `Successfully downloaded file ${metadata.data.name} to ${absolutePath}`
-                }]
-            };
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            logToFile(`Error during drive.downloadFile: ${errorMessage}`);
-            return {
-                content: [{
-                    type: "text" as const,
-                    text: JSON.stringify({ error: errorMessage })
-                }]
-            };
-        }
+    if (sharedWithMe) {
+      logToFile('Searching for files shared with the user.');
+      if (q) {
+        q += ' and sharedWithMe';
+      } else {
+        q = 'sharedWithMe';
+      }
     }
+
+    logToFile(`Executing Drive search with query: ${q}`);
+    if (corpus) {
+      logToFile(`Using corpus: ${corpus}`);
+    }
+    if (unreadOnly) {
+      logToFile('Filtering for unread files only.');
+    }
+
+    try {
+      const res = await drive.files.list({
+        q: q,
+        pageSize: pageSize,
+        pageToken: pageToken,
+        corpus: corpus as 'user' | 'domain' | undefined,
+        fields:
+          'nextPageToken, files(id, name, modifiedTime, viewedByMeTime, mimeType, parents)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+
+      let files = res.data.files || [];
+      const nextPageToken = res.data.nextPageToken;
+
+      if (unreadOnly) {
+        files = files.filter((file) => !file.viewedByMeTime);
+      }
+
+      logToFile(`Found ${files.length} files.`);
+      if (nextPageToken) {
+        logToFile(`Next page token: ${nextPageToken}`);
+      }
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              files: files,
+              nextPageToken: nextPageToken,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during drive.search: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public downloadFile = async ({
+    fileId,
+    localPath,
+  }: {
+    fileId: string;
+    localPath: string;
+  }) => {
+    logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
+    try {
+      const drive = await this.getDriveClient();
+
+      // 1. Check if it's a Google Doc (special handling required, export instead of download)
+      const metadata = await drive.files.get({
+        fileId: fileId,
+        fields: 'id, name, mimeType',
+        supportsAllDrives: true,
+      });
+      const mimeType = metadata.data.mimeType || '';
+
+      const googleWorkspaceFileMap: Record<
+        string,
+        { tool: string; idName: string; type: string }
+      > = {
+        'application/vnd.google-apps.document': {
+          tool: 'docs.getText',
+          idName: 'documentId',
+          type: 'Google Doc',
+        },
+        'application/vnd.google-apps.spreadsheet': {
+          tool: 'sheets.getText',
+          idName: 'spreadsheetId',
+          type: 'Google Sheet',
+        },
+        'application/vnd.google-apps.presentation': {
+          tool: 'slides.getText',
+          idName: 'presentationId',
+          type: 'Google Slide',
+        },
+      };
+
+      if (mimeType in googleWorkspaceFileMap) {
+        const fileInfo = googleWorkspaceFileMap[mimeType];
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `This is a ${fileInfo.type}. Direct download is not supported. Please use the '${fileInfo.tool}' tool with ${fileInfo.idName}: ${fileId}`,
+            },
+          ],
+        };
+      }
+
+      if (mimeType.includes('vnd.google-apps.')) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `This is a Google Workspace file type (${mimeType}). Direct media download is not supported. Please use specific tools (docs.getText, slides.getText, etc.) or export it if supported.`,
+            },
+          ],
+        };
+      }
+
+      // 2. Download media
+      const response = await drive.files.get(
+        {
+          fileId: fileId,
+          alt: 'media',
+          supportsAllDrives: true,
+        },
+        { responseType: 'arraybuffer' },
+      );
+
+      const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
+
+      // 3. Save to localPath
+      const absolutePath = path.isAbsolute(localPath)
+        ? localPath
+        : path.resolve(PROJECT_ROOT, localPath);
+      const dir = path.dirname(absolutePath);
+
+      await fs.promises.mkdir(dir, { recursive: true });
+
+      await fs.promises.writeFile(absolutePath, buffer);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Successfully downloaded file ${metadata.data.name} to ${absolutePath}`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during drive.downloadFile: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
 }

@@ -4,7 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+} from '@jest/globals';
 import type { KeychainTokenStorage } from '../../../auth/token-storage/keychain-token-storage';
 import type { OAuthCredentials } from '../../../auth/token-storage/types';
 import type keytar from 'keytar';
@@ -37,9 +44,8 @@ describe('KeychainTokenStorage', () => {
     mockKeytar = (await import('keytar')).default as jest.Mocked<typeof keytar>;
 
     // Now import the module we are testing, which will use the mock above.
-    const { KeychainTokenStorage } = await import(
-      '../../../auth/token-storage/keychain-token-storage'
-    );
+    const { KeychainTokenStorage } =
+      await import('../../../auth/token-storage/keychain-token-storage');
     storage = new KeychainTokenStorage(mockServiceName);
   });
 

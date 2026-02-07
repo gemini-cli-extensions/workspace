@@ -8,46 +8,46 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        cache-dependency-path: workspace-mcp-server/package-lock.json
-    
-    - name: Install dependencies
-      run: npm ci
-      working-directory: workspace-mcp-server
-    
-    - name: Run tests
-      run: npm test
-      working-directory: workspace-mcp-server
-    
-    - name: Build
-      run: npm run build
-      working-directory: workspace-mcp-server
-    
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-    
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./workspace-mcp-server/dist/index.js
-        asset_name: workspace-mcp-server.js
-        asset_content_type: application/javascript
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: workspace-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: workspace-mcp-server
+
+      - name: Run tests
+        run: npm test
+        working-directory: workspace-mcp-server
+
+      - name: Build
+        run: npm run build
+        working-directory: workspace-mcp-server
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./workspace-mcp-server/dist/index.js
+          asset_name: workspace-mcp-server.js
+          asset_content_type: application/javascript

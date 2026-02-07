@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const { OAuthCredentialStorage } = require('../workspace-server/dist/auth-utils.js');
+const {
+  OAuthCredentialStorage,
+} = require('../workspace-server/dist/auth-utils.js');
 
 async function clearAuth() {
   try {
@@ -23,7 +25,7 @@ async function expireToken() {
       console.log('ℹ️  No credentials found to expire.');
       return;
     }
-    
+
     // Set expiry to 1 second ago
     credentials.expiry_date = Date.now() - 1000;
     await OAuthCredentialStorage.saveCredentials(credentials);
@@ -42,16 +44,20 @@ async function showStatus() {
       console.log('ℹ️  No credentials found.');
       return;
     }
-    
+
     const now = Date.now();
     const expiry = credentials.expiry_date;
     const hasRefreshToken = !!credentials.refresh_token;
     const hasAccessToken = !!credentials.access_token;
     const isExpired = expiry ? expiry < now : false;
-    
+
     console.log('📊 Auth Status:');
-    console.log(`   Access Token: ${hasAccessToken ? '✅ Present' : '❌ Missing'}`);
-    console.log(`   Refresh Token: ${hasRefreshToken ? '✅ Present' : '❌ Missing'}`);
+    console.log(
+      `   Access Token: ${hasAccessToken ? '✅ Present' : '❌ Missing'}`,
+    );
+    console.log(
+      `   Refresh Token: ${hasRefreshToken ? '✅ Present' : '❌ Missing'}`,
+    );
     if (expiry) {
       console.log(`   Expiry: ${new Date(expiry).toISOString()}`);
       console.log(`   Status: ${isExpired ? '❌ EXPIRED' : '✅ Valid'}`);

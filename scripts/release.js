@@ -30,7 +30,7 @@ const main = async () => {
   const platform = argv.platform;
   if (platform && typeof platform !== 'string') {
     console.error(
-      'Error: The --platform argument must be a string (e.g., --platform=linux).'
+      'Error: The --platform argument must be a string (e.g., --platform=linux).',
     );
     process.exit(1);
   }
@@ -55,7 +55,7 @@ const main = async () => {
   fs.cpSync(
     path.join(workspaceMcpServerDir, 'dist'),
     path.join(archiveDir, 'dist'),
-    { recursive: true }
+    { recursive: true },
   );
 
   // Clean up the dist directory
@@ -70,11 +70,11 @@ const main = async () => {
   // Copy native modules and dependencies (keytar, jsdom)
   const nodeModulesDir = path.join(archiveDir, 'node_modules');
   fs.mkdirSync(nodeModulesDir, { recursive: true });
-  
+
   const { getTransitiveDependencies } = require('./utils/dependencies');
   const visited = getTransitiveDependencies(rootDir, ['keytar', 'jsdom']);
 
-  visited.forEach(pkg => {
+  visited.forEach((pkg) => {
     const source = path.join(rootDir, 'node_modules', pkg);
     const dest = path.join(nodeModulesDir, pkg);
     if (fs.existsSync(source)) {
@@ -83,7 +83,10 @@ const main = async () => {
   });
 
   const packageJson = require('../package.json');
-  const version = (process.env.GITHUB_REF_NAME || packageJson.version).replace(/^v/, '');
+  const version = (process.env.GITHUB_REF_NAME || packageJson.version).replace(
+    /^v/,
+    '',
+  );
 
   // Generate the gemini-extension.json file
   const geminiExtensionJson = {
@@ -93,28 +96,29 @@ const main = async () => {
     mcpServers: {
       'google-workspace': {
         command: 'node',
-        args: ['dist/index.js'],
+        args: ['dist/index.js', '--use-dot-names'],
         cwd: '${extensionPath}',
       },
     },
   };
   fs.writeFileSync(
     path.join(archiveDir, 'gemini-extension.json'),
-    JSON.stringify(geminiExtensionJson, null, 2)
+    JSON.stringify(geminiExtensionJson, null, 2),
   );
 
   // Copy the WORKSPACE-Context.md file
   fs.copyFileSync(
     path.join(workspaceMcpServerDir, 'WORKSPACE-Context.md'),
-    path.join(archiveDir, 'WORKSPACE-Context.md')
+    path.join(archiveDir, 'WORKSPACE-Context.md'),
   );
 
   // Copy the commands directory
   const commandsDir = path.join(rootDir, 'commands');
   if (fs.existsSync(commandsDir)) {
-    fs.cpSync(commandsDir, path.join(archiveDir, 'commands'), { recursive: true });
+    fs.cpSync(commandsDir, path.join(archiveDir, 'commands'), {
+      recursive: true,
+    });
   }
-
 
   // Create the archive
   const output = fs.createWriteStream(path.join(releaseDir, archiveName));
@@ -126,7 +130,7 @@ const main = async () => {
     output.on('close', function () {
       console.log(archive.pointer() + ' total bytes');
       console.log(
-        'archiver has been finalized and the output file descriptor has closed.'
+        'archiver has been finalized and the output file descriptor has closed.',
       );
       resolve();
     });
@@ -143,7 +147,7 @@ const main = async () => {
   await archivePromise;
 };
 
-main().catch(err => {
-    console.error(err);
-    process.exit(1);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });

@@ -8,13 +8,14 @@ import { execFile, ExecFileOptions } from 'node:child_process';
 import { platform } from 'node:os';
 import { URL } from 'node:url';
 
-
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timeoutId: NodeJS.Timeout;
   const timeout = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error('Timeout')), ms);
   });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+  return Promise.race([promise, timeout]).finally(() =>
+    clearTimeout(timeoutId),
+  );
 }
 
 /**
@@ -36,7 +37,7 @@ function validateUrl(url: string): void {
   // Only allow HTTP and HTTPS protocols
   if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
     throw new Error(
-      `Unsafe protocol: ${parsedUrl.protocol}. Only HTTP and HTTPS are allowed.`
+      `Unsafe protocol: ${parsedUrl.protocol}. Only HTTP and HTTPS are allowed.`,
     );
   }
 
@@ -59,7 +60,7 @@ function validateUrl(url: string): void {
  */
 export async function openBrowserSecurely(
   url: string,
-  execFileFn: typeof execFile = execFile
+  execFileFn: typeof execFile = execFile,
 ): Promise<void> {
   // Validate the URL first
   validateUrl(url);
@@ -126,7 +127,7 @@ export async function openBrowserSecurely(
             // but for our case, the 'error' event is more important for spawn failures.
             reject(error);
           }
-        }
+        },
       );
 
       // The 'error' event is critical. It fires if the command cannot be found or spawned.
@@ -180,7 +181,7 @@ export async function openBrowserSecurely(
     throw new Error(
       `Failed to open browser: ${
         error instanceof Error ? error.message : 'Unknown error'
-      }`
+      }`,
     );
   }
 }
