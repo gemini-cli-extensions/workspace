@@ -279,6 +279,10 @@ describe('SlidesService', () => {
       expect(metadata.presentationId).toBe('test-id');
       expect(metadata.title).toBe('Test Presentation');
       expect(metadata.slideCount).toBe(2);
+      expect(metadata.slides).toEqual([
+        { objectId: 'slide1' },
+        { objectId: 'slide2' },
+      ]);
       expect(metadata.hasMasters).toBe(true);
       expect(metadata.hasLayouts).toBe(true);
       expect(metadata.hasNotesMaster).toBe(true);
