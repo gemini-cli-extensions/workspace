@@ -78,6 +78,10 @@ gcloud functions deploy "$FUNCTION_NAME" \
 
 # Get the canonical URL of the deployed function
 FUNCTION_URL=$(gcloud functions describe "$FUNCTION_NAME" --region="$REGION" --format='value(serviceConfig.uri)')
+if [ -z "$FUNCTION_URL" ]; then
+    echo -e "${RED}Error: Could not retrieve Cloud Function URL. Please check the deployment logs.${NC}"
+    exit 1
+fi
 
 echo -e "${GREEN}Cloud Function deployed at: $FUNCTION_URL${NC}"
 
