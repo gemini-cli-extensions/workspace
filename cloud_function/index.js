@@ -11,17 +11,12 @@ const axios = require('axios');
 const { URL } = require('node:url');
 
 // --- Configuration loaded from Environment Variables ---
-// These are set in the Google Cloud Function's configuration
+// These are set in the Google Cloud Function's configuration.
+// They may be absent on the initial deploy (before OAuth credentials exist)
+// and are set on the final deploy. Validation happens at request time.
 const CLIENT_ID = process.env.CLIENT_ID;
 const SECRET_NAME = process.env.SECRET_NAME;
 const REDIRECT_URI = process.env.REDIRECT_URI;
-
-// Fail fast if required environment variables are missing
-if (!CLIENT_ID || !SECRET_NAME || !REDIRECT_URI) {
-  throw new Error(
-    'Missing required environment variables: CLIENT_ID, SECRET_NAME, and REDIRECT_URI must be set.',
-  );
-}
 
 // --- Configuration for local storage (used in instructions) ---
 const KEYCHAIN_SERVICE_NAME = 'gemini-cli-workspace-oauth';
@@ -340,6 +335,13 @@ async function handleRefreshToken(req, res) {
  * Routes requests to either the callback handler or the refresh handler.
  */
 functions.http('oauthHandler', async (req, res) => {
+  // Validate required environment variables at request time
+  if (!CLIENT_ID || !SECRET_NAME || !REDIRECT_URI) {
+    return res.status(503).send(
+      'Function not yet configured. Missing required environment variables: CLIENT_ID, SECRET_NAME, REDIRECT_URI.',
+    );
+  }
+
   // Route to refresh handler if path ends with /refresh or /refreshToken or it's a POST with refresh_token
   if (
     ['/refresh', '/refreshToken'].includes(req.path) ||

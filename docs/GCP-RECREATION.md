@@ -20,31 +20,10 @@ The extension uses a "Hybrid" OAuth flow for security:
   installed and authenticated.
 - Node.js and npm installed.
 
-## Step 1: Configure OAuth Consent Screen
+## Step 1: Run the Automated Setup Script
 
-Before running the setup script, configure the OAuth consent screen in the
-Google Cloud Console.
-
-1. Go to
-   [APIs & Services > OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
-2. Select **Internal** (if you are a Google Workspace user) or **External**.
-3. Fill in the required App information.
-4. **Scopes**: Add the following scopes:
-   - `https://www.googleapis.com/auth/documents`
-   - `https://www.googleapis.com/auth/drive`
-   - `https://www.googleapis.com/auth/calendar`
-   - `https://www.googleapis.com/auth/chat.spaces`
-   - `https://www.googleapis.com/auth/chat.messages`
-   - `https://www.googleapis.com/auth/chat.memberships`
-   - `https://www.googleapis.com/auth/userinfo.profile`
-   - `https://www.googleapis.com/auth/gmail.modify`
-   - `https://www.googleapis.com/auth/directory.readonly`
-   - `https://www.googleapis.com/auth/presentations.readonly`
-   - `https://www.googleapis.com/auth/spreadsheets.readonly`
-
-## Step 2: Run the Automated Setup Script
-
-The setup script handles the full infrastructure setup in the correct order:
+The setup script handles the full infrastructure setup in the correct order,
+including guided configuration of the OAuth consent screen.
 
 1. Set your project ID:
    ```bash
@@ -58,15 +37,17 @@ The setup script handles the full infrastructure setup in the correct order:
 The script will:
 
 1. Enable all required GCP APIs.
-2. Deploy the Cloud Function and display its URL.
-3. Prompt you to create an **OAuth 2.0 Client ID** in the Google Cloud Console
+2. Guide you through configuring the **OAuth consent screen** with the required
+   scopes and test users (opens the Cloud Console automatically).
+3. Deploy the Cloud Function and display its URL.
+4. Prompt you to create an **OAuth 2.0 Client ID** in the Google Cloud Console
    using the deployed function URL as the redirect URI.
-4. Collect your Client ID and Client Secret.
-5. Store the Client Secret in Secret Manager.
-6. Update the Cloud Function with the OAuth configuration.
-7. Grant the Cloud Function access to the secret.
+5. Collect your Client ID and Client Secret.
+6. Store the Client Secret in Secret Manager.
+7. Update the Cloud Function with the OAuth configuration.
+8. Grant the Cloud Function access to the secret.
 
-## Step 3: Local Configuration
+## Step 2: Local Configuration
 
 After running the script, set the following environment variables in your shell
 (e.g., in `.zshrc` or `.bashrc`):
