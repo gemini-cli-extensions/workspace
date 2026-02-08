@@ -8,10 +8,10 @@ Extension.
 
 The extension uses a "Hybrid" OAuth flow for security:
 
-1.  **Local Client**: Requests authorization from the user.
-2.  **Cloud Function**: Acts as a secure proxy to exchange the authorization
-    code for tokens. It holds the `CLIENT_SECRET` securely in Secret Manager.
-3.  **Secret Manager**: Stores the OAuth Client Secret.
+1. **Local Client**: Requests authorization from the user.
+2. **Cloud Function**: Acts as a secure proxy to exchange the authorization code
+   for tokens. It holds the `CLIENT_SECRET` securely in Secret Manager.
+3. **Secret Manager**: Stores the OAuth Client Secret.
 
 ## Prerequisites
 
@@ -20,72 +20,63 @@ The extension uses a "Hybrid" OAuth flow for security:
   installed and authenticated.
 - Node.js and npm installed.
 
-## Step 1: Automated Infrastructure Setup
+## Step 1: Configure OAuth Consent Screen
 
-We provide a script to automate most of the GCP setup, including enabling APIs,
-creating secrets, and deploying the Cloud Function.
+Before running the setup script, configure the OAuth consent screen in the
+Google Cloud Console.
 
-1.  Set your project ID:
-    ```bash
-    gcloud config set project YOUR_PROJECT_ID
-    ```
-2.  Run the setup script:
-    ```bash
-    ./scripts/setup-gcp.sh
-    ```
-3.  Follow the prompts to enter your **OAuth Client ID** and **Client Secret**.
-    (If you don't have them yet, see Step 2 below first).
+1. Go to
+   [APIs & Services > OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
+2. Select **Internal** (if you are a Google Workspace user) or **External**.
+3. Fill in the required App information.
+4. **Scopes**: Add the following scopes:
+   - `https://www.googleapis.com/auth/documents`
+   - `https://www.googleapis.com/auth/drive`
+   - `https://www.googleapis.com/auth/calendar`
+   - `https://www.googleapis.com/auth/chat.spaces`
+   - `https://www.googleapis.com/auth/chat.messages`
+   - `https://www.googleapis.com/auth/chat.memberships`
+   - `https://www.googleapis.com/auth/userinfo.profile`
+   - `https://www.googleapis.com/auth/gmail.modify`
+   - `https://www.googleapis.com/auth/directory.readonly`
+   - `https://www.googleapis.com/auth/presentations.readonly`
+   - `https://www.googleapis.com/auth/spreadsheets.readonly`
 
-## Step 2: Manual OAuth Configuration
+## Step 2: Run the Automated Setup Script
 
-Some steps must be performed manually in the Google Cloud Console for security
-and policy reasons.
+The setup script handles the full infrastructure setup in the correct order:
 
-### 1. Configure OAuth Consent Screen
+1. Set your project ID:
+   ```bash
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+2. Run the setup script:
+   ```bash
+   ./scripts/setup-gcp.sh
+   ```
 
-1.  Go to
-    [APIs & Services > OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent).
-2.  Select **Internal** (if you are a Google Workspace user) or **External**.
-3.  Fill in the required App information.
-4.  **Scopes**: Add the following scopes:
-    - `https://www.googleapis.com/auth/documents`
-    - `https://www.googleapis.com/auth/drive`
-    - `https://www.googleapis.com/auth/calendar`
-    - `https://www.googleapis.com/auth/chat.spaces`
-    - `https://www.googleapis.com/auth/chat.messages`
-    - `https://www.googleapis.com/auth/chat.memberships`
-    - `https://www.googleapis.com/auth/userinfo.profile`
-    - `https://www.googleapis.com/auth/gmail.modify`
-    - `https://www.googleapis.com/auth/directory.readonly`
-    - `https://www.googleapis.com/auth/presentations.readonly`
-    - `https://www.googleapis.com/auth/spreadsheets.readonly`
+The script will:
 
-### 2. Create OAuth 2.0 Client ID
-
-1.  Go to
-    [APIs & Services > Credentials](https://console.cloud.google.com/apis/credentials).
-2.  Click **Create Credentials > OAuth client ID**.
-3.  Select **Web application** as the Application type.
-4.  Name it (e.g., "Workspace Extension").
-5.  **Authorized redirect URIs**: Add the URL of your deployed Cloud Function
-    (provided by the setup script).
-    - Format:
-      `https://[REGION]-[PROJECT_ID].cloudfunctions.net/workspace-oauth-handler`
-6.  Click **Create**.
-7.  Copy the **Client ID** and **Client Secret**.
+1. Enable all required GCP APIs.
+2. Deploy the Cloud Function and display its URL.
+3. Prompt you to create an **OAuth 2.0 Client ID** in the Google Cloud Console
+   using the deployed function URL as the redirect URI.
+4. Collect your Client ID and Client Secret.
+5. Store the Client Secret in Secret Manager.
+6. Update the Cloud Function with the OAuth configuration.
+7. Grant the Cloud Function access to the secret.
 
 ## Step 3: Local Configuration
 
-After running the script and configuring the OAuth client, you need to tell the
-local extension where to find your infrastructure.
-
-Set the following environment variables in your shell (e.g., in `.zshrc` or
-`.bashrc`):
+After running the script, set the following environment variables in your shell
+(e.g., in `.zshrc` or `.bashrc`):
 
 ```bash
 export WORKSPACE_CLIENT_ID="your-client-id"
 export WORKSPACE_CLOUD_FUNCTION_URL="https://your-cloud-function-url"
 ```
+
+The script will display the exact values to use.
 
 Alternatively, you can modify the `DEFAULT_CONFIG` in
 `workspace-server/src/utils/config.ts`.

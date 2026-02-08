@@ -53,9 +53,61 @@ done
 
 echo -e "${GREEN}APIs enabled successfully.${NC}"
 
-# 2. Setup Secret Manager
-echo -e "\n${YELLOW}Step 2: Setting up Secret Manager...${NC}"
+# 2. Deploy Cloud Function (initial deploy without OAuth credentials)
+echo -e "\n${YELLOW}Step 2: Deploying Cloud Function...${NC}"
+
+echo -e "${YELLOW}Please enter the GCP region for your Cloud Function (e.g., us-central1):${NC}"
+read REGION
+if [ -z "$REGION" ]; then
+    REGION="us-central1"
+    echo -e "${YELLOW}No region entered, defaulting to $REGION.${NC}"
+fi
+
 SECRET_ID="workspace-oauth-client-secret"
+FUNCTION_NAME="workspace-oauth-handler"
+
+echo "Deploying Cloud Function (initial)..."
+gcloud functions deploy "$FUNCTION_NAME" \
+    --gen2 \
+    --runtime=nodejs20 \
+    --region="$REGION" \
+    --source="./cloud_function" \
+    --entry-point=oauthHandler \
+    --trigger-http \
+    --allow-unauthenticated
+
+# Get the canonical URL of the deployed function
+FUNCTION_URL=$(gcloud functions describe "$FUNCTION_NAME" --region="$REGION" --format='value(serviceConfig.uri)')
+
+echo -e "${GREEN}Cloud Function deployed at: $FUNCTION_URL${NC}"
+
+# 3. Collect OAuth credentials
+echo -e "\n${YELLOW}Step 3: Configuring OAuth credentials...${NC}"
+echo -e "Before continuing, create an OAuth 2.0 Client ID in the Google Cloud Console:"
+echo -e "  1. Go to APIs & Services > Credentials > Create Credentials > OAuth client ID"
+echo -e "  2. Select ${GREEN}Web application${NC}"
+echo -e "  3. Add the following as an Authorized redirect URI:"
+echo -e "     ${GREEN}$FUNCTION_URL${NC}"
+echo -e "  4. Copy the Client ID and Client Secret"
+echo ""
+
+echo -e "${YELLOW}Please enter the OAuth 2.0 Client ID:${NC}"
+read CLIENT_ID
+if [ -z "$CLIENT_ID" ]; then
+    echo -e "${RED}Error: Client ID cannot be empty.${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}Please enter the OAuth 2.0 Client Secret:${NC}"
+read -s CLIENT_SECRET
+echo
+if [ -z "$CLIENT_SECRET" ]; then
+    echo -e "${RED}Error: Client Secret cannot be empty.${NC}"
+    exit 1
+fi
+
+# 4. Setup Secret Manager
+echo -e "\n${YELLOW}Step 4: Storing Client Secret in Secret Manager...${NC}"
 
 if gcloud secrets describe "$SECRET_ID" &> /dev/null; then
     echo "Secret $SECRET_ID already exists."
@@ -64,36 +116,11 @@ else
     gcloud secrets create "$SECRET_ID" --replication-policy=automatic
 fi
 
-echo -e "${YELLOW}Please enter your OAuth 2.0 Client Secret (from Google Cloud Console):${NC}"
-read -s CLIENT_SECRET
-echo
-if [ -z "$CLIENT_SECRET" ]; then
-    echo -e "${RED}Error: Client Secret cannot be empty.${NC}"
-    exit 1
-fi
 echo "$CLIENT_SECRET" | gcloud secrets versions add "$SECRET_ID" --data-file=-
-
 echo -e "${GREEN}Secret stored successfully.${NC}"
 
-# 3. Deploy Cloud Function
-echo -e "\n${YELLOW}Step 3: Deploying Cloud Function...${NC}"
-echo -e "${YELLOW}Please enter the OAuth 2.0 Client ID:${NC}"
-read CLIENT_ID
-if [ -z "$CLIENT_ID" ]; then
-    echo -e "${RED}Error: Client ID cannot be empty.${NC}"
-    exit 1
-fi
-
-echo -e "${YELLOW}Please enter the GCP region for your Cloud Function (e.g., us-central1):${NC}"
-read REGION
-if [ -z "$REGION" ]; then
-    REGION="us-central1"
-    echo -e "${YELLOW}No region entered, defaulting to $REGION.${NC}"
-fi
-FUNCTION_NAME="workspace-oauth-handler"
-FUNCTION_URL="https://${REGION}-${PROJECT_ID}.cloudfunctions.net/${FUNCTION_NAME}"
-
-echo "Deploying Cloud Function..."
+# 5. Update Cloud Function with OAuth configuration
+echo -e "\n${YELLOW}Step 5: Updating Cloud Function with OAuth configuration...${NC}"
 gcloud functions deploy "$FUNCTION_NAME" \
     --gen2 \
     --runtime=nodejs20 \
@@ -104,14 +131,10 @@ gcloud functions deploy "$FUNCTION_NAME" \
     --allow-unauthenticated \
     --set-env-vars "CLIENT_ID=$CLIENT_ID,SECRET_NAME=projects/$PROJECT_ID/secrets/$SECRET_ID/versions/latest,REDIRECT_URI=$FUNCTION_URL"
 
-# Get the actual URL of the deployed function
-FUNCTION_URL=$(gcloud functions describe "$FUNCTION_NAME" --region="$REGION" --format='value(serviceConfig.uri)')
+echo -e "${GREEN}Cloud Function updated with OAuth configuration.${NC}"
 
-echo -e "${GREEN}Cloud Function deployed at: $FUNCTION_URL${NC}"
-
-# 4. Grant Permissions
-echo -e "\n${YELLOW}Step 4: Granting Secret Manager Access to Cloud Function...${NC}"
-# Get the service account used by the Cloud Function
+# 6. Grant Permissions
+echo -e "\n${YELLOW}Step 6: Granting Secret Manager Access to Cloud Function...${NC}"
 SERVICE_ACCOUNT=$(gcloud functions describe "$FUNCTION_NAME" --region="$REGION" --format='value(serviceConfig.serviceAccountEmail)')
 
 gcloud secrets add-iam-policy-binding "$SECRET_ID" \
@@ -123,11 +146,7 @@ echo -e "${GREEN}Permissions granted successfully.${NC}"
 echo -e "\n${GREEN}GCP Setup Complete!${NC}"
 echo -e "---------------------------------------------------"
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "1. Go to Google Cloud Console > APIs & Services > Credentials."
-echo "2. Edit your OAuth 2.0 Client ID."
-echo "3. Add the following to 'Authorized redirect URIs':"
-echo -e "   ${GREEN}$FUNCTION_URL${NC}"
-echo "4. Set the following environment variables in your local environment:"
+echo "Set the following environment variables in your local environment:"
 echo -e "   ${GREEN}export WORKSPACE_CLIENT_ID=\"$CLIENT_ID\"${NC}"
 echo -e "   ${GREEN}export WORKSPACE_CLOUD_FUNCTION_URL=\"$FUNCTION_URL\"${NC}"
 echo -e "---------------------------------------------------"
