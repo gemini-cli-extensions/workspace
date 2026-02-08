@@ -337,9 +337,11 @@ async function handleRefreshToken(req, res) {
 functions.http('oauthHandler', async (req, res) => {
   // Validate required environment variables at request time
   if (!CLIENT_ID || !SECRET_NAME || !REDIRECT_URI) {
-    return res.status(503).send(
-      'Function not yet configured. Missing required environment variables: CLIENT_ID, SECRET_NAME, REDIRECT_URI.',
-    );
+    return res
+      .status(503)
+      .send(
+        'Function not yet configured. Missing required environment variables: CLIENT_ID, SECRET_NAME, REDIRECT_URI.',
+      );
   }
 
   // Route to refresh handler if path ends with /refresh or /refreshToken or it's a POST with refresh_token
