@@ -64,6 +64,7 @@
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
+    "vite": "^6.4.1",
     "vitepress": "^1.6.4",
     "vue": "^3.5.27"
   },
@@ -84,5 +85,8 @@
     "gemini-cli"
   ],
   "author": "Allen Hutchison",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "overrides": {
+    "vite": "$vite"
+  }
 }
