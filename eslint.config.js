@@ -6,7 +6,7 @@
 
 const tseslint = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
-const licenseHeader = require('eslint-plugin-license-header');
+const headers = require('eslint-plugin-headers');
 const importPlugin = require('eslint-plugin-import');
 
 module.exports = [
@@ -84,19 +84,26 @@ module.exports = [
     files: ['./**/*.{tsx,ts,js}'],
     ignores: ['workspace-server/src/index.ts'], // Has shebang which conflicts with license header
     plugins: {
-      'license-header': licenseHeader,
+      headers,
       import: importPlugin,
     },
     rules: {
-      'license-header/header': [
+      'headers/header-format': [
         'error',
-        [
-          '/**',
-          ' * @license',
-          ' * Copyright 2025 Google LLC',
-          ' * SPDX-License-Identifier: Apache-2.0',
-          ' */',
-        ],
+        {
+          source: 'string',
+          content: [
+            '@license',
+            'Copyright (year) Google LLC',
+            'SPDX-License-Identifier: Apache-2.0',
+          ].join('\n'),
+          patterns: {
+            year: {
+              pattern: '202[5-6]',
+              defaultValue: '2026',
+            },
+          },
+        },
       ],
       'import/enforce-node-protocol-usage': ['error', 'always'],
     },
