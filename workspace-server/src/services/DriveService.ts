@@ -9,6 +9,7 @@ import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { escapeQueryString } from '../utils/DriveQueryBuilder';
+import { extractDocumentId } from '../utils/validation';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PROJECT_ROOT } from '../utils/paths';
@@ -355,10 +356,11 @@ export class DriveService {
     logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
 
       // 1. Check if it's a Google Doc (special handling required, export instead of download)
       const metadata = await drive.files.get({
-        fileId: fileId,
+        fileId: id,
         fields: 'id, name, mimeType',
         supportsAllDrives: true,
       });
@@ -391,7 +393,7 @@ export class DriveService {
           content: [
             {
               type: 'text' as const,
-              text: `This is a ${fileInfo.type}. Direct download is not supported. Please use the '${fileInfo.tool}' tool with ${fileInfo.idName}: ${fileId}`,
+              text: `This is a ${fileInfo.type}. Direct download is not supported. Please use the '${fileInfo.tool}' tool with ${fileInfo.idName}: ${id}`,
             },
           ],
         };
@@ -411,7 +413,7 @@ export class DriveService {
       // 2. Download media
       const response = await drive.files.get(
         {
-          fileId: fileId,
+          fileId: id,
           alt: 'media',
           supportsAllDrives: true,
         },

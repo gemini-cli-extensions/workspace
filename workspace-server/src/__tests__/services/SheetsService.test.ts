@@ -328,6 +328,8 @@ describe('SheetsService', () => {
         fields: 'nextPageToken, files(id, name)',
         q: "mimeType='application/vnd.google-apps.spreadsheet' and fullText contains 'budget'",
         pageToken: undefined,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       expect(response.files).toHaveLength(2);

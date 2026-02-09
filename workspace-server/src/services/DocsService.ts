@@ -83,6 +83,7 @@ export class DocsService {
               requestBody: fileMetadata,
               media: media,
               fields: 'id, name',
+              supportsAllDrives: true,
             },
             mediaUploadOptions,
           );
@@ -235,6 +236,8 @@ export class DocsService {
         fields: 'nextPageToken, files(id, name)',
         q: q,
         pageToken: pageToken,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const files = res.data.files || [];
@@ -798,6 +801,7 @@ export class DocsService {
       const file = await drive.files.get({
         fileId: documentId,
         fields: 'parents',
+        supportsAllDrives: true,
       });
 
       const previousParents = file.data.parents?.join(',');
@@ -807,6 +811,7 @@ export class DocsService {
         addParents: folderId,
         removeParents: previousParents,
         fields: 'id, parents',
+        supportsAllDrives: true,
       });
     } catch (error) {
       if (error instanceof Error) {

@@ -217,6 +217,8 @@ describe('SlidesService', () => {
         fields: 'nextPageToken, files(id, name)',
         q: "mimeType='application/vnd.google-apps.presentation' and fullText contains 'test query'",
         pageToken: undefined,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       expect(response.files).toHaveLength(2);

@@ -223,6 +223,8 @@ export class SheetsService {
         fields: 'nextPageToken, files(id, name)',
         q: q,
         pageToken: pageToken,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
 
       const files = res.data.files || [];

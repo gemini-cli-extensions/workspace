@@ -117,7 +117,12 @@ describe('DocsService', () => {
         markdown: '# Hello',
       });
 
-      expect(mockDriveAPI.files.create).toHaveBeenCalled();
+      expect(mockDriveAPI.files.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          supportsAllDrives: true,
+        }),
+        expect.any(Object),
+      );
       expect(JSON.parse(result.content[0].text)).toEqual({
         documentId: 'test-doc-id',
         title: 'Test Title',
@@ -157,6 +162,7 @@ describe('DocsService', () => {
         addParents: 'test-folder-id',
         removeParents: 'root',
         fields: 'id, parents',
+        supportsAllDrives: true,
       });
     });
 
@@ -269,6 +275,8 @@ describe('DocsService', () => {
       expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
         expect.objectContaining({
           q: expect.stringContaining("fullText contains 'Test'"),
+          supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         }),
       );
       expect(JSON.parse(result.content[0].text)).toEqual({
@@ -336,11 +344,17 @@ describe('DocsService', () => {
       expect(mockDriveService.findFolder).toHaveBeenCalledWith({
         folderName: 'Test Folder',
       });
+      expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
+        expect.objectContaining({
+          supportsAllDrives: true,
+        }),
+      );
       expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
         fileId: 'test-doc-id',
         addParents: 'test-folder-id',
         removeParents: 'root',
         fields: 'id, parents',
+        supportsAllDrives: true,
       });
       expect(result.content[0].text).toBe(
         'Moved document test-doc-id to folder Test Folder',

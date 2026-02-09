@@ -884,6 +884,50 @@ describe('DriveService', () => {
       );
     });
 
+    it('should download files when provided with a full Drive URL', async () => {
+      const mockFileId = 'file-id-from-url';
+      const mockUrl = `https://drive.google.com/file/d/${mockFileId}/view`;
+      const mockContent = 'Hello, World!';
+      const mockBuffer = Buffer.from(mockContent);
+      const mockLocalPath = 'downloads/test.txt';
+
+      mockDriveAPI.files.get.mockImplementation((params: any) => {
+        if (params.alt === 'media') {
+          return Promise.resolve({
+            data: mockBuffer,
+          });
+        }
+        return Promise.resolve({
+          data: { id: mockFileId, name: 'test.txt', mimeType: 'text/plain' },
+        });
+      });
+
+      const result = await driveService.downloadFile({
+        fileId: mockUrl,
+        localPath: mockLocalPath,
+      });
+
+      expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fileId: mockFileId,
+          supportsAllDrives: true,
+        }),
+      );
+
+      expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fileId: mockFileId,
+          alt: 'media',
+          supportsAllDrives: true,
+        }),
+        expect.any(Object),
+      );
+
+      expect(result.content[0].text).toContain(
+        `Successfully downloaded file test.txt`,
+      );
+    });
+
     it('should suggest specialized tools for workspace types', async () => {
       const mockFileId = 'doc-id';
       mockDriveAPI.files.get.mockResolvedValue({
