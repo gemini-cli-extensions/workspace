@@ -39,6 +39,34 @@ export class AuthManager {
     this.scopes = scopes;
   }
 
+  public async isAuthenticated(): Promise<boolean> {
+    const credentials = await OAuthCredentialStorage.loadCredentials();
+    return !!(credentials && credentials.refresh_token);
+  }
+
+  public async saveCredentialsFromJson(jsonStr: string): Promise<void> {
+    try {
+      const tokens = JSON.parse(jsonStr);
+      // Validate input has required fields
+      if (!tokens.refresh_token || !tokens.access_token) {
+        throw new Error('Invalid credentials JSON: missing required fields');
+      }
+      
+      this.client = new google.auth.OAuth2(CLIENT_ID);
+      this.client.setCredentials(tokens);
+      await OAuthCredentialStorage.saveCredentials(tokens);
+      logToFile('Credentials saved manually from JSON');
+    } catch (e) {
+      logToFile(`Error saving credentials from JSON: ${e}`);
+      throw e;
+    }
+  }
+
+  public async getAuthUrl(): Promise<string> {
+    const client = new google.auth.OAuth2(CLIENT_ID);
+    return this.generateAuthUrl(client, true); // true = manual mode
+  }
+
   public setOnStatusUpdate(callback: (message: string) => void) {
     this.onStatusUpdate = callback;
   }
@@ -294,6 +322,36 @@ export class AuthManager {
     });
   }
 
+  private generateAuthUrl(
+    client: Auth.OAuth2Client,
+    manual: boolean,
+    localRedirectUri?: string,
+    csrfToken?: string,
+  ): string {
+    // Generate a new CSRF token if not provided
+    const token = csrfToken || crypto.randomBytes(32).toString('hex');
+
+    // The state now contains a JSON payload indicating the flow mode and CSRF token.
+    const statePayload = {
+      uri: localRedirectUri,
+      manual: manual,
+      csrf: token,
+    };
+    const state = Buffer.from(JSON.stringify(statePayload)).toString('base64');
+
+    // The redirect URI for Google's auth server is the cloud function
+    const cloudFunctionRedirectUri =
+      'https://google-workspace-extension.geminicli.com';
+
+    return client.generateAuthUrl({
+      redirect_uri: cloudFunctionRedirectUri, // Tell Google to go to the cloud function
+      access_type: 'offline',
+      scope: this.scopes,
+      state: state, // Pass our JSON payload in the state
+      prompt: 'consent', // Make sure we get a refresh token
+    });
+  }
+
   private async authWithWeb(client: Auth.OAuth2Client): Promise<OauthWebLogin> {
     logToFile(
       `Requesting authentication with scopes: ${this.scopes.join(', ')}`,
@@ -305,29 +363,16 @@ export class AuthManager {
     const localRedirectUri = `http://${host}:${port}/oauth2callback`;
 
     const isGuiAvailable = shouldLaunchBrowser();
-
+    
     // SECURITY: Generate a random token for CSRF protection.
     const csrfToken = crypto.randomBytes(32).toString('hex');
 
-    // The state now contains a JSON payload indicating the flow mode and CSRF token.
-    const statePayload = {
-      uri: isGuiAvailable ? localRedirectUri : undefined,
-      manual: !isGuiAvailable,
-      csrf: csrfToken,
-    };
-    const state = Buffer.from(JSON.stringify(statePayload)).toString('base64');
-
-    // The redirect URI for Google's auth server is the cloud function
-    const cloudFunctionRedirectUri =
-      'https://google-workspace-extension.geminicli.com';
-
-    const authUrl = client.generateAuthUrl({
-      redirect_uri: cloudFunctionRedirectUri, // Tell Google to go to the cloud function
-      access_type: 'offline',
-      scope: this.scopes,
-      state: state, // Pass our JSON payload in the state
-      prompt: 'consent', // Make sure we get a refresh token
-    });
+    const authUrl = this.generateAuthUrl(
+      client,
+      !isGuiAvailable,
+      isGuiAvailable ? localRedirectUri : undefined,
+      csrfToken,
+    );
 
     const loginCompletePromise = new Promise<void>((resolve, reject) => {
       const server = http.createServer(async (req, res) => {

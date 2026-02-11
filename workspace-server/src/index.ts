@@ -144,6 +144,58 @@ async function main() {
   );
 
   server.registerTool(
+    'auth.login',
+    {
+      description: 'Initiates or completes the authentication flow.',
+      inputSchema: {
+        credentialsJson: z
+          .string()
+          .optional()
+          .describe(
+            'The credentials JSON string pasted from the browser authentication page (if completing the flow).',
+          ),
+      },
+    },
+    async (input) => {
+      if (input.credentialsJson) {
+        // Complete the flow
+        await authManager.saveCredentialsFromJson(input.credentialsJson);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Authentication successful! Credentials saved.',
+            },
+          ],
+        };
+      }
+
+      // Check if already authenticated
+      if (await authManager.isAuthenticated()) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Already authenticated.',
+            },
+          ],
+        };
+      }
+
+      // Initiate the flow
+      const authUrl = await authManager.getAuthUrl();
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `To authenticate, please visit this URL:\n${authUrl}\n\nAfter authenticating, copy the JSON credentials and run this tool again with the 'credentialsJson' argument.`,
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
     'docs.create',
     {
       description:
