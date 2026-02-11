@@ -6,6 +6,7 @@
 
 import { google, Auth } from 'googleapis';
 import crypto from 'node:crypto';
+import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as net from 'node:net';
 import * as url from 'node:url';
@@ -83,6 +84,61 @@ export class AuthManager {
 
   public async getAuthenticatedClient(): Promise<Auth.OAuth2Client> {
     logToFile('getAuthenticatedClient called');
+
+    // If a credentials file is provided via env var, use it directly
+    // (similar to GOOGLE_APPLICATION_CREDENTIALS)
+    const credentialsFile =
+      process.env['GEMINI_CLI_WORKSPACE_OAUTH_CREDENTIALS'];
+    if (credentialsFile) {
+      // Return cached client on subsequent calls
+      if (this.client) {
+        return this.client;
+      }
+
+      logToFile(`Loading credentials from file: ${credentialsFile}`);
+      let parsed: Record<string, unknown>;
+      try {
+        const fileContents = await fs.promises.readFile(
+          credentialsFile,
+          'utf-8',
+        );
+        parsed = JSON.parse(fileContents);
+      } catch (e) {
+        throw new Error(
+          `Failed to read or parse credentials from ${credentialsFile}: ${e}`,
+        );
+      }
+
+      // Support gcloud ADC format (type: "authorized_user")
+      if (parsed.type === 'authorized_user') {
+        if (
+          typeof parsed.client_id !== 'string' ||
+          typeof parsed.client_secret !== 'string' ||
+          typeof parsed.refresh_token !== 'string'
+        ) {
+          throw new Error(
+            `Malformed "authorized_user" credentials in ${credentialsFile}. ` +
+              `'client_id', 'client_secret', and 'refresh_token' must be strings.`,
+          );
+        }
+        const oAuth2Client = new google.auth.OAuth2({
+          clientId: parsed.client_id,
+          clientSecret: parsed.client_secret,
+        });
+        oAuth2Client.setCredentials({
+          refresh_token: parsed.refresh_token,
+        });
+        this.client = oAuth2Client;
+        return oAuth2Client;
+      }
+
+      // Otherwise treat as raw Auth.Credentials JSON
+      const creds = parsed as unknown as Auth.Credentials;
+      const oAuth2Client = new google.auth.OAuth2({ clientId: CLIENT_ID });
+      oAuth2Client.setCredentials(creds);
+      this.client = oAuth2Client;
+      return oAuth2Client;
+    }
 
     // Check if we have a cached client with valid credentials
     if (
