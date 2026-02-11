@@ -1,5 +1,29 @@
 # Release Notes
 
+## 0.0.5 (2026-02-11)
+
+### New Features
+
+- **Gmail**: Added `createLabel` tool to manage email labels.
+- **Slides**: Added `getImages` and `getSlideThumbnail` tools for better visual integration, and included slide IDs in `getMetadata` output.
+- **Drive**: Enhanced support for shared drives.
+- **Calendar**: Added support for event descriptions.
+- **GCP**: Added comprehensive documentation and automation for GCP project recreation.
+- **Logging**: Added authentication status updates via MCP logging for better observability.
+- **Tools**: Added annotations for read-only tools to improve agent interaction.
+
+### Fixes
+
+- **Security**: Resolved esbuild vulnerability via vite override.
+- **Compatibility**: Normalised tool names to underscores for better compatibility with other agents (e.g., Cursor).
+- **Config**: Removed unused arguments in extension configuration.
+
+### Documentation & Chores
+
+- **Formatting**: Updated context documentation with Chat-specific formatting instructions.
+- **Infrastructure**: Allowed `.gemini` directory in git and added Prettier to CI/CD pipeline.
+- **Dependencies**: Updated MCP SDK, Hono, Google APIs, and other core libraries.
+
 ## 0.0.4 (2026-01-05)
 
 ### New Features

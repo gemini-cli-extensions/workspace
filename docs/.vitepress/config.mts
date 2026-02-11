@@ -20,6 +20,7 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Development Guide', link: '/development' },
+          { text: 'GCP Setup Guide', link: '/GCP-RECREATION' },
           { text: 'Release Guide', link: '/release' },
           { text: 'Release Notes', link: '/release_notes' },
         ],
