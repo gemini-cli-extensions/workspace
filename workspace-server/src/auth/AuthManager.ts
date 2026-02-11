@@ -81,6 +81,63 @@ export class AuthManager {
 
     return false;
   }
+  /**
+   * Load an OAuth2 client from a credentials file specified by the
+   * GEMINI_CLI_WORKSPACE_OAUTH_CREDENTIALS environment variable.
+   * Supports gcloud ADC format (type: "authorized_user") and raw
+   * Auth.Credentials JSON.
+   */
+  private async loadClientFromCredentialsFile(
+    credentialsFile: string,
+  ): Promise<Auth.OAuth2Client> {
+    logToFile(`Loading credentials from file: ${credentialsFile}`);
+    let parsed: Record<string, unknown>;
+    try {
+      const fileContents = await fs.promises.readFile(
+        credentialsFile,
+        'utf-8',
+      );
+      parsed = JSON.parse(fileContents);
+    } catch (e) {
+      throw new Error(
+        `Failed to read or parse credentials from ${credentialsFile}: ${(e as Error).message}`,
+      );
+    }
+
+    // Support gcloud ADC format (type: "authorized_user")
+    if (parsed.type === 'authorized_user') {
+      if (
+        typeof parsed.client_id !== 'string' ||
+        typeof parsed.client_secret !== 'string' ||
+        typeof parsed.refresh_token !== 'string'
+      ) {
+        throw new Error(
+          `Malformed "authorized_user" credentials in ${credentialsFile}. ` +
+            `'client_id', 'client_secret', and 'refresh_token' must be strings.`,
+        );
+      }
+      const oAuth2Client = new google.auth.OAuth2({
+        clientId: parsed.client_id,
+        clientSecret: parsed.client_secret,
+      });
+      oAuth2Client.setCredentials({
+        refresh_token: parsed.refresh_token,
+      });
+      return oAuth2Client;
+    }
+
+    // Otherwise treat as raw Auth.Credentials JSON
+    const creds = parsed as Auth.Credentials;
+    if (!creds.access_token && !creds.refresh_token) {
+      throw new Error(
+        `Malformed credentials in ${credentialsFile}. ` +
+          `The file must contain at least 'access_token' or 'refresh_token'.`,
+      );
+    }
+    const oAuth2Client = new google.auth.OAuth2({ clientId: CLIENT_ID });
+    oAuth2Client.setCredentials(creds);
+    return oAuth2Client;
+  }
 
   public async getAuthenticatedClient(): Promise<Auth.OAuth2Client> {
     logToFile('getAuthenticatedClient called');
@@ -90,54 +147,11 @@ export class AuthManager {
     const credentialsFile =
       process.env['GEMINI_CLI_WORKSPACE_OAUTH_CREDENTIALS'];
     if (credentialsFile) {
-      // Return cached client on subsequent calls
-      if (this.client) {
-        return this.client;
+      if (!this.client) {
+        this.client =
+          await this.loadClientFromCredentialsFile(credentialsFile);
       }
-
-      logToFile(`Loading credentials from file: ${credentialsFile}`);
-      let parsed: Record<string, unknown>;
-      try {
-        const fileContents = await fs.promises.readFile(
-          credentialsFile,
-          'utf-8',
-        );
-        parsed = JSON.parse(fileContents);
-      } catch (e) {
-        throw new Error(
-          `Failed to read or parse credentials from ${credentialsFile}: ${e}`,
-        );
-      }
-
-      // Support gcloud ADC format (type: "authorized_user")
-      if (parsed.type === 'authorized_user') {
-        if (
-          typeof parsed.client_id !== 'string' ||
-          typeof parsed.client_secret !== 'string' ||
-          typeof parsed.refresh_token !== 'string'
-        ) {
-          throw new Error(
-            `Malformed "authorized_user" credentials in ${credentialsFile}. ` +
-              `'client_id', 'client_secret', and 'refresh_token' must be strings.`,
-          );
-        }
-        const oAuth2Client = new google.auth.OAuth2({
-          clientId: parsed.client_id,
-          clientSecret: parsed.client_secret,
-        });
-        oAuth2Client.setCredentials({
-          refresh_token: parsed.refresh_token,
-        });
-        this.client = oAuth2Client;
-        return oAuth2Client;
-      }
-
-      // Otherwise treat as raw Auth.Credentials JSON
-      const creds = parsed as unknown as Auth.Credentials;
-      const oAuth2Client = new google.auth.OAuth2({ clientId: CLIENT_ID });
-      oAuth2Client.setCredentials(creds);
-      this.client = oAuth2Client;
-      return oAuth2Client;
+      return this.client;
     }
 
     // Check if we have a cached client with valid credentials
