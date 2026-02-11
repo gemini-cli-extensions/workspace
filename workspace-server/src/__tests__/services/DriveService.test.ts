@@ -910,6 +910,7 @@ describe('DriveService', () => {
       expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
         expect.objectContaining({
           fileId: mockFileId,
+          fields: 'id, name, mimeType',
           supportsAllDrives: true,
         }),
       );
