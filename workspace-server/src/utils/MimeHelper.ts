@@ -19,6 +19,8 @@ export class MimeHelper {
     cc,
     bcc,
     replyTo,
+    inReplyTo,
+    references,
     isHtml = false,
   }: {
     to: string;
@@ -28,6 +30,8 @@ export class MimeHelper {
     cc?: string;
     bcc?: string;
     replyTo?: string;
+    inReplyTo?: string;
+    references?: string;
     isHtml?: boolean;
   }): string {
     // Encode subject for UTF-8 support
@@ -53,6 +57,14 @@ export class MimeHelper {
 
     if (replyTo) {
       messageParts.push(`Reply-To: ${replyTo}`);
+    }
+
+    if (inReplyTo) {
+      messageParts.push(`In-Reply-To: ${inReplyTo}`);
+    }
+
+    if (references) {
+      messageParts.push(`References: ${references}`);
     }
 
     messageParts.push(`Subject: ${utf8Subject}`);

@@ -124,6 +124,34 @@ describe('MimeHelper', () => {
       // Should only contain base64url characters
       expect(encoded).toMatch(/^[A-Za-z0-9\-_]+$/);
     });
+    it('should include In-Reply-To and References headers when provided', () => {
+      const messageId = '<original-message-id@example.com>';
+      const encoded = MimeHelper.createMimeMessage({
+        to: 'recipient@example.com',
+        subject: 'Re: Original Subject',
+        body: 'Reply body',
+        inReplyTo: messageId,
+        references: messageId,
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      expect(decoded).toContain(`In-Reply-To: ${messageId}`);
+      expect(decoded).toContain(`References: ${messageId}`);
+    });
+
+    it('should not include In-Reply-To or References headers when not provided', () => {
+      const encoded = MimeHelper.createMimeMessage({
+        to: 'recipient@example.com',
+        subject: 'New Message',
+        body: 'Body',
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      expect(decoded).not.toContain('In-Reply-To:');
+      expect(decoded).not.toContain('References:');
+    });
   });
 
   describe('createMimeMessageWithAttachments', () => {

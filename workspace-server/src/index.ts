@@ -1051,7 +1051,15 @@ There are a list of system labels that can be modified on a message:
     'gmail.createDraft',
     {
       description: 'Create a draft email message.',
-      inputSchema: emailComposeSchema,
+      inputSchema: {
+        ...emailComposeSchema,
+        threadId: z
+          .string()
+          .optional()
+          .describe(
+            'The thread ID to create the draft as a reply to. When provided, the draft will be linked to the existing thread with appropriate reply headers.',
+          ),
+      },
     },
     gmailService.createDraft,
   );

@@ -744,6 +744,123 @@ describe('GmailService', () => {
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('Failed to create draft');
     });
+
+    it('should create a reply draft with threadId', async () => {
+      const mockDraft = {
+        id: 'draft1',
+        message: {
+          id: 'msg1',
+          threadId: 'thread1',
+        },
+      };
+
+      mockGmailAPI.users.threads.get.mockResolvedValue({
+        data: {
+          messages: [
+            {
+              id: 'original-msg',
+              payload: {
+                headers: [
+                  {
+                    name: 'Message-ID',
+                    value: '<original-msg-id@mail.gmail.com>',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+
+      mockGmailAPI.users.drafts.create.mockResolvedValue({
+        data: mockDraft,
+      });
+
+      const result = await gmailService.createDraft({
+        to: 'recipient@example.com',
+        subject: 'Re: Original Subject',
+        body: 'Reply body',
+        threadId: 'thread1',
+      });
+
+      // Verify thread was fetched
+      expect(mockGmailAPI.users.threads.get).toHaveBeenCalledWith({
+        userId: 'me',
+        id: 'thread1',
+        format: 'metadata',
+        metadataHeaders: ['Message-ID'],
+      });
+
+      // Verify MIME message included reply headers
+      expect(MimeHelper.createMimeMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inReplyTo: '<original-msg-id@mail.gmail.com>',
+          references: '<original-msg-id@mail.gmail.com>',
+        }),
+      );
+
+      // Verify threadId was set on the API request
+      expect(mockGmailAPI.users.drafts.create).toHaveBeenCalledWith({
+        userId: 'me',
+        requestBody: {
+          message: {
+            raw: 'base64encodedmessage',
+            threadId: 'thread1',
+          },
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.status).toBe('draft_created');
+      expect(response.id).toBe('draft1');
+    });
+
+    it('should handle thread fetch failure gracefully and still create the draft', async () => {
+      const mockDraft = {
+        id: 'draft2',
+        message: {
+          id: 'msg2',
+          threadId: 'thread1',
+        },
+      };
+
+      mockGmailAPI.users.threads.get.mockRejectedValue(
+        new Error('Thread not found'),
+      );
+
+      mockGmailAPI.users.drafts.create.mockResolvedValue({
+        data: mockDraft,
+      });
+
+      const result = await gmailService.createDraft({
+        to: 'recipient@example.com',
+        subject: 'Re: Original Subject',
+        body: 'Reply body',
+        threadId: 'thread1',
+      });
+
+      // Verify MIME message was created without reply headers
+      expect(MimeHelper.createMimeMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inReplyTo: undefined,
+          references: undefined,
+        }),
+      );
+
+      // Verify threadId was still set on the API request
+      expect(mockGmailAPI.users.drafts.create).toHaveBeenCalledWith({
+        userId: 'me',
+        requestBody: {
+          message: {
+            raw: 'base64encodedmessage',
+            threadId: 'thread1',
+          },
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.status).toBe('draft_created');
+    });
   });
 
   describe('sendDraft', () => {
