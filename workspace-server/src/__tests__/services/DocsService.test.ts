@@ -736,6 +736,140 @@ describe('DocsService', () => {
       });
     });
 
+    it('should extract text from smart chips (date, person, rich link)', async () => {
+      const mockDoc = {
+        data: {
+          tabs: [
+            {
+              documentTab: {
+                body: {
+                  content: [
+                    {
+                      paragraph: {
+                        elements: [
+                          {
+                            textRun: { content: 'Meeting on ' },
+                          },
+                          {
+                            dateElement: {
+                              dateElementProperties: {
+                                displayText: 'Jan 15, 2025',
+                                timestamp: '1736899200',
+                              },
+                            },
+                          },
+                          {
+                            textRun: { content: ' with ' },
+                          },
+                          {
+                            person: {
+                              personProperties: {
+                                name: 'John Doe',
+                                email: 'john@example.com',
+                              },
+                            },
+                          },
+                          {
+                            textRun: { content: ' - see ' },
+                          },
+                          {
+                            richLink: {
+                              richLinkProperties: {
+                                title: 'Project Plan',
+                                uri: 'https://docs.google.com/document/d/abc123',
+                              },
+                            },
+                          },
+                          {
+                            textRun: { content: '\n' },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      };
+      mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
+
+      const result = await docsService.getText({ documentId: 'test-doc-id' });
+
+      expect(result.content[0].text).toBe(
+        'Meeting on Jan 15, 2025 with [John Doe](mailto:john@example.com) - see [Project Plan](https://docs.google.com/document/d/abc123)\n',
+      );
+    });
+
+    it.each([
+      {
+        name: 'person without name falls back to email',
+        element: {
+          person: {
+            personProperties: {
+              email: 'jane@example.com',
+            },
+          },
+        },
+        expected: '[jane@example.com](mailto:jane@example.com)',
+      },
+      {
+        name: 'rich link without title falls back to uri',
+        element: {
+          richLink: {
+            richLinkProperties: {
+              uri: 'https://docs.google.com/spreadsheets/d/xyz',
+            },
+          },
+        },
+        expected:
+          '[https://docs.google.com/spreadsheets/d/xyz](https://docs.google.com/spreadsheets/d/xyz)',
+      },
+      {
+        name: 'date without displayText falls back to timestamp',
+        element: {
+          dateElement: {
+            dateElementProperties: {
+              timestamp: '1736899200',
+            },
+          },
+        },
+        expected: '1736899200',
+      },
+    ])(
+      'should fall back correctly when $name',
+      async ({ element, expected }) => {
+        const mockDoc = {
+          data: {
+            tabs: [
+              {
+                documentTab: {
+                  body: {
+                    content: [
+                      {
+                        paragraph: {
+                          elements: [element],
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        };
+        mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
+
+        const result = await docsService.getText({
+          documentId: 'test-doc-id',
+        });
+
+        expect(result.content[0].text).toBe(expected);
+      },
+    );
+
+
     it('should include text from nested child tabs', async () => {
       const mockDoc = {
         data: {

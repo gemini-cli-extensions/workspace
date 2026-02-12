@@ -816,6 +816,16 @@ export class DocsService {
       element.paragraph.elements?.forEach((pElement) => {
         if (pElement.textRun && pElement.textRun.content) {
           text += pElement.textRun.content;
+        } else if (pElement.person?.personProperties) {
+          const { name, email } = pElement.person.personProperties;
+          text += name || email || '';
+        } else if (pElement.richLink?.richLinkProperties) {
+          const { title, uri } = pElement.richLink.richLinkProperties;
+          text += title || uri || '';
+        } else if (pElement.dateElement?.dateElementProperties) {
+          const { displayText, timestamp } =
+            pElement.dateElement.dateElementProperties;
+          text += displayText || timestamp || '';
         }
       });
     } else if (element.table) {
