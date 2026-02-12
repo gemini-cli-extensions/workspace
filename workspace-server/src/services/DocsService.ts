@@ -818,10 +818,10 @@ export class DocsService {
           text += pElement.textRun.content;
         } else if (pElement.person?.personProperties) {
           const { name, email } = pElement.person.personProperties;
-          text += name || email || '';
+          text += `[${name || email}](mailto:${email})`;
         } else if (pElement.richLink?.richLinkProperties) {
           const { title, uri } = pElement.richLink.richLinkProperties;
-          text += title || uri || '';
+          text += `[${title}](${uri})`;
         } else if (pElement.dateElement?.dateElementProperties) {
           const { displayText, timestamp } =
             pElement.dateElement.dateElementProperties;
