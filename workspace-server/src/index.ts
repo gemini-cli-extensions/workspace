@@ -533,6 +533,29 @@ async function main() {
   );
 
   server.registerTool(
+    'drive.copy',
+    {
+      description:
+        'Copies a file in Google Drive. Useful for creating documents from templates. Returns the new file ID and URL.',
+      inputSchema: {
+        fileId: z
+          .string()
+          .describe(
+            'The ID of the file to copy. Can be extracted from a Google Drive URL.',
+          ),
+        name: z.string().describe('The name for the new copied file.'),
+        folderId: z
+          .string()
+          .optional()
+          .describe(
+            'Optional folder ID to place the copy in. If not specified, the copy is placed in the same location as the original.',
+          ),
+      },
+    },
+    driveService.copyFile,
+  );
+
+  server.registerTool(
     'drive.moveFile',
     {
       description:

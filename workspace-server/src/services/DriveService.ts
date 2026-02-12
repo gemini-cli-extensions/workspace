@@ -531,6 +531,55 @@ export class DriveService {
     }
   };
 
+  public copyFile = async ({
+    fileId,
+    name,
+    folderId,
+  }: {
+    fileId: string;
+    name: string;
+    folderId?: string;
+  }) => {
+    logToFile(
+      `Copying Drive file ${fileId} with new name: ${name}${folderId ? ` to folder: ${folderId}` : ''}`,
+    );
+    try {
+      const drive = await this.getDriveClient();
+
+      const requestBody: drive_v3.Schema$File = { name };
+      if (folderId) {
+        requestBody.parents = [folderId];
+      }
+
+      const copy = await drive.files.copy({
+        fileId: fileId,
+        requestBody: requestBody,
+        fields: 'id, name, mimeType, webViewLink',
+        supportsAllDrives: true,
+      });
+
+      logToFile(
+        `Successfully copied file: ${copy.data.name} (${copy.data.id})`,
+      );
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              id: copy.data.id,
+              name: copy.data.name,
+              mimeType: copy.data.mimeType,
+              webViewLink: copy.data.webViewLink,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.copyFile', error);
+    }
+  };
+
   public downloadFile = async ({
     fileId,
     localPath,
