@@ -765,6 +765,10 @@ describe('GmailService', () => {
                     name: 'Message-ID',
                     value: '<original-msg-id@mail.gmail.com>',
                   },
+                  {
+                    name: 'References',
+                    value: '<earlier-msg-id@mail.gmail.com>',
+                  },
                 ],
               },
             },
@@ -783,19 +787,20 @@ describe('GmailService', () => {
         threadId: 'thread1',
       });
 
-      // Verify thread was fetched
+      // Verify thread was fetched with both Message-ID and References headers
       expect(mockGmailAPI.users.threads.get).toHaveBeenCalledWith({
         userId: 'me',
         id: 'thread1',
         format: 'metadata',
-        metadataHeaders: ['Message-ID'],
+        metadataHeaders: ['Message-ID', 'References'],
       });
 
-      // Verify MIME message included reply headers
+      // Verify References is built by appending Message-ID to existing References
       expect(MimeHelper.createMimeMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           inReplyTo: '<original-msg-id@mail.gmail.com>',
-          references: '<original-msg-id@mail.gmail.com>',
+          references:
+            '<earlier-msg-id@mail.gmail.com> <original-msg-id@mail.gmail.com>',
         }),
       );
 

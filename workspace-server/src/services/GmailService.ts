@@ -384,18 +384,24 @@ export class GmailService {
             userId: 'me',
             id: threadId,
             format: 'metadata',
-            metadataHeaders: ['Message-ID'],
+            metadataHeaders: ['Message-ID', 'References'],
           });
           const messages = threadResponse.data.messages || [];
           if (messages.length > 0) {
             const lastMessage = messages[messages.length - 1];
             const headers = lastMessage.payload?.headers || [];
             const messageIdHeader = headers.find(
-              (h) => h.name === 'Message-ID' || h.name === 'Message-Id',
+              (h) => h.name?.toLowerCase() === 'message-id',
+            );
+            const referencesHeader = headers.find(
+              (h) => h.name?.toLowerCase() === 'references',
             );
             if (messageIdHeader?.value) {
               inReplyTo = messageIdHeader.value;
-              references = messageIdHeader.value;
+              const previousReferences = referencesHeader?.value || '';
+              references = previousReferences
+                ? `${previousReferences} ${messageIdHeader.value}`
+                : messageIdHeader.value;
             }
           }
         } catch (threadError) {
