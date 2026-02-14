@@ -21,6 +21,16 @@ import {
   processMarkdownLineBreaks,
 } from '../utils/markdownToDocsRequests';
 
+interface DocsSuggestion {
+  type: 'insertion' | 'deletion' | 'styleChange' | 'paragraphStyleChange';
+  text?: string;
+  suggestionIds?: string[];
+  startIndex?: number;
+  endIndex?: number;
+  namedStyleType?: string;
+  textStyle?: docs_v1.Schema$TextStyle;
+}
+
 export class DocsService {
   private purify: ReturnType<typeof createDOMPurify>;
 
@@ -43,6 +53,185 @@ export class DocsService {
     const options = { ...gaxiosOptions, auth };
     return google.drive({ version: 'v3', ...options });
   }
+
+  public getSuggestions = async ({
+    documentId,
+  }: {
+    documentId: string;
+  }) => {
+    logToFile(
+      `[DocsService] Starting getSuggestions for document: ${documentId}`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const docs = await this.getDocsClient();
+      const res = await docs.documents.get({
+        documentId: id,
+        suggestionsViewMode: 'SUGGESTIONS_INLINE',
+        fields: 'body',
+      });
+
+      const suggestions: DocsSuggestion[] = this._extractSuggestions(res.data.body);
+
+      logToFile(
+        `[DocsService] Found ${suggestions.length} suggestions for document: ${id}`,
+      );
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(suggestions, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[DocsService] Error during docs.getSuggestions: ${errorMessage}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  private _extractSuggestions(
+    body: docs_v1.Schema$Body | undefined | null,
+  ): DocsSuggestion[] {
+    const suggestions: DocsSuggestion[] = [];
+    if (!body?.content) {
+      return suggestions;
+    }
+
+    const processElements = (
+      elements: docs_v1.Schema$StructuralElement[] | undefined,
+    ) => {
+      elements?.forEach((element) => {
+        if (element.paragraph) {
+          // Handle paragraph-level style suggestions
+          if (element.paragraph.suggestedParagraphStyleChanges) {
+            const suggestionIds = Object.keys(
+              element.paragraph.suggestedParagraphStyleChanges,
+            );
+            if (suggestionIds.length > 0) {
+              const firstSuggestion =
+                element.paragraph.suggestedParagraphStyleChanges[
+                  suggestionIds[0]
+                ];
+              suggestions.push({
+                type: 'paragraphStyleChange',
+                text: this._getParagraphText(element.paragraph),
+                suggestionIds: suggestionIds,
+                namedStyleType: firstSuggestion?.paragraphStyle?.namedStyleType,
+                startIndex: element.startIndex,
+                endIndex: element.endIndex,
+              });
+            }
+          }
+
+          // Handle text-run-level suggestions within the paragraph
+          element.paragraph.elements?.forEach((pElement) => {
+            if (pElement.textRun) {
+              const baseSuggestion = {
+                text: pElement.textRun.content || '',
+                startIndex: pElement.startIndex,
+                endIndex: pElement.endIndex,
+              };
+
+              if (pElement.textRun.suggestedInsertionIds) {
+                suggestions.push({
+                  ...baseSuggestion,
+                  type: 'insertion' as const,
+                  suggestionIds: pElement.textRun.suggestedInsertionIds,
+                });
+              }
+              if (pElement.textRun.suggestedDeletionIds) {
+                suggestions.push({
+                  ...baseSuggestion,
+                  type: 'deletion' as const,
+                  suggestionIds: pElement.textRun.suggestedDeletionIds,
+                });
+              }
+              if (pElement.textRun.suggestedTextStyleChanges) {
+                suggestions.push({
+                  ...baseSuggestion,
+                  type: 'styleChange' as const,
+                  suggestionIds: Object.keys(
+                    pElement.textRun.suggestedTextStyleChanges,
+                  ),
+                  textStyle: pElement.textRun.textStyle,
+                });
+              }
+            }
+          });
+        } else if (element.table) {
+          element.table.tableRows?.forEach((row) => {
+            row.tableCells?.forEach((cell) => {
+              processElements(cell.content);
+            });
+          });
+        }
+      });
+    };
+
+    processElements(body.content);
+    return suggestions;
+  }
+
+  private _getParagraphText(paragraph: docs_v1.Schema$Paragraph | undefined | null): string {
+    if (!paragraph?.elements) {
+      return '';
+    }
+    return paragraph.elements
+      .map((pElement) => pElement.textRun?.content || '')
+      .join('');
+  }
+
+  public getComments = async ({ documentId }: { documentId: string }) => {
+    logToFile(`[DocsService] Starting getComments for document: ${documentId}`);
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const drive = await this.getDriveClient();
+      const res = await drive.comments.list({
+        fileId: id,
+        fields:
+          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value))',
+      });
+
+      const comments = res.data.comments || [];
+      logToFile(
+        `[DocsService] Found ${comments.length} comments for document: ${id}`,
+      );
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(comments, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[DocsService] Error during docs.getComments: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
 
   public create = async ({
     title,
