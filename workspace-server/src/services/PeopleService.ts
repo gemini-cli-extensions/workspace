@@ -27,8 +27,12 @@ export class PeopleService {
     email?: string;
     name?: string;
   }) => {
+    // Redact PII for logging
+    const safeEmail = email ? email.replace(/^(.{2})(.*)(@.*)$/, '$1***$3') : undefined;
+    const safeName = name ? `${name.charAt(0)}***` : undefined;
+
     logToFile(
-      `[PeopleService] Starting getUserProfile with: userId=${userId}, email=${email}, name=${name}`,
+      `[PeopleService] Starting getUserProfile with: userId=${userId}, email=${safeEmail}, name=${safeName}`,
     );
     try {
       if (!userId && !email && !name) {

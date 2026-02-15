@@ -317,7 +317,9 @@ export class GmailService {
         };
       }
 
-      logToFile(`Sending email to: ${to}, subject: ${subject}`);
+      logToFile(
+        `Sending email to: ${Array.isArray(to) ? to.length + ' recipients' : '1 recipient'}, subject: ${subject ? '***' : '(no subject)'}`,
+      );
 
       // Create MIME message
       const mimeMessage = MimeHelper.createMimeMessage({
@@ -371,7 +373,9 @@ export class GmailService {
     threadId,
   }: CreateDraftParams) => {
     try {
-      logToFile(`Creating draft - to: ${to}, subject: ${subject}`);
+      logToFile(
+        `Creating draft - to: ${Array.isArray(to) ? to.length + ' recipients' : '1 recipient'}, subject: ${subject ? '***' : '(no subject)'}`,
+      );
 
       const gmail = await this.getGmailClient();
 
