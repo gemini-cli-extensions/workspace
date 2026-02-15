@@ -39,7 +39,8 @@ export class DriveService {
     logToFile(`Searching for folder with name: ${folderName}`);
     try {
       const drive = await this.getDriveClient();
-      const query = `mimeType='application/vnd.google-apps.folder' and name = '${folderName}'`;
+      const sanitizedName = escapeQueryString(folderName);
+      const query = `mimeType='application/vnd.google-apps.folder' and name = '${sanitizedName}'`;
       logToFile(`Executing Drive API query: ${query}`);
       const res = await drive.files.list({
         q: query,
