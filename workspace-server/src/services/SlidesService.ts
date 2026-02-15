@@ -13,6 +13,7 @@ import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
+import { resolveSafePath } from '../utils/paths';
 
 export class SlidesService {
   constructor(private authManager: AuthManager) {}
@@ -247,12 +248,10 @@ export class SlidesService {
 
   private async downloadToLocal(url: string, localPath: string) {
     logToFile(`[SlidesService] Downloading from ${url} to ${localPath}`);
-    if (!path.isAbsolute(localPath)) {
-      throw new Error('localPath must be an absolute path.');
-    }
+    const absolutePath = resolveSafePath(localPath);
 
     // Ensure directory exists
-    await fs.mkdir(path.dirname(localPath), { recursive: true });
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
 
     const response = await request({
       url,
@@ -260,9 +259,9 @@ export class SlidesService {
       ...gaxiosOptions,
     });
 
-    await fs.writeFile(localPath, Buffer.from(response.data as ArrayBuffer));
-    logToFile(`[SlidesService] Downloaded successfully to ${localPath}`);
-    return localPath;
+    await fs.writeFile(absolutePath, Buffer.from(response.data as ArrayBuffer));
+    logToFile(`[SlidesService] Downloaded successfully to ${absolutePath}`);
+    return absolutePath;
   }
 
   public getImages = async ({

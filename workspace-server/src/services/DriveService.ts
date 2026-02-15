@@ -12,7 +12,7 @@ import { escapeQueryString } from '../utils/DriveQueryBuilder';
 import { extractDocumentId } from '../utils/validation';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { PROJECT_ROOT } from '../utils/paths';
+import { PROJECT_ROOT, resolveSafePath } from '../utils/paths';
 
 const MIN_DRIVE_ID_LENGTH = 25;
 
@@ -423,9 +423,7 @@ export class DriveService {
       const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
 
       // 3. Save to localPath
-      const absolutePath = path.isAbsolute(localPath)
-        ? localPath
-        : path.resolve(PROJECT_ROOT, localPath);
+      const absolutePath = resolveSafePath(localPath);
       const dir = path.dirname(absolutePath);
 
       await fs.promises.mkdir(dir, { recursive: true });

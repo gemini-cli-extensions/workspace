@@ -26,4 +26,56 @@ describe('paths utils', () => {
       expect(PROJECT_ROOT.endsWith('workspace-server')).toBe(false);
     });
   });
+
+  describe('resolveSafePath', () => {
+    const { resolveSafePath } = require('../../utils/paths');
+
+    it('should resolve a relative path within the project root', () => {
+      const relativePath = 'downloads/file.txt';
+      const resolved = resolveSafePath(relativePath);
+      expect(resolved).toBe(path.join(PROJECT_ROOT, relativePath));
+    });
+
+    it('should resolve an absolute path within the project root', () => {
+      const absolutePath = path.join(PROJECT_ROOT, 'downloads', 'file.txt');
+      const resolved = resolveSafePath(absolutePath);
+      expect(resolved).toBe(absolutePath);
+    });
+
+    it('should throw an error for a path outside the project root using ..', () => {
+      const dangerousPath = path.join(PROJECT_ROOT, '..', 'shadow.pwd');
+      expect(() => resolveSafePath(dangerousPath)).toThrow(
+        /Security Error: Path traversal detected/,
+      );
+    });
+
+    it('should throw an error for an absolute path outside the project root', () => {
+      const dangerousPath = '/etc/passwd';
+      expect(() => resolveSafePath(dangerousPath)).toThrow(
+        /Security Error: Path traversal detected/,
+      );
+    });
+
+    it('should allow paths within a custom base directory', () => {
+      const customBase = '/tmp/my-safe-dir';
+      const relativePath = 'file.txt';
+      // Mock path.resolve to handle the fake absolute path correctly on all OSes
+      const spy = jest.spyOn(path, 'resolve').mockImplementation((...args) => {
+        if (args[0] === customBase) return path.join(customBase, args[1]);
+        return path.join(...args);
+      });
+
+      // We need to be careful with mocks and real path operations in the same test
+      // Instead of mocking path, let's just use a real directory we know exists
+      const realBase = path.join(PROJECT_ROOT, 'workspace-server');
+      const realPath = 'package.json';
+      const resolved = resolveSafePath(realPath, realBase);
+      expect(resolved).toBe(path.join(realBase, realPath));
+
+      const dangerousPath = path.join(PROJECT_ROOT, 'package.json');
+      expect(() => resolveSafePath(dangerousPath, realBase)).toThrow(
+        /Security Error: Path traversal detected/,
+      );
+    });
+  });
 });

@@ -13,6 +13,7 @@ import { MimeHelper } from '../utils/MimeHelper';
 import { GMAIL_SEARCH_MAX_RESULTS } from '../utils/constants';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { emailArraySchema } from '../utils/validation';
+import { resolveSafePath } from '../utils/paths';
 
 // Type definitions for email parameters
 type SendEmailParams = {
@@ -209,9 +210,7 @@ export class GmailService {
         `Downloading attachment ${attachmentId} from message ${messageId} to ${localPath}`,
       );
 
-      if (!path.isAbsolute(localPath)) {
-        throw new Error('localPath must be an absolute path.');
-      }
+      const absolutePath = resolveSafePath(localPath);
 
       const gmail = await this.getGmailClient();
       const response = await gmail.users.messages.attachments.get({
@@ -226,21 +225,21 @@ export class GmailService {
       }
 
       // Ensure directory exists
-      await fs.mkdir(path.dirname(localPath), { recursive: true });
+      await fs.mkdir(path.dirname(absolutePath), { recursive: true });
 
       // Write file
       const buffer = Buffer.from(data, 'base64url');
-      await fs.writeFile(localPath, buffer);
+      await fs.writeFile(absolutePath, buffer);
 
-      logToFile(`Attachment downloaded successfully to ${localPath}`);
+      logToFile(`Attachment downloaded successfully to ${absolutePath}`);
 
       return {
         content: [
           {
             type: 'text' as const,
             text: JSON.stringify({
-              message: `Attachment downloaded successfully to ${localPath}`,
-              path: localPath,
+              message: `Attachment downloaded successfully to ${absolutePath}`,
+              path: absolutePath,
             }),
           },
         ],
