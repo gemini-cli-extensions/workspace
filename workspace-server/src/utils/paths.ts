@@ -42,7 +42,14 @@ export function resolveSafePath(
     ? path.resolve(localPath)
     : path.resolve(absoluteBase, localPath);
 
-  if (!resolvedPath.startsWith(absoluteBase)) {
+  // Security check: Ensure the resolved path is either the base directory itself
+  // or a child of it. We check this by verifying that the resolved path starts with
+  // the base directory followed by a path separator, or matches exactly.
+  const relative = path.relative(absoluteBase, resolvedPath);
+  const isSafe =
+    relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+
+  if (!isSafe) {
     throw new Error(
       `Security Error: Path traversal detected. Resolved path "${resolvedPath}" is outside of allowed directory "${absoluteBase}".`,
     );

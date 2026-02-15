@@ -77,5 +77,16 @@ describe('paths utils', () => {
         /Security Error: Path traversal detected/,
       );
     });
+
+    it('should throw an error for partial path matches (e.g. /app vs /app-malicious)', () => {
+      // If baseDir is /home/user/app
+      // And resolvedPath is /home/user/app-malicious
+      // .startsWith() would match, but it's not safe.
+      const baseDir = path.join(PROJECT_ROOT, 'workspace-server');
+      const dangerousPath = baseDir + '-malicious';
+      expect(() => resolveSafePath(dangerousPath, baseDir)).toThrow(
+        /Security Error: Path traversal detected/,
+      );
+    });
   });
 });
