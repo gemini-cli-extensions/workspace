@@ -53,8 +53,12 @@ export class DocsService {
     folderName?: string;
     markdown?: string;
   }) => {
+    // Redact PII for logging
+    const safeTitle = title ? '***' : undefined;
+    const safeFolderName = folderName ? '***' : undefined;
+
     logToFile(
-      `[DocsService] Starting create with title: ${title}, folderName: ${folderName}, markdown: ${markdown ? 'true' : 'false'}`,
+      `[DocsService] Starting create with title: ${safeTitle}, folderName: ${safeFolderName}, markdown: ${markdown ? 'true' : 'false'}`,
     );
     try {
       const docInfo = await (async (): Promise<{
@@ -219,7 +223,7 @@ export class DocsService {
     pageToken?: string;
     pageSize?: number;
   }) => {
-    logToFile(`Searching for documents with query: ${query}`);
+    logToFile(`Searching for documents with query: ***`);
     if (pageToken) {
       logToFile(`Using pageToken: ${pageToken}`);
     }
@@ -282,7 +286,7 @@ export class DocsService {
     documentId: string;
     folderName: string;
   }) => {
-    logToFile(`[DocsService] Starting move for document: ${documentId}`);
+    logToFile(`[DocsService] Starting move for document: ${documentId} to folder: ***`);
     try {
       const id = extractDocId(documentId) || documentId;
       await this._moveFileToFolder(id, folderName);

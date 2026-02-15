@@ -74,7 +74,7 @@ export class GmailService {
     includeSpamTrash?: boolean;
   }) => {
     try {
-      logToFile(`Gmail search - query: ${query}, maxResults: ${maxResults}`);
+      logToFile(`Gmail search - query: ***, maxResults: ${maxResults}`);
 
       const gmail = await this.getGmailClient();
       const response = await gmail.users.messages.list({

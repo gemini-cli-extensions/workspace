@@ -174,11 +174,11 @@ export class CalendarService {
 
     const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
     logToFile(`Creating event in calendar: ${finalCalendarId}`);
-    logToFile(`Event summary: ${summary}`);
-    if (description) logToFile(`Event description: ${description}`);
+    logToFile(`Event summary: ***`);
+    if (description) logToFile(`Event description: ***`);
     logToFile(`Event start: ${start.dateTime}`);
     logToFile(`Event end: ${end.dateTime}`);
-    logToFile(`Event attendees: ${attendees?.join(', ')}`);
+    logToFile(`Event attendees: ${attendees ? attendees.length + ' attendees' : '0 attendees'}`);
     try {
       const event = {
         summary,
@@ -380,6 +380,7 @@ export class CalendarService {
 
     const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
     logToFile(`Updating event ${eventId} in calendar: ${finalCalendarId}`);
+    logToFile(`Updated fields: ${Object.keys(input).filter(k => ['summary', 'description', 'start', 'end', 'attendees'].includes(k)).join(', ')}`);
 
     try {
       const calendar = await this.getCalendar();
@@ -437,7 +438,7 @@ export class CalendarService {
       `Responding to event ${eventId} in calendar: ${finalCalendarId} with status: ${responseStatus}`,
     );
     if (responseMessage) {
-      logToFile(`Response message: ${responseMessage}`);
+      logToFile(`Response message: ***`);
     }
 
     try {
@@ -537,7 +538,7 @@ export class CalendarService {
       return this.createValidationErrorResponse(error);
     }
 
-    logToFile(`Finding free time for attendees: ${attendees.join(', ')}`);
+    logToFile(`Finding free time for ${attendees.length} attendees`);
     logToFile(`Time range: ${timeMin} - ${timeMax}`);
     logToFile(`Duration: ${duration} minutes`);
 
