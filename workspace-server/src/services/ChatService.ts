@@ -233,7 +233,9 @@ export class ChatService {
       const filters: string[] = [];
 
       if (threadName) {
-        filters.push(`thread.name = "${threadName}"`);
+        // Sanitize thread name to prevent query injection
+        const safeThreadName = threadName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        filters.push(`thread.name = "${safeThreadName}"`);
       }
 
       if (unreadOnly) {
