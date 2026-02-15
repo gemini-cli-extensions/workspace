@@ -107,7 +107,7 @@ export class ChatService {
     threadName?: string;
   }) => {
     logToFile(
-      `Sending message to space: ${spaceName}${threadName ? ` in thread: ${threadName}` : ''}`,
+      `Sending message to space: ${spaceName}${threadName ? ` in thread: ${threadName}` : ''} (message redacted)`,
     );
     try {
       const chat = await this.getChatClient();
@@ -153,7 +153,7 @@ export class ChatService {
   };
 
   public findSpaceByName = async ({ displayName }: { displayName: string }) => {
-    logToFile(`Finding space with display name: ${displayName}`);
+    logToFile(`Finding space with display name: ***`);
     try {
       const chat = await this.getChatClient();
       // The Chat API's spaces.list method does not support filtering by
@@ -174,7 +174,7 @@ export class ChatService {
 
       if (foundSpaces.length > 0) {
         logToFile(
-          `Found ${foundSpaces.length} space(s) with display name: ${displayName}`,
+          `Found ${foundSpaces.length} space(s) with display name: ***`,
         );
         return {
           content: [
@@ -328,8 +328,11 @@ export class ChatService {
     message: string;
     threadName?: string;
   }) => {
+    // Redact PII for logging
+    const safeEmail = email.replace(/^(.{2})(.*)(@.*)$/, '$1***$3');
+
     logToFile(
-      `chat.sendDm called with: email=${email}, message=${message}${threadName ? `, threadName=${threadName}` : ''}`,
+      `chat.sendDm called with: email=${safeEmail}, message=***${threadName ? `, threadName=${threadName}` : ''}`,
     );
     try {
       const space = await this._setupDmSpace(email);
@@ -491,7 +494,7 @@ export class ChatService {
     displayName: string;
     userNames: string[];
   }) => {
-    logToFile(`Creating space with display name: ${displayName}`);
+    logToFile(`Creating space with display name: *** and ${userNames.length} members`);
     try {
       const memberships = userNames.map((userName) => ({
         member: {
