@@ -57,7 +57,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/directory.readonly',
   'https://www.googleapis.com/auth/presentations.readonly',
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
+  'https://www.googleapis.com/auth/spreadsheets',
 ];
 
 // Dynamically import version from package.json
@@ -497,6 +497,26 @@ async function main() {
       ...readOnlyToolProps,
     },
     sheetsService.getMetadata,
+  );
+
+  server.registerTool(
+    'sheets.insertText',
+    {
+      description:
+        'Inserts text or a value into a specific cell or range in a Google Sheets spreadsheet.',
+      inputSchema: {
+        spreadsheetId: z
+          .string()
+          .describe('The ID or URL of the spreadsheet to modify.'),
+        range: z
+          .string()
+          .describe(
+            'The A1 notation range to insert text into (e.g., "Sheet1!A1").',
+          ),
+        value: z.string().describe('The text or value to insert.'),
+      },
+    },
+    sheetsService.insertText,
   );
 
   server.registerTool(

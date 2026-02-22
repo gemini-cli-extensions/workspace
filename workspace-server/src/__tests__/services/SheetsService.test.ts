@@ -41,6 +41,7 @@ describe('SheetsService', () => {
         get: jest.fn(),
         values: {
           get: jest.fn(),
+          update: jest.fn(),
         },
       },
     };
@@ -430,6 +431,54 @@ describe('SheetsService', () => {
       const response = JSON.parse(result.content[0].text);
 
       expect(response.error).toBe('Metadata Error');
+    });
+  });
+
+  describe('insertText', () => {
+    it('should insert text into a specific cell', async () => {
+      const mockResponse = {
+        data: {
+          spreadsheetId: 'test-id',
+          updatedRange: 'Sheet1!A1',
+          updatedCells: 1,
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.update.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.insertText({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1',
+        value: 'Hello',
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.update).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [['Hello']],
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.updatedRange).toBe('Sheet1!A1');
+      expect(response.updatedCells).toBe(1);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.values.update.mockRejectedValue(
+        new Error('API Error'),
+      );
+
+      const result = await sheetsService.insertText({
+        spreadsheetId: 'test-id',
+        range: 'A1',
+        value: 'test',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('API Error');
     });
   });
 });

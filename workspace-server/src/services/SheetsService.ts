@@ -310,4 +310,59 @@ export class SheetsService {
       };
     }
   };
+
+  public insertText = async ({
+    spreadsheetId,
+    range,
+    value,
+  }: {
+    spreadsheetId: string;
+    range: string;
+    value: string;
+  }) => {
+    logToFile(
+      `[SheetsService] Starting insertText for spreadsheet: ${spreadsheetId}, range: ${range}`,
+    );
+    try {
+      const id = extractDocId(spreadsheetId) || spreadsheetId;
+
+      const sheets = await this.getSheetsClient();
+      const response = await sheets.spreadsheets.values.update({
+        spreadsheetId: id,
+        range: range,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[value]],
+        },
+      });
+
+      logToFile(`[SheetsService] Finished insertText for spreadsheet: ${id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              spreadsheetId: response.data.spreadsheetId,
+              updatedRange: response.data.updatedRange,
+              updatedCells: response.data.updatedCells,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[SheetsService] Error during sheets.insertText: ${errorMessage}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
 }
