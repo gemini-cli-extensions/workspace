@@ -56,7 +56,7 @@ describe('logger', () => {
   describe('module initialization', () => {
     it('should create log directory on module load', async () => {
       // Set up mocks
-      jest.doMock('node:fs/promises', () => ({
+      jest.doMock('fs/promises', () => ({
         mkdir: jest.fn(() => Promise.resolve()),
         appendFile: jest.fn(() => Promise.resolve()),
       }));
@@ -65,24 +65,21 @@ describe('logger', () => {
       await import('../../utils/logger');
 
       // Get the mocked fs module
-      const mockedFs = await import('node:fs/promises');
+      fs = await import('node:fs/promises');
 
-      // Wait for async initialization - increased timeout for CI stability
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async initialization
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
-      expect(mockedFs.mkdir).toHaveBeenCalledWith(
-        expect.stringContaining('logs'),
-        {
-          recursive: true,
-        },
-      );
-    }, 15000); // Increase test timeout
+      expect(fs.mkdir).toHaveBeenCalledWith(expect.stringContaining('logs'), {
+        recursive: true,
+      });
+    });
 
     it('should handle directory creation errors gracefully', async () => {
       const mkdirError = new Error('Permission denied');
 
       // Set up mocks
-      jest.doMock('node:fs/promises', () => ({
+      jest.doMock('fs/promises', () => ({
         mkdir: jest.fn(() => Promise.reject(mkdirError)),
         appendFile: jest.fn(() => Promise.resolve()),
       }));
@@ -90,14 +87,14 @@ describe('logger', () => {
       // Import the module
       await import('../../utils/logger');
 
-      // Wait for async initialization - increased timeout for CI stability
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async initialization
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Could not create log directory:',
         mkdirError,
       );
-    }, 15000); // Increase test timeout
+    });
   });
 
   describe('logToFile', () => {
