@@ -410,6 +410,37 @@ export class SlidesService {
     }
   };
 
+  public deleteSlide = async ({
+    presentationId,
+    slideObjectId,
+  }: {
+    presentationId: string;
+    slideObjectId: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Deleting slide ${slideObjectId} from presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [{ deleteObject: { objectId: slideObjectId } }],
+        },
+      });
+
+      logToFile(`[SlidesService] Deleted slide: ${slideObjectId}`);
+      return this.formatResult({
+        presentationId: id,
+        deletedSlideObjectId: slideObjectId,
+      });
+    } catch (error) {
+      return this.formatError('slides.deleteSlide', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

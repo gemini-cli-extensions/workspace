@@ -529,6 +529,25 @@ async function main() {
     slidesService.addSlide,
   );
 
+  server.registerTool(
+    'slides.deleteSlide',
+    {
+      description:
+        'Deletes a slide from a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe(
+            'The object ID of the slide to delete (can be found via slides.getMetadata).',
+          ),
+      },
+    },
+    slidesService.deleteSlide,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',

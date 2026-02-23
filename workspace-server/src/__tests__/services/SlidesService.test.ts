@@ -547,4 +547,39 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Add Slide Error');
     });
   });
+
+  describe('deleteSlide', () => {
+    it('should delete a slide', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const result = await slidesService.deleteSlide({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'slide-to-delete',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [{ deleteObject: { objectId: 'slide-to-delete' } }],
+        },
+      });
+      expect(response.deletedSlideObjectId).toBe('slide-to-delete');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Delete Error'),
+      );
+
+      const result = await slidesService.deleteSlide({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Delete Error');
+    });
+  });
 });
