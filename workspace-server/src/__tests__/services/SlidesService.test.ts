@@ -437,4 +437,114 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Create Error');
     });
   });
+
+  describe('addSlide', () => {
+    it('should add a slide with default settings', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{ createSlide: { objectId: 'new-slide-id' } }] },
+      });
+
+      const result = await slidesService.addSlide({
+        presentationId: 'test-pres-id',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [{ createSlide: {} }],
+        },
+      });
+      expect(response.slideObjectId).toBe('new-slide-id');
+    });
+
+    it('should add a slide with insertion index and predefined layout', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{ createSlide: { objectId: 'slide-at-0' } }] },
+      });
+
+      const result = await slidesService.addSlide({
+        presentationId: 'test-pres-id',
+        insertionIndex: 0,
+        predefinedLayout: 'TITLE_AND_BODY',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              createSlide: {
+                insertionIndex: 0,
+                slideLayoutReference: { predefinedLayout: 'TITLE_AND_BODY' },
+              },
+            },
+          ],
+        },
+      });
+      expect(response.slideObjectId).toBe('slide-at-0');
+    });
+
+    it('should pick layoutId over predefinedLayout when both are provided', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{ createSlide: { objectId: 's' } }] },
+      });
+
+      await slidesService.addSlide({
+        presentationId: 'p',
+        layoutId: 'custom-layout-id',
+        predefinedLayout: 'TITLE_AND_BODY',
+        objectId: 'my-id',
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'p',
+        requestBody: {
+          requests: [
+            {
+              createSlide: {
+                objectId: 'my-id',
+                slideLayoutReference: { layoutId: 'custom-layout-id' },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should reject an invalid predefinedLayout value', async () => {
+      const result = await slidesService.addSlide({
+        presentationId: 'p',
+        predefinedLayout: 'not-a-real-layout' as never,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain('Invalid predefinedLayout');
+    });
+
+    it('should error when batchUpdate returns an empty replies array', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.addSlide({ presentationId: 'p' });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('createSlide returned no objectId');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Add Slide Error'),
+      );
+
+      const result = await slidesService.addSlide({
+        presentationId: 'error-id',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Add Slide Error');
+    });
+  });
 });

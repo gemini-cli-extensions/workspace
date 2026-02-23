@@ -13,6 +13,20 @@ import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 
+export const PREDEFINED_LAYOUTS = [
+  'BLANK',
+  'TITLE',
+  'TITLE_AND_BODY',
+  'TITLE_AND_TWO_COLUMNS',
+  'TITLE_ONLY',
+  'SECTION_HEADER',
+  'SECTION_TITLE_AND_DESCRIPTION',
+  'ONE_COLUMN_TEXT',
+  'MAIN_POINT',
+  'BIG_NUMBER',
+] as const;
+export type PredefinedLayout = (typeof PREDEFINED_LAYOUTS)[number];
+
 type ToolResult = {
   isError?: boolean;
   content: Array<{ type: 'text'; text: string }>;
@@ -331,6 +345,68 @@ export class SlidesService {
       return this.formatResult(result);
     } catch (error) {
       return this.formatError('slides.create', error);
+    }
+  };
+
+  public addSlide = async ({
+    presentationId,
+    insertionIndex,
+    layoutId,
+    predefinedLayout,
+    objectId,
+  }: {
+    presentationId: string;
+    insertionIndex?: number;
+    layoutId?: string;
+    predefinedLayout?: PredefinedLayout;
+    objectId?: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Adding slide to presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const createSlideRequest: slides_v1.Schema$CreateSlideRequest = {};
+      if (insertionIndex !== undefined) {
+        createSlideRequest.insertionIndex = insertionIndex;
+      }
+      if (objectId) {
+        createSlideRequest.objectId = objectId;
+      }
+      if (layoutId) {
+        createSlideRequest.slideLayoutReference = { layoutId };
+      } else if (predefinedLayout) {
+        if (!PREDEFINED_LAYOUTS.includes(predefinedLayout)) {
+          throw new Error(
+            `Invalid predefinedLayout "${predefinedLayout}". Expected one of: ${PREDEFINED_LAYOUTS.join(', ')}.`,
+          );
+        }
+        createSlideRequest.slideLayoutReference = { predefinedLayout };
+      }
+
+      const response = await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [{ createSlide: createSlideRequest }],
+        },
+      });
+
+      const slideObjectId = response.data.replies?.[0]?.createSlide?.objectId;
+      if (!slideObjectId) {
+        throw new Error(
+          'createSlide returned no objectId; batchUpdate reply was empty or malformed.',
+        );
+      }
+
+      logToFile(`[SlidesService] Added slide: ${slideObjectId}`);
+      return this.formatResult({
+        presentationId: id,
+        slideObjectId,
+      });
+    } catch (error) {
+      return this.formatError('slides.addSlide', error);
     }
   };
 

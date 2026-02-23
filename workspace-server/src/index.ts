@@ -17,7 +17,10 @@ import { ChatService } from './services/ChatService';
 import { GmailService } from './services/GmailService';
 import { TimeService } from './services/TimeService';
 import { PeopleService } from './services/PeopleService';
-import { SlidesService } from './services/SlidesService';
+import {
+  SlidesService,
+  PREDEFINED_LAYOUTS,
+} from './services/SlidesService';
 import { SheetsService } from './services/SheetsService';
 import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
 
@@ -488,6 +491,42 @@ async function main() {
       },
     },
     slidesService.create,
+  );
+
+  server.registerTool(
+    'slides.addSlide',
+    {
+      description:
+        'Adds a new slide to a Google Slides presentation. Optionally specify position and layout. Returns the new slideObjectId, which can be used to chain follow-up calls such as slides.addShape or slides.insertText.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        insertionIndex: z
+          .number()
+          .optional()
+          .describe(
+            'The 0-based index where the slide should be inserted. If not specified, the slide is added at the end.',
+          ),
+        layoutId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of a specific layout to use. Use slides.getMetadata to find available layouts.',
+          ),
+        predefinedLayout: z
+          .enum(PREDEFINED_LAYOUTS)
+          .optional()
+          .describe('A predefined layout type for the new slide.'),
+        objectId: z
+          .string()
+          .optional()
+          .describe(
+            'A user-supplied object ID for the new slide. If not specified, a unique ID is generated.',
+          ),
+      },
+    },
+    slidesService.addSlide,
   );
 
   // Sheets tools
