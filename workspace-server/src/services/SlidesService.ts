@@ -481,6 +481,47 @@ export class SlidesService {
     }
   };
 
+  public reorderSlides = async ({
+    presentationId,
+    slideObjectIds,
+    insertionIndex,
+  }: {
+    presentationId: string;
+    slideObjectIds: string[];
+    insertionIndex: number;
+  }) => {
+    logToFile(
+      `[SlidesService] Reordering slides in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              updateSlidesPosition: {
+                slideObjectIds,
+                insertionIndex,
+              },
+            },
+          ],
+        },
+      });
+
+      logToFile(`[SlidesService] Reordered slides in presentation: ${id}`);
+      return this.formatResult({
+        presentationId: id,
+        slideObjectIds,
+        insertionIndex,
+      });
+    } catch (error) {
+      return this.formatError('slides.reorderSlides', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

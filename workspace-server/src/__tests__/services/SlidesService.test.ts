@@ -636,4 +636,49 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Duplicate Error');
     });
   });
+
+  describe('reorderSlides', () => {
+    it('should reorder slides', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const result = await slidesService.reorderSlides({
+        presentationId: 'test-pres-id',
+        slideObjectIds: ['slide2', 'slide3'],
+        insertionIndex: 0,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              updateSlidesPosition: {
+                slideObjectIds: ['slide2', 'slide3'],
+                insertionIndex: 0,
+              },
+            },
+          ],
+        },
+      });
+      expect(response.slideObjectIds).toEqual(['slide2', 'slide3']);
+      expect(response.insertionIndex).toBe(0);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Reorder Error'),
+      );
+
+      const result = await slidesService.reorderSlides({
+        presentationId: 'error-id',
+        slideObjectIds: ['s1'],
+        insertionIndex: 0,
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Reorder Error');
+    });
+  });
 });

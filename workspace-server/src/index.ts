@@ -567,6 +567,28 @@ async function main() {
     slidesService.duplicateSlide,
   );
 
+  server.registerTool(
+    'slides.reorderSlides',
+    {
+      description:
+        'Moves one or more slides to a new position in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectIds: z
+          .array(z.string())
+          .describe('The object IDs of the slides to move.'),
+        insertionIndex: z
+          .number()
+          .describe(
+            'The 0-based index where the slides should be moved to.',
+          ),
+      },
+    },
+    slidesService.reorderSlides,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
