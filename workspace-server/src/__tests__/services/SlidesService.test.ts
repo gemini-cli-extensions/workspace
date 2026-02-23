@@ -1577,4 +1577,128 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Table Error');
     });
   });
+
+  describe('updateTextStyle', () => {
+    it('should update text style for all text', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const result = await slidesService.updateTextStyle({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        style: '{"bold": true, "fontSize": {"magnitude": 18, "unit": "PT"}}',
+        fields: 'bold,fontSize',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                objectId: 'shape-1',
+                textRange: { type: 'ALL' },
+                style: {
+                  bold: true,
+                  fontSize: { magnitude: 18, unit: 'PT' },
+                },
+                fields: 'bold,fontSize',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.objectId).toBe('shape-1');
+      expect(response.fields).toBe('bold,fontSize');
+    });
+
+    it('should update text style for a fixed range', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.updateTextStyle({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        style: '{"italic": true}',
+        fields: 'italic',
+        range: { type: 'FIXED_RANGE', startIndex: 0, endIndex: 10 },
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                objectId: 'shape-1',
+                textRange: {
+                  type: 'FIXED_RANGE',
+                  startIndex: 0,
+                  endIndex: 10,
+                },
+                style: { italic: true },
+                fields: 'italic',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should surface the underlying JSON.parse message for invalid JSON', async () => {
+      const result = await slidesService.updateTextStyle({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        style: '{bold: true}',
+        fields: 'bold',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain('Invalid JSON for style parameter:');
+      expect(response.error.length).toBeGreaterThan(
+        'Invalid JSON for style parameter: . Expected a JSON string like'.length,
+      );
+    });
+
+    it.each([
+      { label: 'string literal', payload: '"hello"', expectedGot: 'string' },
+      { label: 'null', payload: 'null', expectedGot: 'null' },
+      { label: 'array', payload: '[1,2]', expectedGot: 'array' },
+      { label: 'number', payload: '42', expectedGot: 'number' },
+    ])(
+      'should reject non-object style payloads ($label)',
+      async ({ payload, expectedGot }) => {
+        const result = await slidesService.updateTextStyle({
+          presentationId: 'p',
+          objectId: 'shape-1',
+          style: payload,
+          fields: 'bold',
+        });
+        const response = JSON.parse(result.content[0].text);
+
+        expect(result.isError).toBe(true);
+        expect(response.error).toContain('Invalid style parameter');
+        expect(response.error).toContain(expectedGot);
+        expect(mockSlidesAPI.presentations.batchUpdate).not.toHaveBeenCalled();
+      },
+    );
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Style Error'),
+      );
+
+      const result = await slidesService.updateTextStyle({
+        presentationId: 'error-id',
+        objectId: 'shape-1',
+        style: '{"bold": true}',
+        fields: 'bold',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Style Error');
+    });
+  });
 });

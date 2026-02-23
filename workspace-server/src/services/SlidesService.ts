@@ -307,6 +307,34 @@ export class SlidesService {
     }
   };
 
+  private parseJsonObject(
+    raw: string,
+    paramName: string,
+    example: string,
+  ): Record<string, unknown> {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      throw new Error(
+        `Invalid JSON for ${paramName} parameter: ${detail}. Expected a JSON string like '${example}'.`,
+      );
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      const got =
+        parsed === null
+          ? 'null'
+          : Array.isArray(parsed)
+          ? 'array'
+          : typeof parsed;
+      throw new Error(
+        `Invalid ${paramName} parameter: expected a JSON object, got ${got}.`,
+      );
+    }
+    return parsed as Record<string, unknown>;
+  }
+
   private buildRange(range: SlidesTextRange): slides_v1.Schema$Range {
     // The discriminated union at the Zod boundary makes invalid shapes
     // unrepresentable for MCP callers, but the service can also be invoked
@@ -1072,6 +1100,64 @@ export class SlidesService {
       });
     } catch (error) {
       return this.formatError('slides.addTable', error);
+    }
+  };
+
+  public updateTextStyle = async ({
+    presentationId,
+    objectId,
+    style,
+    range = { type: 'ALL' },
+    fields,
+  }: {
+    presentationId: string;
+    objectId: string;
+    style: string;
+    range?: SlidesTextRange;
+    fields: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Updating text style for object ${objectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const parsedStyle = this.parseJsonObject(
+        style,
+        'style',
+        '{"bold": true}',
+      ) as slides_v1.Schema$TextStyle;
+
+      const textRange = this.buildRange(range);
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                objectId,
+                textRange,
+                style: parsedStyle,
+                fields,
+              },
+            },
+          ],
+        },
+      });
+
+      logToFile(
+        `[SlidesService] Updated text style for object ${objectId} in presentation: ${id}`,
+      );
+      return this.formatResult({
+        presentationId: id,
+        objectId,
+        textRange,
+        fields,
+      });
+    } catch (error) {
+      return this.formatError('slides.updateTextStyle', error);
     }
   };
 

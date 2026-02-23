@@ -841,6 +841,38 @@ async function main() {
     slidesService.addTable,
   );
 
+  server.registerTool(
+    'slides.updateTextStyle',
+    {
+      description:
+        'Updates the text style (bold, italic, font size, color, etc.) of text in a shape or table cell in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        objectId: z
+          .string()
+          .describe(
+            'The object ID of the shape or table cell containing the text.',
+          ),
+        style: z
+          .string()
+          .describe(
+            'A JSON string conforming to the Google Slides TextStyle schema (https://developers.google.com/workspace/slides/api/reference/rest/v1/presentations/request#TextStyle). Example: \'{"bold": true, "fontSize": {"magnitude": 18, "unit": "PT"}}\'.',
+          ),
+        fields: z
+          .string()
+          .describe(
+            'A comma-separated field mask listing which TextStyle fields to update. Valid values include: bold, italic, underline, strikethrough, smallCaps, backgroundColor, foregroundColor, fontFamily, fontSize, baselineOffset, weightedFontFamily, link. Use "*" to update every field present in `style`. Any field listed here but absent from `style` is reset to its default.',
+          ),
+        range: slidesTextRangeSchema
+          .optional()
+          .default({ type: 'ALL' }),
+      },
+    },
+    slidesService.updateTextStyle,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
