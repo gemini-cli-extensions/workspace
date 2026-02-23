@@ -1485,4 +1485,96 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Image Error');
     });
   });
+
+  describe('addTable', () => {
+    it('should add a table to a slide', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [{ createTable: { objectId: 'new-table-id' } }],
+        },
+      });
+
+      const result = await slidesService.addTable({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'slide1',
+        rows: 3,
+        columns: 4,
+        x: 50,
+        y: 200,
+        width: 400,
+        height: 200,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              createTable: {
+                rows: 3,
+                columns: 4,
+                elementProperties: {
+                  pageObjectId: 'slide1',
+                  size: {
+                    width: { magnitude: 400, unit: 'PT' },
+                    height: { magnitude: 200, unit: 'PT' },
+                  },
+                  transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 50,
+                    translateY: 200,
+                    unit: 'PT',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      });
+      expect(response.tableObjectId).toBe('new-table-id');
+      expect(response.rows).toBe(3);
+      expect(response.columns).toBe(4);
+    });
+
+    it('should error when batchUpdate returns an empty replies array', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.addTable({
+        presentationId: 'p',
+        slideObjectId: 's',
+        rows: 2,
+        columns: 2,
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('createTable returned no objectId');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Table Error'),
+      );
+
+      const result = await slidesService.addTable({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+        rows: 2,
+        columns: 2,
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Table Error');
+    });
+  });
 });

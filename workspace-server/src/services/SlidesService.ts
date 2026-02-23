@@ -998,6 +998,83 @@ export class SlidesService {
     }
   };
 
+  public addTable = async ({
+    presentationId,
+    slideObjectId,
+    rows,
+    columns,
+    x,
+    y,
+    width,
+    height,
+    objectId,
+  }: {
+    presentationId: string;
+    slideObjectId: string;
+    rows: number;
+    columns: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    objectId?: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Adding table to slide ${slideObjectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const createTableRequest: slides_v1.Schema$CreateTableRequest = {
+        rows,
+        columns,
+        elementProperties: {
+          pageObjectId: slideObjectId,
+          size: {
+            width: { magnitude: width, unit: 'PT' },
+            height: { magnitude: height, unit: 'PT' },
+          },
+          transform: {
+            scaleX: 1,
+            scaleY: 1,
+            translateX: x,
+            translateY: y,
+            unit: 'PT',
+          },
+        },
+      };
+      if (objectId) {
+        createTableRequest.objectId = objectId;
+      }
+
+      const response = await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [{ createTable: createTableRequest }],
+        },
+      });
+
+      const newObjectId = response.data.replies?.[0]?.createTable?.objectId;
+      if (!newObjectId) {
+        throw new Error(
+          'createTable returned no objectId; batchUpdate reply was empty or malformed.',
+        );
+      }
+
+      logToFile(`[SlidesService] Added table: ${newObjectId}`);
+      return this.formatResult({
+        presentationId: id,
+        slideObjectId,
+        tableObjectId: newObjectId,
+        rows,
+        columns,
+      });
+    } catch (error) {
+      return this.formatError('slides.addTable', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

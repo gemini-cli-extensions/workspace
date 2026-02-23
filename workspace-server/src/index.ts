@@ -808,6 +808,39 @@ async function main() {
     slidesService.addImage,
   );
 
+  server.registerTool(
+    'slides.addTable',
+    {
+      description:
+        'Adds a table to a slide in a Google Slides presentation. Coordinates and dimensions are in points (PT).',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe('The object ID of the slide to add the table to.'),
+        rows: z.number().describe('The number of rows in the table.'),
+        columns: z.number().describe('The number of columns in the table.'),
+        x: z
+          .number()
+          .describe('The X coordinate of the table position in points.'),
+        y: z
+          .number()
+          .describe('The Y coordinate of the table position in points.'),
+        width: z.number().describe('The width of the table in points.'),
+        height: z.number().describe('The height of the table in points.'),
+        objectId: z
+          .string()
+          .optional()
+          .describe(
+            'A user-supplied object ID for the new table. If not specified, a unique ID is generated.',
+          ),
+      },
+    },
+    slidesService.addTable,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
