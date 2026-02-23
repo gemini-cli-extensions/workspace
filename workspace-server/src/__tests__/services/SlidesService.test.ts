@@ -1701,4 +1701,90 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Style Error');
     });
   });
+
+  describe('updateShapeProperties', () => {
+    it('should update shape properties', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const shapePropertiesJson =
+        '{"shapeBackgroundFill":{"solidFill":{"color":{"rgbColor":{"red":0,"green":0,"blue":1}}}}}';
+
+      const result = await slidesService.updateShapeProperties({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        shapeProperties: shapePropertiesJson,
+        fields: 'shapeBackgroundFill',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              updateShapeProperties: {
+                objectId: 'shape-1',
+                shapeProperties: JSON.parse(shapePropertiesJson),
+                fields: 'shapeBackgroundFill',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.objectId).toBe('shape-1');
+      expect(response.fields).toBe('shapeBackgroundFill');
+    });
+
+    it('should surface the underlying JSON.parse message for invalid JSON', async () => {
+      const result = await slidesService.updateShapeProperties({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        shapeProperties: '{outline: {}}',
+        fields: 'outline',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain('Invalid JSON for shapeProperties parameter:');
+    });
+
+    it.each([
+      { label: 'string literal', payload: '"hello"', expectedGot: 'string' },
+      { label: 'null', payload: 'null', expectedGot: 'null' },
+      { label: 'array', payload: '[1,2]', expectedGot: 'array' },
+      { label: 'number', payload: '42', expectedGot: 'number' },
+    ])(
+      'should reject non-object shapeProperties payloads ($label)',
+      async ({ payload, expectedGot }) => {
+        const result = await slidesService.updateShapeProperties({
+          presentationId: 'p',
+          objectId: 'shape-1',
+          shapeProperties: payload,
+          fields: 'outline',
+        });
+        const response = JSON.parse(result.content[0].text);
+
+        expect(result.isError).toBe(true);
+        expect(response.error).toContain('Invalid shapeProperties parameter');
+        expect(response.error).toContain(expectedGot);
+        expect(mockSlidesAPI.presentations.batchUpdate).not.toHaveBeenCalled();
+      },
+    );
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Shape Props Error'),
+      );
+
+      const result = await slidesService.updateShapeProperties({
+        presentationId: 'error-id',
+        objectId: 'shape-1',
+        shapeProperties: '{}',
+        fields: 'outline',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Shape Props Error');
+    });
+  });
 });

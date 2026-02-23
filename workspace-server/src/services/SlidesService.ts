@@ -1161,6 +1161,58 @@ export class SlidesService {
     }
   };
 
+  public updateShapeProperties = async ({
+    presentationId,
+    objectId,
+    shapeProperties,
+    fields,
+  }: {
+    presentationId: string;
+    objectId: string;
+    shapeProperties: string;
+    fields: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Updating shape properties for object ${objectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const parsedProps = this.parseJsonObject(
+        shapeProperties,
+        'shapeProperties',
+        '{"shapeBackgroundFill": {...}}',
+      ) as slides_v1.Schema$ShapeProperties;
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              updateShapeProperties: {
+                objectId,
+                shapeProperties: parsedProps,
+                fields,
+              },
+            },
+          ],
+        },
+      });
+
+      logToFile(
+        `[SlidesService] Updated shape properties for object ${objectId} in presentation: ${id}`,
+      );
+      return this.formatResult({
+        presentationId: id,
+        objectId,
+        fields,
+      });
+    } catch (error) {
+      return this.formatError('slides.updateShapeProperties', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

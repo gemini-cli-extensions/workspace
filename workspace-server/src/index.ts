@@ -873,6 +873,33 @@ async function main() {
     slidesService.updateTextStyle,
   );
 
+  server.registerTool(
+    'slides.updateShapeProperties',
+    {
+      description:
+        'Updates the properties of a shape (background fill, outline, shadow, etc.) in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        objectId: z
+          .string()
+          .describe('The object ID of the shape to update.'),
+        shapeProperties: z
+          .string()
+          .describe(
+            'A JSON string conforming to the Google Slides ShapeProperties schema (https://developers.google.com/workspace/slides/api/reference/rest/v1/presentations.pages/shape#ShapeProperties). Example: \'{"shapeBackgroundFill": {"solidFill": {"color": {"rgbColor": {"red": 1, "green": 0, "blue": 0}}}}}\'.',
+          ),
+        fields: z
+          .string()
+          .describe(
+            'A comma-separated field mask listing which ShapeProperties fields to update. Valid values include: shapeBackgroundFill, outline, shadow, link, contentAlignment, autofit. Use "*" to update every field present in `shapeProperties`. Any field listed here but absent from `shapeProperties` is reset to its default.',
+          ),
+      },
+    },
+    slidesService.updateShapeProperties,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
