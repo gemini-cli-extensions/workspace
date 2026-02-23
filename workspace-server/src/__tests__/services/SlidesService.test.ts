@@ -1007,4 +1007,96 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Update Notes Error');
     });
   });
+
+  describe('replaceAllText', () => {
+    it('should replace all text in a presentation', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [{ replaceAllText: { occurrencesChanged: 5 } }],
+        },
+      });
+
+      const result = await slidesService.replaceAllText({
+        presentationId: 'test-pres-id',
+        findText: '{{name}}',
+        replaceText: 'John Doe',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              replaceAllText: {
+                containsText: { text: '{{name}}', matchCase: true },
+                replaceText: 'John Doe',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.occurrencesChanged).toBe(5);
+      expect(response.findText).toBe('{{name}}');
+      expect(response.replaceText).toBe('John Doe');
+    });
+
+    it('should support case-insensitive matching', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [{ replaceAllText: { occurrencesChanged: 3 } }],
+        },
+      });
+
+      await slidesService.replaceAllText({
+        presentationId: 'test-pres-id',
+        findText: 'hello',
+        replaceText: 'world',
+        matchCase: false,
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              replaceAllText: {
+                containsText: { text: 'hello', matchCase: false },
+                replaceText: 'world',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should error when batchUpdate returns an empty replies array', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.replaceAllText({
+        presentationId: 'p',
+        findText: 'a',
+        replaceText: 'b',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('replaceAllText returned no reply');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Replace Error'),
+      );
+
+      const result = await slidesService.replaceAllText({
+        presentationId: 'error-id',
+        findText: 'a',
+        replaceText: 'b',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Replace Error');
+    });
+  });
 });

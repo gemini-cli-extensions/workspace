@@ -667,6 +667,62 @@ export class SlidesService {
     }
   };
 
+  public replaceAllText = async ({
+    presentationId,
+    findText,
+    replaceText,
+    matchCase = true,
+  }: {
+    presentationId: string;
+    findText: string;
+    replaceText: string;
+    matchCase?: boolean;
+  }) => {
+    logToFile(
+      `[SlidesService] Replacing all text in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const response = await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              replaceAllText: {
+                containsText: { text: findText, matchCase },
+                replaceText,
+              },
+            },
+          ],
+        },
+      });
+
+      const replaceReply = response.data.replies?.[0]?.replaceAllText;
+      if (!replaceReply) {
+        throw new Error(
+          'replaceAllText returned no reply; batchUpdate reply was empty or malformed.',
+        );
+      }
+      // Google omits `occurrencesChanged` when zero matches were found, so a
+      // missing field within a present reply is a legitimate zero.
+      const occurrencesChanged = replaceReply.occurrencesChanged ?? 0;
+
+      logToFile(
+        `[SlidesService] Replaced ${occurrencesChanged} occurrences in presentation: ${id}`,
+      );
+      return this.formatResult({
+        presentationId: id,
+        findText,
+        replaceText,
+        occurrencesChanged,
+      });
+    } catch (error) {
+      return this.formatError('slides.replaceAllText', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

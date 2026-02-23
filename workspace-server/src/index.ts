@@ -628,6 +628,32 @@ async function main() {
     slidesService.updateSpeakerNotes,
   );
 
+  server.registerTool(
+    'slides.replaceAllText',
+    {
+      description:
+        'Replaces all occurrences of a given text with new text across the entire Google Slides presentation. Useful for template variable replacement. Note: matchCase defaults to true here, which is the opposite of the underlying Google Slides API default — pass matchCase: false explicitly for case-insensitive search.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        findText: z
+          .string()
+          .describe('The text to find in the presentation.'),
+        replaceText: z
+          .string()
+          .describe('The text to replace the found text with.'),
+        matchCase: z
+          .boolean()
+          .optional()
+          .describe(
+            'Whether the search should be case-sensitive (default: true; note this differs from the Google API default of false).',
+          ),
+      },
+    },
+    slidesService.replaceAllText,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
