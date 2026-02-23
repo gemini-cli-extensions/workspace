@@ -1398,4 +1398,91 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Shape Error');
     });
   });
+
+  describe('addImage', () => {
+    it('should add an image to a slide', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [{ createImage: { objectId: 'new-image-id' } }],
+        },
+      });
+
+      const result = await slidesService.addImage({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'slide1',
+        imageUrl: 'https://example.com/photo.png',
+        x: 50,
+        y: 50,
+        width: 200,
+        height: 150,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              createImage: {
+                url: 'https://example.com/photo.png',
+                elementProperties: {
+                  pageObjectId: 'slide1',
+                  size: {
+                    width: { magnitude: 200, unit: 'PT' },
+                    height: { magnitude: 150, unit: 'PT' },
+                  },
+                  transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 50,
+                    translateY: 50,
+                    unit: 'PT',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      });
+      expect(response.imageObjectId).toBe('new-image-id');
+      expect(response.imageUrl).toBe('https://example.com/photo.png');
+    });
+
+    it('should error when batchUpdate returns an empty replies array', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.addImage({
+        presentationId: 'p',
+        slideObjectId: 's',
+        imageUrl: 'https://example.com/x.png',
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('createImage returned no objectId');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Image Error'),
+      );
+
+      const result = await slidesService.addImage({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+        imageUrl: 'https://example.com/fail.png',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Image Error');
+    });
+  });
 });

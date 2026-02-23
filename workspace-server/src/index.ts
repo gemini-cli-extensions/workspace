@@ -772,6 +772,42 @@ async function main() {
     slidesService.addShape,
   );
 
+  server.registerTool(
+    'slides.addImage',
+    {
+      description:
+        'Adds an image from a URL to a slide in a Google Slides presentation. Coordinates and dimensions are in points (PT).',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe('The object ID of the slide to add the image to.'),
+        imageUrl: z
+          .string()
+          .describe(
+            'The URL of the image to insert. Must be publicly accessible over HTTPS. Google requires PNG, JPEG, or GIF format, at most 50MB in size, and at most 25 megapixels.',
+          ),
+        x: z
+          .number()
+          .describe('The X coordinate of the image position in points.'),
+        y: z
+          .number()
+          .describe('The Y coordinate of the image position in points.'),
+        width: z.number().describe('The width of the image in points.'),
+        height: z.number().describe('The height of the image in points.'),
+        objectId: z
+          .string()
+          .optional()
+          .describe(
+            'A user-supplied object ID for the new image. If not specified, a unique ID is generated.',
+          ),
+      },
+    },
+    slidesService.addImage,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
