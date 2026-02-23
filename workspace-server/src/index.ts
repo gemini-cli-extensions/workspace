@@ -548,6 +548,25 @@ async function main() {
     slidesService.deleteSlide,
   );
 
+  server.registerTool(
+    'slides.duplicateSlide',
+    {
+      description:
+        'Duplicates (clones) a slide in a Google Slides presentation. The duplicate is placed immediately after the original.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe(
+            'The object ID of the slide to duplicate (can be found via slides.getMetadata).',
+          ),
+      },
+    },
+    slidesService.duplicateSlide,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',

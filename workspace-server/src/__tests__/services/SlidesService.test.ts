@@ -582,4 +582,58 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Delete Error');
     });
   });
+
+  describe('duplicateSlide', () => {
+    it('should duplicate a slide', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [{ duplicateObject: { objectId: 'duplicated-slide-id' } }],
+        },
+      });
+
+      const result = await slidesService.duplicateSlide({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'original-slide',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            { duplicateObject: { objectId: 'original-slide' } },
+          ],
+        },
+      });
+      expect(response.sourceSlideObjectId).toBe('original-slide');
+      expect(response.newSlideObjectId).toBe('duplicated-slide-id');
+    });
+
+    it('should error when batchUpdate returns an empty replies array', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.duplicateSlide({
+        presentationId: 'p',
+        slideObjectId: 's',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('duplicateObject returned no objectId');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Duplicate Error'),
+      );
+
+      const result = await slidesService.duplicateSlide({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Duplicate Error');
+    });
+  });
 });

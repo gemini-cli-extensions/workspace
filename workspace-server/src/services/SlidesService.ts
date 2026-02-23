@@ -441,6 +441,46 @@ export class SlidesService {
     }
   };
 
+  public duplicateSlide = async ({
+    presentationId,
+    slideObjectId,
+  }: {
+    presentationId: string;
+    slideObjectId: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Duplicating slide ${slideObjectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const response = await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [{ duplicateObject: { objectId: slideObjectId } }],
+        },
+      });
+
+      const newObjectId =
+        response.data.replies?.[0]?.duplicateObject?.objectId;
+      if (!newObjectId) {
+        throw new Error(
+          'duplicateObject returned no objectId; batchUpdate reply was empty or malformed.',
+        );
+      }
+
+      logToFile(`[SlidesService] Duplicated slide to: ${newObjectId}`);
+      return this.formatResult({
+        presentationId: id,
+        sourceSlideObjectId: slideObjectId,
+        newSlideObjectId: newObjectId,
+      });
+    } catch (error) {
+      return this.formatError('slides.duplicateSlide', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,
