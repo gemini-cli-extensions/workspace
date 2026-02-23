@@ -522,6 +522,60 @@ export class SlidesService {
     }
   };
 
+  public getSpeakerNotes = async ({
+    presentationId,
+  }: {
+    presentationId: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Getting speaker notes for presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const presentation = await slides.presentations.get({
+        presentationId: id,
+        fields:
+          'slides(objectId,slideProperties(notesPage(notesProperties(speakerNotesObjectId),pageElements(objectId,shape(text)))))',
+      });
+
+      const notesPerSlide = (presentation.data.slides ?? []).map(
+        (slide, index) => {
+          const notesPage = slide.slideProperties?.notesPage;
+          const speakerNotesObjectId =
+            notesPage?.notesProperties?.speakerNotesObjectId;
+
+          let notesText = '';
+          if (speakerNotesObjectId && notesPage?.pageElements) {
+            const notesShape = notesPage.pageElements.find(
+              (el) => el.objectId === speakerNotesObjectId,
+            );
+            if (notesShape?.shape?.text) {
+              notesText = this.extractTextFromTextContent(
+                notesShape.shape.text,
+              ).trim();
+            }
+          }
+
+          return {
+            slideIndex: index,
+            slideObjectId: slide.objectId,
+            speakerNotesObjectId,
+            notes: notesText,
+          };
+        },
+      );
+
+      logToFile(
+        `[SlidesService] Retrieved speaker notes for presentation: ${id}`,
+      );
+      return this.formatResult({ presentationId: id, slides: notesPerSlide });
+    } catch (error) {
+      return this.formatError('slides.getSpeakerNotes', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

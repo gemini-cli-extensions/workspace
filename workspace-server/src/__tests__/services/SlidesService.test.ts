@@ -681,4 +681,79 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Reorder Error');
     });
   });
+
+  describe('getSpeakerNotes', () => {
+    it('should retrieve speaker notes for all slides', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: {
+                    speakerNotesObjectId: 'notes-shape-1',
+                  },
+                  pageElements: [
+                    {
+                      objectId: 'notes-shape-1',
+                      shape: {
+                        text: {
+                          textElements: [
+                            { textRun: { content: 'Speaker note for slide 1' } },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              objectId: 'slide2',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: {
+                    speakerNotesObjectId: 'notes-shape-2',
+                  },
+                  pageElements: [
+                    {
+                      objectId: 'notes-shape-2',
+                      shape: {
+                        text: {
+                          textElements: [],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await slidesService.getSpeakerNotes({
+        presentationId: 'test-pres-id',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.slides).toHaveLength(2);
+      expect(response.slides[0].notes).toBe('Speaker note for slide 1');
+      expect(response.slides[0].speakerNotesObjectId).toBe('notes-shape-1');
+      expect(response.slides[1].notes).toBe('');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.get.mockRejectedValue(
+        new Error('Notes Error'),
+      );
+
+      const result = await slidesService.getSpeakerNotes({
+        presentationId: 'error-id',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Notes Error');
+    });
+  });
 });

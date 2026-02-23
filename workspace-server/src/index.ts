@@ -589,6 +589,21 @@ async function main() {
     slidesService.reorderSlides,
   );
 
+  server.registerTool(
+    'slides.getSpeakerNotes',
+    {
+      description:
+        'Retrieves the speaker notes for all slides in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+      },
+      ...readOnlyToolProps,
+    },
+    slidesService.getSpeakerNotes,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
