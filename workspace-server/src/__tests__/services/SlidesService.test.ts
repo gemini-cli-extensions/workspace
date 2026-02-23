@@ -403,4 +403,38 @@ describe('SlidesService', () => {
       expect(response.error).toBe('API Error');
     });
   });
+
+  describe('create', () => {
+    it('should create a new presentation', async () => {
+      mockSlidesAPI.presentations.create.mockResolvedValue({
+        data: {
+          presentationId: 'new-pres-id',
+          title: 'My New Presentation',
+        },
+      });
+
+      const result = await slidesService.create({
+        title: 'My New Presentation',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.create).toHaveBeenCalledWith({
+        requestBody: { title: 'My New Presentation' },
+      });
+      expect(response.presentationId).toBe('new-pres-id');
+      expect(response.title).toBe('My New Presentation');
+      expect(response.url).toContain('new-pres-id');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.create.mockRejectedValue(
+        new Error('Create Error'),
+      );
+
+      const result = await slidesService.create({ title: 'Fail' });
+      const response = JSON.parse(result.content[0].text);
+      expect(result.isError).toBe(true);
+      expect(response.error).toBe('Create Error');
+    });
+  });
 });

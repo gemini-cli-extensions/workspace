@@ -311,6 +311,29 @@ export class SlidesService {
     };
   }
 
+  public create = async ({ title }: { title: string }) => {
+    logToFile(`[SlidesService] Creating presentation: ${title}`);
+    try {
+      const slides = await this.getSlidesClient();
+      const presentation = await slides.presentations.create({
+        requestBody: { title },
+      });
+
+      const result = {
+        presentationId: presentation.data.presentationId,
+        title: presentation.data.title,
+        url: `https://docs.google.com/presentation/d/${presentation.data.presentationId}/edit`,
+      };
+
+      logToFile(
+        `[SlidesService] Created presentation: ${result.presentationId}`,
+      );
+      return this.formatResult(result);
+    } catch (error) {
+      return this.formatError('slides.create', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

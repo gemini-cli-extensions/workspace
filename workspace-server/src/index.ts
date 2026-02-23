@@ -476,6 +476,20 @@ async function main() {
     slidesService.getSlideThumbnail,
   );
 
+  server.registerTool(
+    'slides.create',
+    {
+      description:
+        'Creates a new Google Slides presentation. Returns the presentation ID and URL.',
+      inputSchema: {
+        title: z
+          .string()
+          .describe('The title for the new presentation.'),
+      },
+    },
+    slidesService.create,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
