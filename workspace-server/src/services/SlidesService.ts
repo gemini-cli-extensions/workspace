@@ -27,6 +27,14 @@ export const PREDEFINED_LAYOUTS = [
 ] as const;
 export type PredefinedLayout = (typeof PREDEFINED_LAYOUTS)[number];
 
+export const RANGE_TYPES = ['ALL', 'FIXED_RANGE', 'FROM_START_INDEX'] as const;
+export type RangeType = (typeof RANGE_TYPES)[number];
+
+export type SlidesTextRange =
+  | { type: 'ALL' }
+  | { type: 'FIXED_RANGE'; startIndex: number; endIndex: number }
+  | { type: 'FROM_START_INDEX'; startIndex: number };
+
 type ToolResult = {
   isError?: boolean;
   content: Array<{ type: 'text'; text: string }>;
@@ -298,6 +306,35 @@ export class SlidesService {
       };
     }
   };
+
+  private buildRange(range: SlidesTextRange): slides_v1.Schema$Range {
+    // The discriminated union at the Zod boundary makes invalid shapes
+    // unrepresentable for MCP callers, but the service can also be invoked
+    // directly (e.g. from tests or other code paths) so we re-validate the
+    // discriminant value defensively.
+    if (!RANGE_TYPES.includes(range.type)) {
+      throw new Error(
+        `Invalid range type "${range.type}". Expected one of: ${RANGE_TYPES.join(', ')}.`,
+      );
+    }
+    if (range.type === 'FIXED_RANGE') {
+      if (range.startIndex === undefined || range.endIndex === undefined) {
+        throw new Error('FIXED_RANGE requires both startIndex and endIndex.');
+      }
+      return {
+        type: range.type,
+        startIndex: range.startIndex,
+        endIndex: range.endIndex,
+      };
+    }
+    if (range.type === 'FROM_START_INDEX') {
+      if (range.startIndex === undefined) {
+        throw new Error('FROM_START_INDEX requires startIndex.');
+      }
+      return { type: range.type, startIndex: range.startIndex };
+    }
+    return { type: range.type };
+  }
 
   private formatError(method: string, error: unknown): ToolResult {
     const errorMessage =
@@ -767,6 +804,51 @@ export class SlidesService {
       });
     } catch (error) {
       return this.formatError('slides.insertText', error);
+    }
+  };
+
+  public deleteText = async ({
+    presentationId,
+    objectId,
+    range = { type: 'ALL' },
+  }: {
+    presentationId: string;
+    objectId: string;
+    range?: SlidesTextRange;
+  }) => {
+    logToFile(
+      `[SlidesService] Deleting text from object ${objectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const textRange = this.buildRange(range);
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId,
+                textRange,
+              },
+            },
+          ],
+        },
+      });
+
+      logToFile(
+        `[SlidesService] Deleted text from object ${objectId} in presentation: ${id}`,
+      );
+      return this.formatResult({
+        presentationId: id,
+        objectId,
+        textRange,
+      });
+    } catch (error) {
+      return this.formatError('slides.deleteText', error);
     }
   };
 

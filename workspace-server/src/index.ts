@@ -80,6 +80,40 @@ const eventMeetAndAttachmentsSchema = {
     ),
 };
 
+// Shared schema for Google Slides text-range parameters.
+// A discriminated union on `type` makes the missing-index case unrepresentable:
+// FIXED_RANGE requires both startIndex and endIndex, FROM_START_INDEX requires
+// startIndex, and ALL has no positional fields. Callers cannot construct
+// e.g. { type: 'FIXED_RANGE' } without indices.
+const slidesTextRangeSchema = z
+  .discriminatedUnion('type', [
+    z
+      .object({ type: z.literal('ALL') })
+      .describe('Operate on the entire text content of the object.'),
+    z
+      .object({
+        type: z.literal('FIXED_RANGE'),
+        startIndex: z
+          .number()
+          .describe('Inclusive 0-based start index of the range.'),
+        endIndex: z
+          .number()
+          .describe('Exclusive 0-based end index of the range.'),
+      })
+      .describe('Operate on a specific [startIndex, endIndex) range.'),
+    z
+      .object({
+        type: z.literal('FROM_START_INDEX'),
+        startIndex: z
+          .number()
+          .describe('Inclusive 0-based start index; the range extends to the end of the text.'),
+      })
+      .describe('Operate from startIndex to the end of the text.'),
+  ])
+  .describe(
+    'Text range to operate on. One of: { type: "ALL" }, { type: "FIXED_RANGE", startIndex, endIndex }, or { type: "FROM_START_INDEX", startIndex }.',
+  );
+
 // Shared schemas for Gmail tools
 const emailComposeSchema = {
   to: z
@@ -678,6 +712,28 @@ async function main() {
       },
     },
     slidesService.insertText,
+  );
+
+  server.registerTool(
+    'slides.deleteText',
+    {
+      description:
+        'Deletes text from a shape or table cell in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        objectId: z
+          .string()
+          .describe(
+            'The object ID of the shape or table cell to delete text from.',
+          ),
+        range: slidesTextRangeSchema
+          .optional()
+          .default({ type: 'ALL' }),
+      },
+    },
+    slidesService.deleteText,
   );
 
   // Sheets tools

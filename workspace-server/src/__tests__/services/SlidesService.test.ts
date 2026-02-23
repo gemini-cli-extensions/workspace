@@ -1146,4 +1146,169 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Insert Error');
     });
   });
+
+  describe('deleteText', () => {
+    it('should delete text from an object with fixed range', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const result = await slidesService.deleteText({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        range: { type: 'FIXED_RANGE', startIndex: 0, endIndex: 5 },
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId: 'shape-1',
+                textRange: { type: 'FIXED_RANGE', startIndex: 0, endIndex: 5 },
+              },
+            },
+          ],
+        },
+      });
+      expect(response.objectId).toBe('shape-1');
+    });
+
+    it('should delete all text when type is ALL', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.deleteText({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        range: { type: 'ALL' },
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId: 'shape-1',
+                textRange: { type: 'ALL' },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should send only startIndex with type FROM_START_INDEX', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.deleteText({
+        presentationId: 'p',
+        objectId: 'shape-1',
+        range: { type: 'FROM_START_INDEX', startIndex: 7 },
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'p',
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId: 'shape-1',
+                textRange: { type: 'FROM_START_INDEX', startIndex: 7 },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should default to ALL when range is omitted', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.deleteText({
+        presentationId: 'p',
+        objectId: 'shape-1',
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'p',
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId: 'shape-1',
+                textRange: { type: 'ALL' },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    // The discriminated union at the Zod boundary makes FIXED_RANGE without
+    // indices unrepresentable to MCP callers (a TypeScript error). These
+    // tests cover the defensive runtime checks for non-Zod callers — hence
+    // the `as never` casts.
+    it('should error when FIXED_RANGE is constructed without indices', async () => {
+      const result = await slidesService.deleteText({
+        presentationId: 'p',
+        objectId: 'shape-1',
+        range: { type: 'FIXED_RANGE' } as never,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain(
+        'FIXED_RANGE requires both startIndex and endIndex',
+      );
+      expect(mockSlidesAPI.presentations.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should error when FROM_START_INDEX is constructed without startIndex', async () => {
+      const result = await slidesService.deleteText({
+        presentationId: 'p',
+        objectId: 'shape-1',
+        range: { type: 'FROM_START_INDEX' } as never,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain('FROM_START_INDEX requires startIndex');
+    });
+
+    it('should reject an unknown range type at the service boundary', async () => {
+      const result = await slidesService.deleteText({
+        presentationId: 'p',
+        objectId: 'shape-1',
+        range: { type: 'all', startIndex: 0, endIndex: 5 } as never,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain('Invalid range type "all"');
+      expect(mockSlidesAPI.presentations.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Delete Text Error'),
+      );
+
+      const result = await slidesService.deleteText({
+        presentationId: 'error-id',
+        objectId: 'shape-1',
+        range: { type: 'FIXED_RANGE', startIndex: 0, endIndex: 5 },
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Delete Text Error');
+    });
+  });
 });
