@@ -654,6 +654,32 @@ async function main() {
     slidesService.replaceAllText,
   );
 
+  server.registerTool(
+    'slides.insertText',
+    {
+      description:
+        'Inserts text into a shape or table cell in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        objectId: z
+          .string()
+          .describe(
+            'The object ID of the shape or table cell to insert text into.',
+          ),
+        text: z.string().describe('The text to insert.'),
+        insertionIndex: z
+          .number()
+          .optional()
+          .describe(
+            'The 0-based index where the text should be inserted (default: 0, the beginning).',
+          ),
+      },
+    },
+    slidesService.insertText,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',

@@ -723,6 +723,53 @@ export class SlidesService {
     }
   };
 
+  public insertText = async ({
+    presentationId,
+    objectId,
+    text,
+    insertionIndex = 0,
+  }: {
+    presentationId: string;
+    objectId: string;
+    text: string;
+    insertionIndex?: number;
+  }) => {
+    logToFile(
+      `[SlidesService] Inserting text into object ${objectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                objectId,
+                insertionIndex,
+                text,
+              },
+            },
+          ],
+        },
+      });
+
+      logToFile(
+        `[SlidesService] Inserted text into object ${objectId} in presentation: ${id}`,
+      );
+      return this.formatResult({
+        presentationId: id,
+        objectId,
+        insertionIndex,
+        textLength: text.length,
+      });
+    } catch (error) {
+      return this.formatError('slides.insertText', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

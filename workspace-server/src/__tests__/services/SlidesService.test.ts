@@ -1099,4 +1099,51 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Replace Error');
     });
   });
+
+  describe('insertText', () => {
+    it('should insert text into an object', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const result = await slidesService.insertText({
+        presentationId: 'test-pres-id',
+        objectId: 'shape-1',
+        text: 'Hello World',
+        insertionIndex: 5,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                objectId: 'shape-1',
+                insertionIndex: 5,
+                text: 'Hello World',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.objectId).toBe('shape-1');
+      expect(response.textLength).toBe(11);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Insert Error'),
+      );
+
+      const result = await slidesService.insertText({
+        presentationId: 'error-id',
+        objectId: 'shape-1',
+        text: 'Test',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Insert Error');
+    });
+  });
 });
