@@ -756,4 +756,255 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Notes Error');
     });
   });
+
+  describe('updateSpeakerNotes', () => {
+    it('should update speaker notes for a slide', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: {
+                    speakerNotesObjectId: 'notes-shape-1',
+                  },
+                  pageElements: [
+                    {
+                      objectId: 'notes-shape-1',
+                      shape: {
+                        text: {
+                          textElements: [
+                            { textRun: { content: 'Old notes' } },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}, {}] },
+      });
+
+      const result = await slidesService.updateSpeakerNotes({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'slide1',
+        notes: 'New speaker notes',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId: 'notes-shape-1',
+                textRange: { type: 'ALL' },
+              },
+            },
+            {
+              insertText: {
+                objectId: 'notes-shape-1',
+                insertionIndex: 0,
+                text: 'New speaker notes',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.notes).toBe('New speaker notes');
+    });
+
+    it('should handle slide not found', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: { slides: [{ objectId: 'other-slide' }] },
+      });
+
+      const result = await slidesService.updateSpeakerNotes({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'nonexistent-slide',
+        notes: 'Notes',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('Slide not found');
+    });
+
+    it('should error when the speaker notes object is missing on the slide', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: {},
+                  pageElements: [],
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await slidesService.updateSpeakerNotes({
+        presentationId: 'p',
+        slideObjectId: 'slide1',
+        notes: 'hi',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(result.isError).toBe(true);
+      expect(response.error).toContain('Speaker notes object not found');
+    });
+
+    it('should skip the delete request when there is no existing text', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: { speakerNotesObjectId: 'notes-1' },
+                  pageElements: [
+                    {
+                      objectId: 'notes-1',
+                      shape: { text: { textElements: [] } },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.updateSpeakerNotes({
+        presentationId: 'p',
+        slideObjectId: 'slide1',
+        notes: 'new',
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'p',
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                objectId: 'notes-1',
+                insertionIndex: 0,
+                text: 'new',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should skip the insert request when the new notes are empty', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: { speakerNotesObjectId: 'notes-1' },
+                  pageElements: [
+                    {
+                      objectId: 'notes-1',
+                      shape: {
+                        text: {
+                          textElements: [{ textRun: { content: 'old' } }],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.updateSpeakerNotes({
+        presentationId: 'p',
+        slideObjectId: 'slide1',
+        notes: '',
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'p',
+        requestBody: {
+          requests: [
+            {
+              deleteText: {
+                objectId: 'notes-1',
+                textRange: { type: 'ALL' },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should not call batchUpdate and should return noOp: true when there is nothing to do', async () => {
+      mockSlidesAPI.presentations.get.mockResolvedValue({
+        data: {
+          slides: [
+            {
+              objectId: 'slide1',
+              slideProperties: {
+                notesPage: {
+                  notesProperties: { speakerNotesObjectId: 'notes-1' },
+                  pageElements: [
+                    {
+                      objectId: 'notes-1',
+                      shape: { text: { textElements: [] } },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await slidesService.updateSpeakerNotes({
+        presentationId: 'p',
+        slideObjectId: 'slide1',
+        notes: '',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).not.toHaveBeenCalled();
+      expect(response.noOp).toBe(true);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.get.mockRejectedValue(
+        new Error('Update Notes Error'),
+      );
+
+      const result = await slidesService.updateSpeakerNotes({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+        notes: 'Notes',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Update Notes Error');
+    });
+  });
 });

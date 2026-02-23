@@ -604,6 +604,30 @@ async function main() {
     slidesService.getSpeakerNotes,
   );
 
+  server.registerTool(
+    'slides.updateSpeakerNotes',
+    {
+      description:
+        'Updates (replaces) the speaker notes for a specific slide in a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe(
+            'The object ID of the slide whose speaker notes to update.',
+          ),
+        notes: z
+          .string()
+          .describe(
+            'The new speaker notes text. Pass an empty string to clear the notes.',
+          ),
+      },
+    },
+    slidesService.updateSpeakerNotes,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',

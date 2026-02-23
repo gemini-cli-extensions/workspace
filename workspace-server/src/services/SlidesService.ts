@@ -576,6 +576,97 @@ export class SlidesService {
     }
   };
 
+  public updateSpeakerNotes = async ({
+    presentationId,
+    slideObjectId,
+    notes,
+  }: {
+    presentationId: string;
+    slideObjectId: string;
+    notes: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Updating speaker notes for slide ${slideObjectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const presentation = await slides.presentations.get({
+        presentationId: id,
+        fields:
+          'slides(objectId,slideProperties(notesPage(notesProperties(speakerNotesObjectId),pageElements(objectId,shape(text)))))',
+      });
+
+      const slide = presentation.data.slides?.find(
+        (s) => s.objectId === slideObjectId,
+      );
+      if (!slide) {
+        throw new Error(`Slide not found: ${slideObjectId}`);
+      }
+
+      const speakerNotesObjectId =
+        slide.slideProperties?.notesPage?.notesProperties
+          ?.speakerNotesObjectId;
+      if (!speakerNotesObjectId) {
+        throw new Error(
+          `Speaker notes object not found for slide: ${slideObjectId}`,
+        );
+      }
+
+      const requests: slides_v1.Schema$Request[] = [];
+
+      const notesShape =
+        slide.slideProperties?.notesPage?.pageElements?.find(
+          (el) => el.objectId === speakerNotesObjectId,
+        );
+
+      if (notesShape?.shape?.text?.textElements?.length) {
+        requests.push({
+          deleteText: {
+            objectId: speakerNotesObjectId,
+            textRange: { type: 'ALL' },
+          },
+        });
+      }
+
+      if (notes.length > 0) {
+        requests.push({
+          insertText: {
+            objectId: speakerNotesObjectId,
+            insertionIndex: 0,
+            text: notes,
+          },
+        });
+      }
+
+      const noOp = requests.length === 0;
+      if (!noOp) {
+        await slides.presentations.batchUpdate({
+          presentationId: id,
+          requestBody: { requests },
+        });
+      } else {
+        logToFile(
+          `[SlidesService] updateSpeakerNotes is a no-op for slide ${slideObjectId} (existing notes already match input).`,
+        );
+      }
+
+      logToFile(
+        `[SlidesService] Updated speaker notes for slide: ${slideObjectId}`,
+      );
+      return this.formatResult({
+        presentationId: id,
+        slideObjectId,
+        speakerNotesObjectId,
+        notes,
+        noOp,
+      });
+    } catch (error) {
+      return this.formatError('slides.updateSpeakerNotes', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,
