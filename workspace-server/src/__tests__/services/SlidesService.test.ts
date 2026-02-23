@@ -1311,4 +1311,91 @@ describe('SlidesService', () => {
       expect(response.error).toBe('Delete Text Error');
     });
   });
+
+  describe('addShape', () => {
+    it('should add a shape to a slide', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [{ createShape: { objectId: 'new-shape-id' } }],
+        },
+      });
+
+      const result = await slidesService.addShape({
+        presentationId: 'test-pres-id',
+        slideObjectId: 'slide1',
+        shapeType: 'TEXT_BOX',
+        x: 100,
+        y: 100,
+        width: 300,
+        height: 50,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              createShape: {
+                shapeType: 'TEXT_BOX',
+                elementProperties: {
+                  pageObjectId: 'slide1',
+                  size: {
+                    width: { magnitude: 300, unit: 'PT' },
+                    height: { magnitude: 50, unit: 'PT' },
+                  },
+                  transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 100,
+                    translateY: 100,
+                    unit: 'PT',
+                  },
+                },
+              },
+            },
+          ],
+        },
+      });
+      expect(response.shapeObjectId).toBe('new-shape-id');
+      expect(response.shapeType).toBe('TEXT_BOX');
+    });
+
+    it('should error when batchUpdate returns an empty replies array', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.addShape({
+        presentationId: 'p',
+        slideObjectId: 's',
+        shapeType: 'RECTANGLE',
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('createShape returned no objectId');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Shape Error'),
+      );
+
+      const result = await slidesService.addShape({
+        presentationId: 'error-id',
+        slideObjectId: 'slide1',
+        shapeType: 'RECTANGLE',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Shape Error');
+    });
+  });
 });

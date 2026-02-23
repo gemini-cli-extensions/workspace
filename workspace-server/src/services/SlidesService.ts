@@ -852,6 +852,79 @@ export class SlidesService {
     }
   };
 
+  public addShape = async ({
+    presentationId,
+    slideObjectId,
+    shapeType,
+    x,
+    y,
+    width,
+    height,
+    objectId,
+  }: {
+    presentationId: string;
+    slideObjectId: string;
+    shapeType: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    objectId?: string;
+  }) => {
+    logToFile(
+      `[SlidesService] Adding shape to slide ${slideObjectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      const createShapeRequest: slides_v1.Schema$CreateShapeRequest = {
+        shapeType,
+        elementProperties: {
+          pageObjectId: slideObjectId,
+          size: {
+            width: { magnitude: width, unit: 'PT' },
+            height: { magnitude: height, unit: 'PT' },
+          },
+          transform: {
+            scaleX: 1,
+            scaleY: 1,
+            translateX: x,
+            translateY: y,
+            unit: 'PT',
+          },
+        },
+      };
+      if (objectId) {
+        createShapeRequest.objectId = objectId;
+      }
+
+      const response = await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [{ createShape: createShapeRequest }],
+        },
+      });
+
+      const newObjectId = response.data.replies?.[0]?.createShape?.objectId;
+      if (!newObjectId) {
+        throw new Error(
+          'createShape returned no objectId; batchUpdate reply was empty or malformed.',
+        );
+      }
+
+      logToFile(`[SlidesService] Added shape: ${newObjectId}`);
+      return this.formatResult({
+        presentationId: id,
+        slideObjectId,
+        shapeObjectId: newObjectId,
+        shapeType,
+      });
+    } catch (error) {
+      return this.formatError('slides.addShape', error);
+    }
+  };
+
   public getSlideThumbnail = async ({
     presentationId,
     slideObjectId,

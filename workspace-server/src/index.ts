@@ -736,6 +736,42 @@ async function main() {
     slidesService.deleteText,
   );
 
+  server.registerTool(
+    'slides.addShape',
+    {
+      description:
+        'Adds a shape (e.g., text box, rectangle, ellipse) to a slide in a Google Slides presentation. Coordinates and dimensions are in points (PT).',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe('The object ID of the slide to add the shape to.'),
+        shapeType: z
+          .string()
+          .describe(
+            'The type of shape (e.g., "TEXT_BOX", "RECTANGLE", "ELLIPSE", "ROUND_RECTANGLE", "TRIANGLE", "ARROW_NORTH", "ARROW_EAST", "STAR_5", "CLOUD", "HEART").',
+          ),
+        x: z
+          .number()
+          .describe('The X coordinate of the shape position in points.'),
+        y: z
+          .number()
+          .describe('The Y coordinate of the shape position in points.'),
+        width: z.number().describe('The width of the shape in points.'),
+        height: z.number().describe('The height of the shape in points.'),
+        objectId: z
+          .string()
+          .optional()
+          .describe(
+            'A user-supplied object ID for the new shape. If not specified, a unique ID is generated.',
+          ),
+      },
+    },
+    slidesService.addShape,
+  );
+
   // Sheets tools
   registerTool(
     'sheets.getText',
