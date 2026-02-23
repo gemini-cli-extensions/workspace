@@ -58,6 +58,8 @@ describe('SlidesService', () => {
     mockSlidesAPI = {
       presentations: {
         get: jest.fn(),
+        create: jest.fn(),
+        batchUpdate: jest.fn(),
       },
     };
 

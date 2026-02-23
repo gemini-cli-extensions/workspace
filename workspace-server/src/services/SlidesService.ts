@@ -13,6 +13,11 @@ import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 
+type ToolResult = {
+  isError?: boolean;
+  content: Array<{ type: 'text'; text: string }>;
+};
+
 export class SlidesService {
   constructor(private authManager: AuthManager) {}
 
@@ -279,6 +284,32 @@ export class SlidesService {
       };
     }
   };
+
+  private formatError(method: string, error: unknown): ToolResult {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    logToFile(`[SlidesService] Error during ${method}: ${errorMessage}`);
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ error: errorMessage }),
+        },
+      ],
+    };
+  }
+
+  private formatResult(data: unknown): ToolResult {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify(data),
+        },
+      ],
+    };
+  }
 
   public getSlideThumbnail = async ({
     presentationId,
