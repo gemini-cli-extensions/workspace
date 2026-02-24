@@ -59,12 +59,20 @@ describe('SlidesService', () => {
     mockSlidesAPI = {
       presentations: {
         get: jest.fn(),
+        create: jest.fn(),
+        batchUpdate: jest.fn(),
+        pages: {
+          getThumbnail: jest.fn(),
+        },
       },
     };
 
     mockDriveAPI = {
       files: {
         list: jest.fn(),
+        get: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
       },
     };
 
@@ -90,6 +98,325 @@ describe('SlidesService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe('create', () => {
+    it('should create a presentation with seeded slides', async () => {
+      mockSlidesAPI.presentations.create.mockResolvedValue({
+        data: {
+          presentationId: 'new-pres-id',
+          title: 'Quarterly Review',
+          slides: [{ objectId: 'default-slide' }],
+        },
+      });
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: {
+          replies: [],
+        },
+      });
+
+      const result = await slidesService.create({
+        title: 'Quarterly Review',
+        slides: [
+          { title: 'Overview', body: ['Summary 1', 'Summary 2'] },
+          { title: 'Metrics', layout: 'BLANK' },
+        ],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.create).toHaveBeenCalledWith({
+        requestBody: { title: 'Quarterly Review' },
+      });
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'new-pres-id',
+        requestBody: expect.objectContaining({
+          requests: expect.any(Array),
+        }),
+      });
+      const createRequests =
+        mockSlidesAPI.presentations.batchUpdate.mock.calls[0][0].requestBody
+          .requests;
+      expect(
+        createRequests
+          .filter((req: any) => req.createShape)
+          .every((req: any) => req.createShape.shapeType === 'TEXT_BOX'),
+      ).toBe(true);
+      expect(response.presentationId).toBe('new-pres-id');
+      expect(response.slideObjectIds).toHaveLength(2);
+      expect(response.url).toBe(
+        'https://docs.google.com/presentation/d/new-pres-id/edit',
+      );
+    });
+
+    it('should move created presentation to folder when folderName is provided', async () => {
+      mockSlidesAPI.presentations.create.mockResolvedValue({
+        data: {
+          presentationId: 'new-pres-id',
+          title: 'Foldered Deck',
+          slides: [{ objectId: 'default-slide' }],
+        },
+      });
+      mockDriveAPI.files.list.mockResolvedValue({
+        data: { files: [{ id: 'folder-123', name: 'My Folder' }] },
+      });
+      mockDriveAPI.files.get.mockResolvedValue({
+        data: { parents: ['old-parent'] },
+      });
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'new-pres-id' },
+      });
+
+      const result = await slidesService.create({
+        title: 'Foldered Deck',
+        folderName: 'My Folder',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
+        q: "mimeType='application/vnd.google-apps.folder' and name='My Folder' and trashed=false",
+        pageSize: 2,
+        fields: 'files(id,name)',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'new-pres-id',
+        addParents: 'folder-123',
+        removeParents: 'old-parent',
+        fields: 'id,parents',
+        supportsAllDrives: true,
+      });
+      expect(response.folderId).toBe('folder-123');
+    });
+
+    it('should delete the created deck when seeded create fails', async () => {
+      mockSlidesAPI.presentations.create.mockResolvedValue({
+        data: {
+          presentationId: 'failed-pres-id',
+          title: 'Seeded Deck',
+          slides: [{ objectId: 'default-slide' }],
+        },
+      });
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Invalid request body'),
+      );
+      mockDriveAPI.files.delete.mockResolvedValue({ data: {} });
+
+      const result = await slidesService.create({
+        title: 'Seeded Deck',
+        slides: [{ title: 'Slide 1', body: ['A'] }],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockDriveAPI.files.delete).toHaveBeenCalledWith({
+        fileId: 'failed-pres-id',
+        supportsAllDrives: true,
+      });
+      expect(response.code).toBe('SLIDES_CREATE_ROLLED_BACK');
+      expect(response.retryable).toBe(false);
+      expect(response.rolledBack).toBe(true);
+      expect(response.error).toBe('Invalid request body');
+    });
+  });
+
+  describe('addSlide', () => {
+    it('should add a slide and return slide object id', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.addSlide({
+        presentationId: 'pres-1',
+        title: 'New Slide',
+        body: ['Line 1', 'Line 2'],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'pres-1',
+        requestBody: {
+          requests: expect.any(Array),
+        },
+      });
+      const addSlideRequests =
+        mockSlidesAPI.presentations.batchUpdate.mock.calls[0][0].requestBody
+          .requests;
+      expect(
+        addSlideRequests
+          .filter((req: any) => req.createShape)
+          .every((req: any) => req.createShape.shapeType === 'TEXT_BOX'),
+      ).toBe(true);
+      expect(response.presentationId).toBe('pres-1');
+      expect(response.slideObjectId).toEqual(expect.any(String));
+    });
+
+    it('should return structured error payload on addSlide failure', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Bad request'),
+      );
+
+      const result = await slidesService.addSlide({
+        presentationId: 'pres-1',
+        title: 'New Slide',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toBe('Bad request');
+      expect(response.code).toBe('SLIDES_INVALID_REQUEST');
+      expect(response.retryable).toBe(false);
+    });
+  });
+
+  describe('insertText', () => {
+    it('should create a shape and insert text', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.insertText({
+        presentationId: 'pres-1',
+        slideObjectId: 'slide-1',
+        text: 'Hello slide',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'pres-1',
+        requestBody: {
+          requests: expect.any(Array),
+        },
+      });
+      expect(response.slideObjectId).toBe('slide-1');
+      expect(response.shapeObjectId).toEqual(expect.any(String));
+    });
+
+    it('should map TITLE alias to TEXT_BOX for shape creation', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      await slidesService.insertText({
+        presentationId: 'pres-1',
+        slideObjectId: 'slide-1',
+        text: 'Title text',
+        shapeType: 'TITLE',
+      });
+
+      const requests =
+        mockSlidesAPI.presentations.batchUpdate.mock.calls[0][0].requestBody
+          .requests;
+      const createShapeReq = requests.find((req: any) => req.createShape);
+      expect(createShapeReq.createShape.shapeType).toBe('TEXT_BOX');
+    });
+
+    it('should map SUBTITLE alias to TEXT_BOX for shape creation', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      await slidesService.insertText({
+        presentationId: 'pres-1',
+        slideObjectId: 'slide-1',
+        text: 'Subtitle text',
+        shapeType: 'SUBTITLE',
+      });
+
+      const requests =
+        mockSlidesAPI.presentations.batchUpdate.mock.calls[0][0].requestBody
+          .requests;
+      const createShapeReq = requests.find((req: any) => req.createShape);
+      expect(createShapeReq.createShape.shapeType).toBe('TEXT_BOX');
+    });
+  });
+
+  describe('replaceText', () => {
+    it('should replace text in presentation', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.replaceText({
+        presentationId: 'pres-1',
+        findText: 'Old',
+        replaceText: 'New',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'pres-1',
+        requestBody: {
+          requests: [
+            {
+              replaceAllText: {
+                containsText: {
+                  text: 'Old',
+                  matchCase: false,
+                },
+                replaceText: 'New',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.presentationId).toBe('pres-1');
+    });
+  });
+
+  describe('deleteSlide', () => {
+    it('should delete slide by object id', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [] },
+      });
+
+      const result = await slidesService.deleteSlide({
+        presentationId: 'pres-1',
+        slideObjectId: 'slide-1',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'pres-1',
+        requestBody: {
+          requests: [
+            {
+              deleteObject: {
+                objectId: 'slide-1',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.deletedSlideObjectId).toBe('slide-1');
+    });
+  });
+
+  describe('batchUpdate', () => {
+    it('should pass through batch update requests', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{ createSlide: {} }] },
+      });
+
+      const requests = [
+        {
+          createSlide: {
+            objectId: 'slide-123',
+          },
+        },
+      ];
+
+      const result = await slidesService.batchUpdate({
+        presentationId: 'pres-1',
+        requests,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'pres-1',
+        requestBody: { requests },
+      });
+      expect(response.presentationId).toBe('pres-1');
+      expect(response.replies).toHaveLength(1);
+    });
   });
 
   describe('getText', () => {
@@ -408,12 +735,6 @@ describe('SlidesService', () => {
   });
 
   describe('getSlideThumbnail', () => {
-    beforeEach(() => {
-      mockSlidesAPI.presentations.pages = {
-        getThumbnail: jest.fn(),
-      };
-    });
-
     it('should download thumbnail when localPath is provided', async () => {
       const mockThumbnail = {
         data: {

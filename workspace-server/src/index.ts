@@ -56,7 +56,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/directory.readonly',
-  'https://www.googleapis.com/auth/presentations.readonly',
+  'https://www.googleapis.com/auth/presentations',
   'https://www.googleapis.com/auth/spreadsheets.readonly',
 ];
 
@@ -336,6 +336,175 @@ async function main() {
   );
 
   // Slides tools
+  server.registerTool(
+    'slides.create',
+    {
+      description:
+        'Creates a new Google Slides presentation with optional seeded slide content. Prefer a single call with all desired slides to avoid duplicate deck creation.',
+      inputSchema: {
+        title: z.string().describe('The title of the presentation to create.'),
+        folderName: z
+          .string()
+          .optional()
+          .describe(
+            'Optional folder name to move the created presentation into. Folder must already exist.',
+          ),
+        slides: z
+          .array(
+            z.object({
+              title: z
+                .string()
+                .optional()
+                .describe('Optional title text for this slide.'),
+              body: z
+                .array(z.string())
+                .optional()
+                .describe('Optional body paragraphs for this slide.'),
+              layout: z
+                .enum(['TITLE', 'TITLE_AND_BODY', 'BLANK'])
+                .optional()
+                .describe('Optional predefined slide layout.'),
+            }),
+          )
+          .optional()
+          .describe('Optional list of slides to seed the presentation with.'),
+      },
+    },
+    slidesService.create,
+  );
+
+  server.registerTool(
+    'slides.addSlide',
+    {
+      description:
+        'Adds a slide to an existing Google Slides presentation. Use this after an existing presentationId is known instead of creating a second deck.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        layout: z
+          .enum(['TITLE', 'TITLE_AND_BODY', 'BLANK'])
+          .optional()
+          .describe('The layout for the new slide. Defaults to TITLE_AND_BODY.'),
+        insertionIndex: z
+          .number()
+          .int()
+          .nonnegative()
+          .optional()
+          .describe(
+            'Optional zero-based position to insert the slide. Defaults to appending.',
+          ),
+        title: z
+          .string()
+          .optional()
+          .describe('Optional title text to insert on the new slide.'),
+        body: z
+          .array(z.string())
+          .optional()
+          .describe('Optional body paragraphs to insert on the new slide.'),
+      },
+    },
+    slidesService.addSlide,
+  );
+
+  server.registerTool(
+    'slides.insertText',
+    {
+      description:
+        'Creates a new shape on a slide and inserts text into that shape.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe('The object ID of the target slide.'),
+        text: z.string().describe('The text to insert into the created shape.'),
+        shapeType: z
+          .enum(['TEXT_BOX', 'TITLE', 'SUBTITLE'])
+          .optional()
+          .describe(
+            'Type of shape to create before inserting text. Defaults to TEXT_BOX. TITLE and SUBTITLE are compatibility aliases rendered as positioned text boxes.',
+          ),
+        xPt: z
+          .number()
+          .optional()
+          .describe('Optional x position in points for the new shape.'),
+        yPt: z
+          .number()
+          .optional()
+          .describe('Optional y position in points for the new shape.'),
+        widthPt: z
+          .number()
+          .positive()
+          .optional()
+          .describe('Optional width in points for the new shape.'),
+        heightPt: z
+          .number()
+          .positive()
+          .optional()
+          .describe('Optional height in points for the new shape.'),
+      },
+    },
+    slidesService.insertText,
+  );
+
+  server.registerTool(
+    'slides.replaceText',
+    {
+      description:
+        'Replaces text across an entire Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        findText: z.string().describe('The text to search for.'),
+        replaceText: z.string().describe('The replacement text.'),
+        matchCase: z
+          .boolean()
+          .optional()
+          .describe('Whether to match case when searching. Defaults to false.'),
+      },
+    },
+    slidesService.replaceText,
+  );
+
+  server.registerTool(
+    'slides.deleteSlide',
+    {
+      description: 'Deletes a slide from a Google Slides presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        slideObjectId: z
+          .string()
+          .describe('The object ID of the slide to delete.'),
+      },
+    },
+    slidesService.deleteSlide,
+  );
+
+  server.registerTool(
+    'slides.batchUpdate',
+    {
+      description:
+        'Applies a raw Google Slides batchUpdate request payload to a presentation.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        requests: z
+          .array(z.record(z.string(), z.any()))
+          .min(1)
+          .describe(
+            'Array of Google Slides API request objects for presentations.batchUpdate.',
+          ),
+      },
+    },
+    slidesService.batchUpdate,
+  );
+
   server.registerTool(
     'slides.getText',
     {
