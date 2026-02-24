@@ -155,54 +155,105 @@ export class SlidesService {
     insertionIndex?: number,
   ): BuildAddSlideResult {
     const slideObjectId = this.createObjectId('slide');
+    const layout = this.toLayout(slide.layout);
+    const supportsTitlePlaceholder = layout !== 'BLANK';
+    const bodyPlaceholderType = layout === 'TITLE' ? 'SUBTITLE' : 'BODY';
+    const supportsBodyPlaceholder =
+      bodyPlaceholderType === 'SUBTITLE' || bodyPlaceholderType === 'BODY';
+    const titlePlaceholderObjectId =
+      slide.title && supportsTitlePlaceholder
+        ? this.createObjectId('title_placeholder')
+        : undefined;
+    const bodyPlaceholderObjectId =
+      slide.body?.length && supportsBodyPlaceholder
+        ? this.createObjectId('body_placeholder')
+        : undefined;
+    const placeholderIdMappings: slides_v1.Schema$LayoutPlaceholderIdMapping[] =
+      [];
+
+    if (titlePlaceholderObjectId) {
+      placeholderIdMappings.push({
+        layoutPlaceholder: { type: 'TITLE', index: 0 },
+        objectId: titlePlaceholderObjectId,
+      });
+    }
+
+    if (bodyPlaceholderObjectId) {
+      placeholderIdMappings.push({
+        layoutPlaceholder: { type: bodyPlaceholderType, index: 0 },
+        objectId: bodyPlaceholderObjectId,
+      });
+    }
+
     const requests: slides_v1.Schema$Request[] = [
       {
         createSlide: {
           objectId: slideObjectId,
           insertionIndex,
           slideLayoutReference: {
-            predefinedLayout: this.toLayout(slide.layout),
+            predefinedLayout: layout,
           },
+          ...(placeholderIdMappings.length > 0 ? { placeholderIdMappings } : {}),
         },
       },
     ];
 
     if (slide.title) {
-      const titleShapeId = this.createObjectId('title');
-      requests.push(
-        this.buildCreateShapeRequest(
-          slideObjectId,
-          titleShapeId,
-          'TITLE',
-          this.getShapeGeometry('TITLE'),
-        ),
-        {
+      if (titlePlaceholderObjectId) {
+        requests.push({
           insertText: {
-            objectId: titleShapeId,
+            objectId: titlePlaceholderObjectId,
             insertionIndex: 0,
             text: slide.title,
           },
-        },
-      );
+        });
+      } else {
+        const titleShapeId = this.createObjectId('title');
+        requests.push(
+          this.buildCreateShapeRequest(
+            slideObjectId,
+            titleShapeId,
+            'TITLE',
+            this.getShapeGeometry('TITLE'),
+          ),
+          {
+            insertText: {
+              objectId: titleShapeId,
+              insertionIndex: 0,
+              text: slide.title,
+            },
+          },
+        );
+      }
     }
 
     if (slide.body?.length) {
-      const bodyShapeId = this.createObjectId('body');
-      requests.push(
-        this.buildCreateShapeRequest(
-          slideObjectId,
-          bodyShapeId,
-          'TEXT_BOX',
-          this.getShapeGeometry('TEXT_BOX'),
-        ),
-        {
+      if (bodyPlaceholderObjectId) {
+        requests.push({
           insertText: {
-            objectId: bodyShapeId,
+            objectId: bodyPlaceholderObjectId,
             insertionIndex: 0,
             text: slide.body.join('\n'),
           },
-        },
-      );
+        });
+      } else {
+        const bodyShapeId = this.createObjectId('body');
+        requests.push(
+          this.buildCreateShapeRequest(
+            slideObjectId,
+            bodyShapeId,
+            'TEXT_BOX',
+            this.getShapeGeometry('TEXT_BOX'),
+          ),
+          {
+            insertText: {
+              objectId: bodyShapeId,
+              insertionIndex: 0,
+              text: slide.body.join('\n'),
+            },
+          },
+        );
+      }
     }
 
     return { slideObjectId, requests };
@@ -587,14 +638,19 @@ export class SlidesService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[SlidesService] Error during slides.replaceText: ${errorMessage}`);
+      const payload = this.buildWriteError(
+        error,
+        'SLIDES_INVALID_REQUEST',
+        false,
+      );
+      logToFile(
+        `[SlidesService] Error during slides.replaceText [${payload.code}]: ${payload.error}`,
+      );
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
+            text: JSON.stringify(payload),
           },
         ],
       };
@@ -642,14 +698,19 @@ export class SlidesService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[SlidesService] Error during slides.deleteSlide: ${errorMessage}`);
+      const payload = this.buildWriteError(
+        error,
+        'SLIDES_INVALID_REQUEST',
+        false,
+      );
+      logToFile(
+        `[SlidesService] Error during slides.deleteSlide [${payload.code}]: ${payload.error}`,
+      );
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
+            text: JSON.stringify(payload),
           },
         ],
       };
@@ -690,14 +751,19 @@ export class SlidesService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[SlidesService] Error during slides.batchUpdate: ${errorMessage}`);
+      const payload = this.buildWriteError(
+        error,
+        'SLIDES_INVALID_REQUEST',
+        false,
+      );
+      logToFile(
+        `[SlidesService] Error during slides.batchUpdate [${payload.code}]: ${payload.error}`,
+      );
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
+            text: JSON.stringify(payload),
           },
         ],
       };

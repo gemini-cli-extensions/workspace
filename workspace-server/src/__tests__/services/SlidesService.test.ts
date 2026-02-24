@@ -136,11 +136,20 @@ describe('SlidesService', () => {
       const createRequests =
         mockSlidesAPI.presentations.batchUpdate.mock.calls[0][0].requestBody
           .requests;
-      expect(
-        createRequests
-          .filter((req: any) => req.createShape)
-          .every((req: any) => req.createShape.shapeType === 'TEXT_BOX'),
-      ).toBe(true);
+      const slideCreateReq = createRequests.find((req: any) => req.createSlide);
+      expect(slideCreateReq.createSlide.placeholderIdMappings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            layoutPlaceholder: { type: 'TITLE', index: 0 },
+          }),
+          expect.objectContaining({
+            layoutPlaceholder: { type: 'BODY', index: 0 },
+          }),
+        ]),
+      );
+      expect(createRequests.filter((req: any) => req.createShape)).toHaveLength(
+        1,
+      );
       expect(response.presentationId).toBe('new-pres-id');
       expect(response.slideObjectIds).toHaveLength(2);
       expect(response.url).toBe(
@@ -241,11 +250,22 @@ describe('SlidesService', () => {
       const addSlideRequests =
         mockSlidesAPI.presentations.batchUpdate.mock.calls[0][0].requestBody
           .requests;
+      const addSlideCreateReq = addSlideRequests.find(
+        (req: any) => req.createSlide,
+      );
+      expect(addSlideCreateReq.createSlide.placeholderIdMappings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            layoutPlaceholder: { type: 'TITLE', index: 0 },
+          }),
+          expect.objectContaining({
+            layoutPlaceholder: { type: 'BODY', index: 0 },
+          }),
+        ]),
+      );
       expect(
-        addSlideRequests
-          .filter((req: any) => req.createShape)
-          .every((req: any) => req.createShape.shapeType === 'TEXT_BOX'),
-      ).toBe(true);
+        addSlideRequests.filter((req: any) => req.createShape),
+      ).toHaveLength(0);
       expect(response.presentationId).toBe('pres-1');
       expect(response.slideObjectId).toEqual(expect.any(String));
     });
@@ -360,6 +380,23 @@ describe('SlidesService', () => {
       });
       expect(response.presentationId).toBe('pres-1');
     });
+
+    it('should return structured error payload on replaceText failure', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Bad request'),
+      );
+
+      const result = await slidesService.replaceText({
+        presentationId: 'pres-1',
+        findText: 'Old',
+        replaceText: 'New',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toBe('Bad request');
+      expect(response.code).toBe('SLIDES_INVALID_REQUEST');
+      expect(response.retryable).toBe(false);
+    });
   });
 
   describe('deleteSlide', () => {
@@ -387,6 +424,22 @@ describe('SlidesService', () => {
         },
       });
       expect(response.deletedSlideObjectId).toBe('slide-1');
+    });
+
+    it('should return structured error payload on deleteSlide failure', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Bad request'),
+      );
+
+      const result = await slidesService.deleteSlide({
+        presentationId: 'pres-1',
+        slideObjectId: 'slide-1',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toBe('Bad request');
+      expect(response.code).toBe('SLIDES_INVALID_REQUEST');
+      expect(response.retryable).toBe(false);
     });
   });
 
@@ -416,6 +469,22 @@ describe('SlidesService', () => {
       });
       expect(response.presentationId).toBe('pres-1');
       expect(response.replies).toHaveLength(1);
+    });
+
+    it('should return structured error payload on batchUpdate failure', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Bad request'),
+      );
+
+      const result = await slidesService.batchUpdate({
+        presentationId: 'pres-1',
+        requests: [{ createSlide: { objectId: 'slide-123' } }],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toBe('Bad request');
+      expect(response.code).toBe('SLIDES_INVALID_REQUEST');
+      expect(response.retryable).toBe(false);
     });
   });
 
