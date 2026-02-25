@@ -13,6 +13,7 @@ import { MimeHelper } from '../utils/MimeHelper';
 import {
   GMAIL_SEARCH_MAX_RESULTS,
   GMAIL_BATCH_MODIFY_MAX_IDS,
+  GMAIL_NO_LABEL_CHANGES_MESSAGE,
 } from '../utils/constants';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { emailArraySchema } from '../utils/validation';
@@ -308,8 +309,7 @@ export class GmailService {
               type: 'text' as const,
               text: JSON.stringify({
                 status: 'noop',
-                message:
-                  'No labels to add or remove were provided. No action taken.',
+                message: GMAIL_NO_LABEL_CHANGES_MESSAGE,
               }),
             },
           ],
@@ -375,8 +375,7 @@ export class GmailService {
               type: 'text' as const,
               text: JSON.stringify({
                 status: 'noop',
-                message:
-                  'No labels to add or remove were provided. No action taken.',
+                message: GMAIL_NO_LABEL_CHANGES_MESSAGE,
               }),
             },
           ],

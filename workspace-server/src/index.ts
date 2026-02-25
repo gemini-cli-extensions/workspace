@@ -1060,6 +1060,7 @@ System labels that can be modified:
       inputSchema: {
         messageIds: z
           .array(z.string())
+          .min(1, { message: 'At least one message ID must be provided.' })
           .max(1000)
           .describe(
             'The IDs of the messages to modify. Maximum 1,000 per call.',
