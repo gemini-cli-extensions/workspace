@@ -301,6 +301,21 @@ export class GmailService {
     removeLabelIds?: string[];
   }) => {
     try {
+      if (addLabelIds.length === 0 && removeLabelIds.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                status: 'noop',
+                message:
+                  'No labels to add or remove were provided. No action taken.',
+              }),
+            },
+          ],
+        };
+      }
+
       if (messageIds.length > GMAIL_BATCH_MODIFY_MAX_IDS) {
         throw new Error(
           `Too many message IDs. Maximum is ${GMAIL_BATCH_MODIFY_MAX_IDS}, got ${messageIds.length}.`,
@@ -353,6 +368,21 @@ export class GmailService {
     removeLabelIds?: string[];
   }) => {
     try {
+      if (addLabelIds.length === 0 && removeLabelIds.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                status: 'noop',
+                message:
+                  'No labels to add or remove were provided. No action taken.',
+              }),
+            },
+          ],
+        };
+      }
+
       logToFile(
         `Modifying thread ${threadId} with addLabelIds: ${addLabelIds}, removeLabelIds: ${removeLabelIds}`,
       );

@@ -616,6 +616,17 @@ describe('GmailService', () => {
       });
     });
 
+    it('should return noop when no label changes are provided', async () => {
+      const result = await gmailService.batchModify({
+        messageIds: ['msg1', 'msg2'],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.status).toBe('noop');
+      expect(response.message).toContain('No labels to add or remove');
+      expect(mockGmailAPI.users.messages.batchModify).not.toHaveBeenCalled();
+    });
+
     it('should reject when exceeding max message ID limit', async () => {
       const tooManyIds = Array.from({ length: 1001 }, (_, i) => `msg${i}`);
 
@@ -676,12 +687,24 @@ describe('GmailService', () => {
       expect(response.messages).toHaveLength(2);
     });
 
+    it('should return noop when no label changes are provided', async () => {
+      const result = await gmailService.modifyThread({
+        threadId: 'thread1',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.status).toBe('noop');
+      expect(response.message).toContain('No labels to add or remove');
+      expect(mockGmailAPI.users.threads.modify).not.toHaveBeenCalled();
+    });
+
     it('should handle API errors', async () => {
       const apiError = new Error('Thread not found');
       mockGmailAPI.users.threads.modify.mockRejectedValue(apiError);
 
       const result = await gmailService.modifyThread({
         threadId: 'invalid-thread',
+        removeLabelIds: ['UNREAD'],
       });
 
       const response = JSON.parse(result.content[0].text);
