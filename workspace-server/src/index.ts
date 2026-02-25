@@ -1095,9 +1095,7 @@ System labels that can be modified:
     - STARRED: adding STARRED label marks the thread as starred.
     - IMPORTANT: adding IMPORTANT label marks the thread as important.`,
       inputSchema: {
-        threadId: z
-          .string()
-          .describe('The ID of the thread to modify.'),
+        threadId: z.string().describe('The ID of the thread to modify.'),
         addLabelIds: z
           .array(z.string())
           .max(100)
