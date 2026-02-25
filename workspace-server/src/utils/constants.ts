@@ -5,3 +5,4 @@
  */
 
 export const GMAIL_SEARCH_MAX_RESULTS = 100;
+export const GMAIL_BATCH_MODIFY_MAX_IDS = 1000;

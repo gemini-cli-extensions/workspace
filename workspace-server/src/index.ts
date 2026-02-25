@@ -1045,6 +1045,79 @@ There are a list of system labels that can be modified on a message:
   );
 
   server.registerTool(
+    'gmail.batchModify',
+    {
+      description: `Bulk modify up to 1,000 Gmail messages at once. Applies the same label changes to all specified messages in a single API call. This is much more efficient than modifying messages individually.
+    - Add labels to messages.
+    - Remove labels from messages.
+System labels that can be modified:
+    - INBOX: removing INBOX label archives messages.
+    - SPAM: adding SPAM label marks messages as spam.
+    - TRASH: adding TRASH label moves messages to trash.
+    - UNREAD: removing UNREAD label marks messages as read.
+    - STARRED: adding STARRED label marks messages as starred.
+    - IMPORTANT: adding IMPORTANT label marks messages as important.`,
+      inputSchema: {
+        messageIds: z
+          .array(z.string())
+          .max(1000)
+          .describe(
+            'The IDs of the messages to modify. Maximum 1,000 per call.',
+          ),
+        addLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to add to the messages. Limit to 100 labels.',
+          ),
+        removeLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to remove from the messages. Limit to 100 labels.',
+          ),
+      },
+    },
+    gmailService.batchModify,
+  );
+
+  server.registerTool(
+    'gmail.modifyThread',
+    {
+      description: `Modify labels on all messages in a Gmail thread. This applies label changes to every message in the thread at once, which is useful for operations like marking an entire conversation as read.
+System labels that can be modified:
+    - INBOX: removing INBOX label archives the thread.
+    - SPAM: adding SPAM label marks the thread as spam.
+    - TRASH: adding TRASH label moves the thread to trash.
+    - UNREAD: removing UNREAD label marks all messages in the thread as read.
+    - STARRED: adding STARRED label marks the thread as starred.
+    - IMPORTANT: adding IMPORTANT label marks the thread as important.`,
+      inputSchema: {
+        threadId: z
+          .string()
+          .describe('The ID of the thread to modify.'),
+        addLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to add to the thread. Limit to 100 labels.',
+          ),
+        removeLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to remove from the thread. Limit to 100 labels.',
+          ),
+      },
+    },
+    gmailService.modifyThread,
+  );
+
+  server.registerTool(
     'gmail.send',
     {
       description: 'Send an email message.',
