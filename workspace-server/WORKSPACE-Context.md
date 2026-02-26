@@ -89,21 +89,6 @@ When creating documents in specific folders:
 3. Create event with proper timezone handling
 4. Always show times in user's local timezone
 
-### Email Search and Response
-
-1. Search with `gmail.search()` using appropriate query syntax
-2. Get full content with `gmail.get()` if needed
-3. Preview any reply before sending
-4. Use threading context when responding
-
-### Adding/Removing Labels from Emails
-
-1. For system labels, including "INBOX", "SPAM", "TRASH", "UNREAD", "STARRED",
-   "IMPORTANT", the ID is the name itself.
-2. For user created custom labels, retrieve label ID with `gmail.listLabels()`.
-3. Use `gmail.modify()` to add or remove labels from emails with a single call
-   using label IDs.
-
 ### Event Deletion
 
 When using `calendar.deleteEvent`:
@@ -145,30 +130,6 @@ When asked about "next meeting" or "today's schedule":
 - Always display times in the user's timezone
 - Convert all times appropriately before display
 - Include timezone abbreviation (EST, PST, etc.) for clarity
-
-## 📧 Gmail & Chat Guidelines
-
-### Search Strategies
-
-- Use Gmail search syntax: `from:email@example.com is:unread`
-- Combine multiple criteria for precise results
-- Include SPAM/TRASH only when explicitly needed
-
-### Threading and Context
-
-- Maintain conversation context in replies
-- Reference previous messages when relevant
-- Use appropriate reply vs. new message based on context
-
-### Downloading Attachments
-
-1. **Find Attachment ID**: Use `gmail.get` with `format='full'` to retrieve
-   message details, including `attachments` metadata (IDs and filenames).
-2. **Download**: Use `gmail.downloadAttachment` with the specific `messageId`
-   and `attachmentId`.
-3. **Absolute Paths**: Always provide an **absolute path** for the `localPath`
-   argument (e.g., `/Users/username/Downloads/file.pdf`). Relative paths will be
-   rejected for security.
 
 ## 💬 Chat Guidelines
 
@@ -309,9 +270,8 @@ Choose output format based on use case:
 
 ### Gmail
 
-- Full threading support
-- Label-based organization
-- Draft creation and management
+- See the **Gmail skill** for detailed guidance on composing rich HTML emails,
+  search syntax, label management, attachments, and threading.
 
 ### Google Chat
 
