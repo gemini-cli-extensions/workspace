@@ -329,17 +329,63 @@ describe('DocsService Comments and Suggestions', () => {
     });
 
     it('should handle API errors gracefully', async () => {
-      mockDocsAPI.documents.get.mockRejectedValue(
-        new Error('Docs API failed'),
-      );
+      mockDocsAPI.documents.get.mockRejectedValue(new Error('Docs API failed'));
 
       const result = await docsService.getSuggestions({
         documentId: 'test-doc-id',
       });
 
+      expect(result.isError).toBe(true);
       expect(result.content[0].type).toBe('text');
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed).toEqual({ error: 'Docs API failed' });
+    });
+
+    it('should create one suggestion entry per paragraph suggestion ID', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          body: {
+            content: [
+              {
+                paragraph: {
+                  suggestedParagraphStyleChanges: {
+                    'sug-1': {
+                      paragraphStyle: { namedStyleType: 'HEADING_1' },
+                    },
+                    'sug-2': {
+                      paragraphStyle: { namedStyleType: 'HEADING_2' },
+                    },
+                  },
+                  elements: [
+                    {
+                      textRun: { content: 'Some heading' },
+                      startIndex: 1,
+                      endIndex: 13,
+                    },
+                  ],
+                },
+                startIndex: 1,
+                endIndex: 13,
+              },
+            ],
+          },
+        },
+      });
+
+      const result = await docsService.getSuggestions({
+        documentId: 'test-doc-id',
+      });
+
+      const suggestions = JSON.parse(result.content[0].text);
+      expect(suggestions).toHaveLength(2);
+      const types = suggestions.map((s: any) => s.type);
+      expect(types).toEqual(['paragraphStyleChange', 'paragraphStyleChange']);
+      const ids = suggestions.map((s: any) => s.suggestionIds[0]);
+      expect(ids).toContain('sug-1');
+      expect(ids).toContain('sug-2');
+      const named = suggestions.map((s: any) => s.namedStyleType);
+      expect(named).toContain('HEADING_1');
+      expect(named).toContain('HEADING_2');
     });
 
     it('should handle undefined textRun.content with empty string fallback', async () => {
@@ -382,10 +428,14 @@ describe('DocsService Comments and Suggestions', () => {
         {
           id: 'comment1',
           content: 'This is a comment.',
-          author: { displayName: 'Test User', emailAddress: 'test@example.com' },
+          author: {
+            displayName: 'Test User',
+            emailAddress: 'test@example.com',
+          },
           createdTime: '2025-01-01T00:00:00Z',
           resolved: false,
           quotedFileContent: { value: 'quoted text' },
+          replies: [],
         },
       ];
       mockDriveAPI.comments.list.mockResolvedValue({
@@ -399,6 +449,56 @@ describe('DocsService Comments and Suggestions', () => {
       expect(result.content[0].type).toBe('text');
       const comments = JSON.parse(result.content[0].text);
       expect(comments).toEqual(mockComments);
+    });
+
+    it('should include replies in comment threads', async () => {
+      const mockComments = [
+        {
+          id: 'comment1',
+          content: 'Top-level comment.',
+          author: { displayName: 'Alice', emailAddress: 'alice@example.com' },
+          createdTime: '2025-01-01T00:00:00Z',
+          resolved: false,
+          quotedFileContent: { value: 'some text' },
+          replies: [
+            {
+              id: 'reply1',
+              content: 'Reply to comment.',
+              author: {
+                displayName: 'Bob',
+                emailAddress: 'bob@example.com',
+              },
+              createdTime: '2025-01-02T00:00:00Z',
+            },
+          ],
+        },
+      ];
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: mockComments },
+      });
+
+      const result = await docsService.getComments({
+        documentId: 'test-doc-id',
+      });
+
+      expect(result.content[0].type).toBe('text');
+      const comments = JSON.parse(result.content[0].text);
+      expect(comments).toHaveLength(1);
+      expect(comments[0].replies).toHaveLength(1);
+      expect(comments[0].replies[0].id).toBe('reply1');
+      expect(comments[0].replies[0].content).toBe('Reply to comment.');
+    });
+
+    it('should request replies fields in the Drive API call', async () => {
+      mockDriveAPI.comments.list.mockResolvedValue({ data: { comments: [] } });
+
+      await docsService.getComments({ documentId: 'test-doc-id' });
+
+      expect(mockDriveAPI.comments.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: expect.stringContaining('replies('),
+        }),
+      );
     });
 
     it('should handle empty comments list', async () => {
@@ -423,6 +523,7 @@ describe('DocsService Comments and Suggestions', () => {
         documentId: 'test-doc-id',
       });
 
+      expect(result.isError).toBe(true);
       expect(result.content[0].type).toBe('text');
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed).toEqual({ error: 'Comments API failed' });

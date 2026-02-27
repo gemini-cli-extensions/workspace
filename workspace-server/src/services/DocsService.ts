@@ -21,15 +21,39 @@ import {
   processMarkdownLineBreaks,
 } from '../utils/markdownToDocsRequests';
 
-interface DocsSuggestion {
-  type: 'insertion' | 'deletion' | 'styleChange' | 'paragraphStyleChange';
-  text?: string;
-  suggestionIds?: string[];
+interface BaseDocsSuggestion {
+  text: string;
   startIndex?: number;
   endIndex?: number;
-  namedStyleType?: string;
+}
+
+interface DocsInsertionSuggestion extends BaseDocsSuggestion {
+  type: 'insertion';
+  suggestionIds: string[];
+}
+
+interface DocsDeletionSuggestion extends BaseDocsSuggestion {
+  type: 'deletion';
+  suggestionIds: string[];
+}
+
+interface DocsStyleChangeSuggestion extends BaseDocsSuggestion {
+  type: 'styleChange';
+  suggestionIds: string[];
   textStyle?: docs_v1.Schema$TextStyle;
 }
+
+interface DocsParagraphStyleChangeSuggestion extends BaseDocsSuggestion {
+  type: 'paragraphStyleChange';
+  suggestionIds: string[];
+  namedStyleType?: string;
+}
+
+type DocsSuggestion =
+  | DocsInsertionSuggestion
+  | DocsDeletionSuggestion
+  | DocsStyleChangeSuggestion
+  | DocsParagraphStyleChangeSuggestion;
 
 export class DocsService {
   private purify: ReturnType<typeof createDOMPurify>;
@@ -54,11 +78,7 @@ export class DocsService {
     return google.drive({ version: 'v3', ...options });
   }
 
-  public getSuggestions = async ({
-    documentId,
-  }: {
-    documentId: string;
-  }) => {
+  public getSuggestions = async ({ documentId }: { documentId: string }) => {
     logToFile(
       `[DocsService] Starting getSuggestions for document: ${documentId}`,
     );
@@ -71,7 +91,9 @@ export class DocsService {
         fields: 'body',
       });
 
-      const suggestions: DocsSuggestion[] = this._extractSuggestions(res.data.body);
+      const suggestions: DocsSuggestion[] = this._extractSuggestions(
+        res.data.body,
+      );
 
       logToFile(
         `[DocsService] Found ${suggestions.length} suggestions for document: ${id}`,
@@ -92,6 +114,7 @@ export class DocsService {
         `[DocsService] Error during docs.getSuggestions: ${errorMessage}`,
       );
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,
@@ -117,19 +140,14 @@ export class DocsService {
         if (element.paragraph) {
           // Handle paragraph-level style suggestions
           if (element.paragraph.suggestedParagraphStyleChanges) {
-            const suggestionIds = Object.keys(
+            for (const [suggestionId, suggestion] of Object.entries(
               element.paragraph.suggestedParagraphStyleChanges,
-            );
-            if (suggestionIds.length > 0) {
-              const firstSuggestion =
-                element.paragraph.suggestedParagraphStyleChanges[
-                  suggestionIds[0]
-                ];
+            )) {
               suggestions.push({
                 type: 'paragraphStyleChange',
                 text: this._getParagraphText(element.paragraph),
-                suggestionIds: suggestionIds,
-                namedStyleType: firstSuggestion?.paragraphStyle?.namedStyleType,
+                suggestionIds: [suggestionId],
+                namedStyleType: suggestion?.paragraphStyle?.namedStyleType,
                 startIndex: element.startIndex,
                 endIndex: element.endIndex,
               });
@@ -185,7 +203,9 @@ export class DocsService {
     return suggestions;
   }
 
-  private _getParagraphText(paragraph: docs_v1.Schema$Paragraph | undefined | null): string {
+  private _getParagraphText(
+    paragraph: docs_v1.Schema$Paragraph | undefined | null,
+  ): string {
     if (!paragraph?.elements) {
       return '';
     }
@@ -202,7 +222,7 @@ export class DocsService {
       const res = await drive.comments.list({
         fileId: id,
         fields:
-          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value))',
+          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value), replies(id, content, author(displayName, emailAddress), createdTime))',
       });
 
       const comments = res.data.comments || [];
@@ -223,6 +243,7 @@ export class DocsService {
         error instanceof Error ? error.message : String(error);
       logToFile(`[DocsService] Error during docs.getComments: ${errorMessage}`);
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,

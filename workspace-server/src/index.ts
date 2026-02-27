@@ -148,7 +148,9 @@ async function main() {
     {
       description: 'Retrieves suggested edits from a Google Doc.',
       inputSchema: {
-        documentId: z.string().describe('The ID of the document to retrieve suggestions from.'),
+        documentId: z
+          .string()
+          .describe('The ID of the document to retrieve suggestions from.'),
       },
     },
     docsService.getSuggestions,
@@ -159,7 +161,9 @@ async function main() {
     {
       description: 'Retrieves comments from a Google Doc.',
       inputSchema: {
-        documentId: z.string().describe('The ID of the document to retrieve comments from.'),
+        documentId: z
+          .string()
+          .describe('The ID of the document to retrieve comments from.'),
       },
     },
     docsService.getComments,
