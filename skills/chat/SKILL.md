@@ -107,6 +107,10 @@ DMs are private conversations between two users, identified by email.
 > the hood. If no DM space exists with the user, one is automatically created.
 > There is no need to create a DM space separately.
 
+> **Limitation:** DM tools only support 1:1 conversations. For group
+> conversations (3+ people), use `chat.setUpSpace` to create a named space
+> instead.
+
 ## Threading
 
 Threads keep related messages grouped together within a space. Use the
