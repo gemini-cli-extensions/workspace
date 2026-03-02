@@ -9,21 +9,11 @@ import { AuthManager } from '../auth/AuthManager';
 import { DriveService } from './DriveService';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
-import { marked } from 'marked';
-import { Readable } from 'node:stream';
-import createDOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
-import { gaxiosOptions, mediaUploadOptions } from '../utils/GaxiosConfig';
+import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
 import { extractDocumentId as validateAndExtractDocId } from '../utils/validation';
-import {
-  parseMarkdownToDocsRequests,
-  processMarkdownLineBreaks,
-} from '../utils/markdownToDocsRequests';
 
 export class DocsService {
-  private purify: ReturnType<typeof createDOMPurify>;
-
   /**
    * Recursively flattens a tab tree into a single array,
    * so that nested (child) tabs are included alongside top-level ones.
@@ -38,10 +28,7 @@ export class DocsService {
   constructor(
     private authManager: AuthManager,
     private driveService: DriveService,
-  ) {
-    const window = new JSDOM('').window;
-    this.purify = createDOMPurify(window as any);
-  }
+  ) {}
 
   private async getDocsClient(): Promise<docs_v1.Docs> {
     const auth = await this.authManager.getAuthenticatedClient();
@@ -58,63 +45,47 @@ export class DocsService {
   public create = async ({
     title,
     folderName,
-    markdown,
+    content,
   }: {
     title: string;
     folderName?: string;
-    markdown?: string;
+    content?: string;
   }) => {
     logToFile(
-      `[DocsService] Starting create with title: ${title}, folderName: ${folderName}, markdown: ${markdown ? 'true' : 'false'}`,
+      `[DocsService] Starting create with title: ${title}, folderName: ${folderName}, content: ${content ? 'true' : 'false'}`,
     );
     try {
-      const docInfo = await (async (): Promise<{
-        documentId: string;
-        title: string;
-      }> => {
-        if (markdown) {
-          logToFile('[DocsService] Creating doc with markdown');
-          const unsafeHtml = await marked.parse(markdown);
-          const html = this.purify.sanitize(unsafeHtml);
+      logToFile('[DocsService] Calling docs.documents.create');
+      const docs = await this.getDocsClient();
+      const doc = await docs.documents.create({
+        requestBody: { title },
+      });
+      logToFile('[DocsService] docs.documents.create finished');
+      const documentId = doc.data.documentId!;
+      const docTitle = doc.data.title!;
 
-          const fileMetadata = {
-            name: title,
-            mimeType: 'application/vnd.google-apps.document',
-          };
-
-          const media = {
-            mimeType: 'text/html',
-            body: Readable.from(html),
-          };
-
-          logToFile('[DocsService] Calling drive.files.create');
-          const drive = await this.getDriveClient();
-          const file = await drive.files.create(
-            {
-              requestBody: fileMetadata,
-              media: media,
-              fields: 'id, name',
-              supportsAllDrives: true,
-            },
-            mediaUploadOptions,
-          );
-          logToFile('[DocsService] drive.files.create finished');
-          return { documentId: file.data.id!, title: file.data.name! };
-        } else {
-          logToFile('[DocsService] Creating blank doc');
-          logToFile('[DocsService] Calling docs.documents.create');
-          const docs = await this.getDocsClient();
-          const doc = await docs.documents.create({
-            requestBody: { title },
-          });
-          logToFile('[DocsService] docs.documents.create finished');
-          return { documentId: doc.data.documentId!, title: doc.data.title! };
-        }
-      })();
+      // Insert content if provided
+      if (content) {
+        logToFile('[DocsService] Inserting content into new doc');
+        await docs.documents.batchUpdate({
+          documentId,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: { index: 1 },
+                  text: content,
+                },
+              },
+            ],
+          },
+        });
+        logToFile('[DocsService] Content insertion finished');
+      }
 
       if (folderName) {
         logToFile(`[DocsService] Moving doc to folder: ${folderName}`);
-        await this._moveFileToFolder(docInfo.documentId, folderName);
+        await this._moveFileToFolder(documentId, folderName);
         logToFile(`[DocsService] Finished moving doc to folder: ${folderName}`);
       }
 
@@ -123,8 +94,8 @@ export class DocsService {
           {
             type: 'text' as const,
             text: JSON.stringify({
-              documentId: docInfo.documentId,
-              title: docInfo.title,
+              documentId,
+              title: docTitle,
             }),
           },
         ],
@@ -144,72 +115,240 @@ export class DocsService {
     }
   };
 
-  public insertText = async ({
+  public writeText = async ({
     documentId,
     text,
+    position = 'end',
     tabId,
   }: {
     documentId: string;
     text: string;
+    position?: string;
     tabId?: string;
   }) => {
     logToFile(
-      `[DocsService] Starting insertText for document: ${documentId}, tabId: ${tabId}`,
+      `[DocsService] Starting writeText for document: ${documentId}, position: ${position}, tabId: ${tabId}`,
     );
     try {
       const id = extractDocId(documentId) || documentId;
+      const docs = await this.getDocsClient();
 
-      // Parse markdown and generate formatting requests
-      const { plainText, formattingRequests } = parseMarkdownToDocsRequests(
-        text,
-        1,
-      );
-      const processedText = processMarkdownLineBreaks(plainText);
+      let index: number;
 
-      // Build batch update requests
-      const requests: docs_v1.Schema$Request[] = [
-        {
-          insertText: {
-            location: {
-              index: 1,
-              tabId: tabId,
-            },
-            text: processedText,
-          },
-        },
-      ];
+      if (position === 'beginning') {
+        index = 1;
+      } else if (position === 'end') {
+        // Discover the end index by reading the document
+        const res = await docs.documents.get({
+          documentId: id,
+          fields: 'tabs',
+          includeTabsContent: true,
+        });
 
-      // Add formatting requests if any
-      if (formattingRequests.length > 0) {
-        requests.push(
-          ...this._addTabIdToFormattingRequests(formattingRequests, tabId),
-        );
+        const tabs = this._flattenTabs(res.data.tabs || []);
+        let content: docs_v1.Schema$StructuralElement[] | undefined;
+
+        if (tabId) {
+          const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
+          if (!tab) {
+            throw new Error(`Tab with ID ${tabId} not found.`);
+          }
+          content = tab.documentTab?.body?.content;
+        } else if (tabs.length > 0) {
+          content = tabs[0].documentTab?.body?.content;
+        }
+
+        const lastElement = content?.[content.length - 1];
+        const endIndex = lastElement?.endIndex || 1;
+        index = Math.max(1, endIndex - 1);
+      } else {
+        // Treat as a numeric index
+        index = parseInt(position, 10);
+        if (isNaN(index) || index < 1) {
+          throw new Error(
+            `Invalid position: "${position}". Use "beginning", "end", or a positive integer index.`,
+          );
+        }
       }
 
-      const docs = await this.getDocsClient();
-      const res = await docs.documents.batchUpdate({
+      await docs.documents.batchUpdate({
         documentId: id,
         requestBody: {
-          requests,
+          requests: [
+            {
+              insertText: {
+                location: {
+                  index,
+                  tabId: tabId,
+                },
+                text,
+              },
+            },
+          ],
         },
       });
 
-      logToFile(`[DocsService] Finished insertText for document: ${id}`);
+      logToFile(`[DocsService] Finished writeText for document: ${id}`);
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({
-              documentId: res.data.documentId!,
-              writeControl: res.data.writeControl!,
-            }),
+            text: `Successfully wrote text to document ${id} at position ${position}`,
           },
         ],
       };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logToFile(`[DocsService] Error during docs.insertText: ${errorMessage}`);
+      logToFile(`[DocsService] Error during docs.writeText: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  private static readonly HEADING_STYLES: Record<string, string> = {
+    heading1: 'HEADING_1',
+    heading2: 'HEADING_2',
+    heading3: 'HEADING_3',
+    heading4: 'HEADING_4',
+    heading5: 'HEADING_5',
+    heading6: 'HEADING_6',
+    normalText: 'NORMAL_TEXT',
+  };
+
+  private static readonly TEXT_STYLES: Record<string, object> = {
+    bold: { bold: true },
+    italic: { italic: true },
+    underline: { underline: true },
+    strikethrough: { strikethrough: true },
+  };
+
+  public formatText = async ({
+    documentId,
+    formats,
+    tabId,
+  }: {
+    documentId: string;
+    formats: {
+      startIndex: number;
+      endIndex: number;
+      style: string;
+      url?: string;
+    }[];
+    tabId?: string;
+  }) => {
+    logToFile(
+      `[DocsService] Starting formatText for document: ${documentId}, ${formats.length} format(s)`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const requests: docs_v1.Schema$Request[] = [];
+
+      for (const format of formats) {
+        const range = {
+          startIndex: format.startIndex,
+          endIndex: format.endIndex,
+          tabId: tabId,
+        };
+
+        const headingStyle =
+          DocsService.HEADING_STYLES[format.style.toLowerCase()];
+        if (headingStyle) {
+          requests.push({
+            updateParagraphStyle: {
+              range,
+              paragraphStyle: {
+                namedStyleType: headingStyle,
+              },
+              fields: 'namedStyleType',
+            },
+          });
+          continue;
+        }
+
+        const textStyle = DocsService.TEXT_STYLES[format.style.toLowerCase()];
+        if (textStyle) {
+          requests.push({
+            updateTextStyle: {
+              range,
+              textStyle,
+              fields: Object.keys(textStyle).join(','),
+            },
+          });
+          continue;
+        }
+
+        if (format.style.toLowerCase() === 'code') {
+          requests.push({
+            updateTextStyle: {
+              range,
+              textStyle: {
+                weightedFontFamily: {
+                  fontFamily: 'Courier New',
+                },
+              },
+              fields: 'weightedFontFamily',
+            },
+          });
+          continue;
+        }
+
+        if (format.style.toLowerCase() === 'link' && format.url) {
+          requests.push({
+            updateTextStyle: {
+              range,
+              textStyle: {
+                link: {
+                  url: format.url,
+                },
+              },
+              fields: 'link',
+            },
+          });
+          continue;
+        }
+
+        logToFile(`[DocsService] Unknown format style: ${format.style}`);
+      }
+
+      if (requests.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No valid formatting requests to apply.',
+            },
+          ],
+        };
+      }
+
+      const docs = await this.getDocsClient();
+      await docs.documents.batchUpdate({
+        documentId: id,
+        requestBody: { requests },
+      });
+
+      logToFile(
+        `[DocsService] Finished formatText for document: ${id}, applied ${requests.length} format(s)`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Successfully applied ${requests.length} formatting change(s) to document ${id}`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[DocsService] Error during docs.formatText: ${errorMessage}`);
       return {
         content: [
           {
@@ -469,106 +608,6 @@ export class DocsService {
     return text;
   }
 
-  public appendText = async ({
-    documentId,
-    text,
-    tabId,
-  }: {
-    documentId: string;
-    text: string;
-    tabId?: string;
-  }) => {
-    logToFile(
-      `[DocsService] Starting appendText for document: ${documentId}, tabId: ${tabId}`,
-    );
-    try {
-      const id = extractDocId(documentId) || documentId;
-      const docs = await this.getDocsClient();
-      const res = await docs.documents.get({
-        documentId: id,
-        fields: 'tabs',
-        includeTabsContent: true,
-      });
-
-      const tabs = this._flattenTabs(res.data.tabs || []);
-      let content: docs_v1.Schema$StructuralElement[] | undefined;
-
-      if (tabId) {
-        const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
-        if (!tab) {
-          throw new Error(`Tab with ID ${tabId} not found.`);
-        }
-        content = tab.documentTab?.body?.content;
-      } else {
-        // Default to first tab if no tabId
-        if (tabs.length > 0) {
-          content = tabs[0].documentTab?.body?.content;
-        }
-      }
-
-      const lastElement = content?.[content.length - 1];
-      const endIndex = lastElement?.endIndex || 1;
-
-      const locationIndex = Math.max(1, endIndex - 1);
-
-      // Parse markdown and generate formatting requests
-      const { plainText, formattingRequests } = parseMarkdownToDocsRequests(
-        text,
-        locationIndex,
-      );
-      const processedText = processMarkdownLineBreaks(plainText);
-
-      // Build batch update requests
-      const requests: docs_v1.Schema$Request[] = [
-        {
-          insertText: {
-            location: {
-              index: locationIndex,
-              tabId: tabId, // Use tabId for tab-specific insertion
-            },
-            text: processedText,
-          },
-        },
-      ];
-
-      // Add formatting requests if any
-      if (formattingRequests.length > 0) {
-        requests.push(
-          ...this._addTabIdToFormattingRequests(formattingRequests, tabId),
-        );
-      }
-
-      await docs.documents.batchUpdate({
-        documentId: id,
-        requestBody: {
-          requests,
-        },
-      });
-
-      logToFile(`[DocsService] Finished appendText for document: ${id}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Successfully appended text to document ${id}`,
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[DocsService] Error during docs.appendText: ${errorMessage}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
-
   public replaceText = async ({
     documentId,
     findText,
@@ -587,12 +626,7 @@ export class DocsService {
       const id = extractDocId(documentId) || documentId;
       const docs = await this.getDocsClient();
 
-      // Parse markdown to get plain text and formatting info
-      const { plainText, formattingRequests: originalFormattingRequests } =
-        parseMarkdownToDocsRequests(replaceText, 0);
-      const processedText = processMarkdownLineBreaks(plainText);
-
-      // First, get the document to find where the text will be replaced
+      // Get the document to find where the text will be replaced
       const docBefore = await docs.documents.get({
         documentId: id,
         fields: 'tabs',
@@ -614,8 +648,7 @@ export class DocsService {
           content,
           tabId,
           findText,
-          processedText,
-          originalFormattingRequests,
+          replaceText,
         );
         requests.push(...tabRequests);
       } else {
@@ -627,8 +660,7 @@ export class DocsService {
             content,
             currentTabId,
             findText,
-            processedText,
-            originalFormattingRequests,
+            replaceText,
           );
           requests.push(...tabRequests);
         }
@@ -671,8 +703,7 @@ export class DocsService {
     content: docs_v1.Schema$StructuralElement[] | undefined,
     tabId: string | undefined | null,
     findText: string,
-    processedText: string,
-    originalFormattingRequests: docs_v1.Schema$Request[],
+    newText: string,
   ): docs_v1.Schema$Request[] {
     const requests: docs_v1.Schema$Request[] = [];
     const documentText = this._getFullDocumentText(content);
@@ -683,7 +714,7 @@ export class DocsService {
       searchIndex += findText.length;
     }
 
-    const lengthDiff = processedText.length - findText.length;
+    const lengthDiff = newText.length - findText.length;
     let cumulativeOffset = 0;
 
     for (let i = 0; i < occurrences.length; i++) {
@@ -708,30 +739,9 @@ export class DocsService {
             tabId: tabId,
             index: adjustedPosition,
           },
-          text: processedText,
+          text: newText,
         },
       });
-
-      // Formatting
-      for (const formatRequest of originalFormattingRequests) {
-        if (formatRequest.updateTextStyle) {
-          const adjustedRequest: docs_v1.Schema$Request = {
-            updateTextStyle: {
-              ...formatRequest.updateTextStyle,
-              range: {
-                tabId: tabId,
-                startIndex:
-                  (formatRequest.updateTextStyle.range?.startIndex || 0) +
-                  adjustedPosition,
-                endIndex:
-                  (formatRequest.updateTextStyle.range?.endIndex || 0) +
-                  adjustedPosition,
-              },
-            },
-          };
-          requests.push(adjustedRequest);
-        }
-      }
 
       cumulativeOffset += lengthDiff;
     }
@@ -748,37 +758,6 @@ export class DocsService {
       });
     }
     return text;
-  }
-
-  private _addTabIdToFormattingRequests(
-    requests: docs_v1.Schema$Request[],
-    tabId?: string,
-  ): docs_v1.Schema$Request[] {
-    if (!tabId || requests.length === 0) {
-      return requests;
-    }
-    return requests.map((req) => {
-      const newReq = { ...req };
-      if (newReq.updateTextStyle?.range) {
-        newReq.updateTextStyle = {
-          ...newReq.updateTextStyle,
-          range: { ...newReq.updateTextStyle.range, tabId: tabId },
-        };
-      }
-      if (newReq.updateParagraphStyle?.range) {
-        newReq.updateParagraphStyle = {
-          ...newReq.updateParagraphStyle,
-          range: { ...newReq.updateParagraphStyle.range, tabId: tabId },
-        };
-      }
-      if (newReq.insertText?.location) {
-        newReq.insertText = {
-          ...newReq.insertText,
-          location: { ...newReq.insertText.location, tabId: tabId },
-        };
-      }
-      return newReq;
-    });
   }
 
   private async _moveFileToFolder(

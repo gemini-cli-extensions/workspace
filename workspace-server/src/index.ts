@@ -20,7 +20,6 @@ import { PeopleService } from './services/PeopleService';
 import { SlidesService } from './services/SlidesService';
 import { SheetsService } from './services/SheetsService';
 import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
-import { extractDocId } from './utils/IdUtils';
 
 import { setLoggingEnabled } from './utils/logger';
 import { applyToolNameNormalization } from './utils/tool-normalization';
@@ -153,31 +152,35 @@ async function main() {
     'docs.create',
     {
       description:
-        'Creates a new Google Doc. Can be blank or with Markdown content.',
+        'Creates a new Google Doc. Can be blank or with initial text content.',
       inputSchema: {
         title: z.string().describe('The title for the new Google Doc.'),
         folderName: z
           .string()
           .optional()
           .describe('The name of the folder to create the document in.'),
-        markdown: z
+        content: z
           .string()
           .optional()
-          .describe('The Markdown content to create the document from.'),
+          .describe('The text content to create the document with.'),
       },
     },
     docsService.create,
   );
 
   server.registerTool(
-    'docs.insertText',
+    'docs.writeText',
     {
-      description: 'Inserts text at the beginning of a Google Doc.',
+      description: 'Writes text to a Google Doc at a specified position.',
       inputSchema: {
         documentId: z.string().describe('The ID of the document to modify.'),
-        text: z
+        text: z.string().describe('The text to write to the document.'),
+        position: z
           .string()
-          .describe('The text to insert at the beginning of the document.'),
+          .optional()
+          .describe(
+            'Where to insert the text. Use "beginning" for the start, "end" for the end (default), or a numeric index for a specific position.',
+          ),
         tabId: z
           .string()
           .optional()
@@ -186,7 +189,7 @@ async function main() {
           ),
       },
     },
-    docsService.insertText,
+    docsService.writeText,
   );
 
   server.registerTool(
@@ -274,24 +277,6 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.appendText',
-    {
-      description: 'Appends text to the end of a Google Doc.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to modify.'),
-        text: z.string().describe('The text to append to the document.'),
-        tabId: z
-          .string()
-          .optional()
-          .describe(
-            'The ID of the tab to modify. If not provided, modifies the first tab.',
-          ),
-      },
-    },
-    docsService.appendText,
-  );
-
-  server.registerTool(
     'docs.replaceText',
     {
       description:
@@ -314,25 +299,46 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.extractIdFromUrl',
+    'docs.formatText',
     {
-      description: 'Extracts the document ID from a Google Workspace URL.',
+      description:
+        'Applies formatting (bold, italic, headings, etc.) to text ranges in a Google Doc. Use after inserting text to apply rich formatting.',
       inputSchema: {
-        url: z.string().describe('The URL of the Google Workspace document.'),
+        documentId: z.string().describe('The ID of the document to format.'),
+        formats: z
+          .array(
+            z.object({
+              startIndex: z
+                .number()
+                .describe('The start index of the text range (1-based).'),
+              endIndex: z
+                .number()
+                .describe(
+                  'The end index of the text range (exclusive, 1-based).',
+                ),
+              style: z
+                .string()
+                .describe(
+                  'The formatting style to apply. Supported: bold, italic, underline, strikethrough, code, link, heading1, heading2, heading3, heading4, heading5, heading6, normalText.',
+                ),
+              url: z
+                .string()
+                .optional()
+                .describe(
+                  'The URL for link formatting. Required when style is "link".',
+                ),
+            }),
+          )
+          .describe('The formatting instructions to apply.'),
+        tabId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the tab to format. If not provided, formats the first tab.',
+          ),
       },
-      ...readOnlyToolProps,
     },
-    async (input: { url: string }) => {
-      const result = extractDocId(input.url);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: result || '',
-          },
-        ],
-      };
-    },
+    docsService.formatText,
   );
 
   // Slides tools

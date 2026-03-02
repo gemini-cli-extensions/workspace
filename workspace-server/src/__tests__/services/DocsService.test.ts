@@ -20,11 +20,6 @@ import { google } from 'googleapis';
 // Mock the googleapis module
 jest.mock('googleapis');
 jest.mock('../../utils/logger');
-jest.mock('dompurify', () => {
-  return jest.fn().mockImplementation(() => ({
-    sanitize: jest.fn((content) => content),
-  }));
-});
 
 describe('DocsService', () => {
   let docsService: DocsService;
@@ -103,26 +98,37 @@ describe('DocsService', () => {
       });
     });
 
-    it('should create a document with markdown content', async () => {
-      const mockFile = {
+    it('should create a document with initial content', async () => {
+      const mockDoc = {
         data: {
-          id: 'test-doc-id',
-          name: 'Test Title',
+          documentId: 'test-doc-id',
+          title: 'Test Title',
         },
       };
-      mockDriveAPI.files.create.mockResolvedValue(mockFile);
+      mockDocsAPI.documents.create.mockResolvedValue(mockDoc);
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
 
       const result = await docsService.create({
         title: 'Test Title',
-        markdown: '# Hello',
+        content: 'Hello World',
       });
 
-      expect(mockDriveAPI.files.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          supportsAllDrives: true,
-        }),
-        expect.any(Object),
-      );
+      expect(mockDocsAPI.documents.create).toHaveBeenCalledWith({
+        requestBody: { title: 'Test Title' },
+      });
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: { index: 1 },
+                text: 'Hello World',
+              },
+            },
+          ],
+        },
+      });
       expect(JSON.parse(result.content[0].text)).toEqual({
         documentId: 'test-doc-id',
         title: 'Test Title',
@@ -178,19 +184,14 @@ describe('DocsService', () => {
     });
   });
 
-  describe('insertText', () => {
-    it('should insert text into a document', async () => {
-      const mockResponse = {
-        data: {
-          documentId: 'test-doc-id',
-          writeControl: {},
-        },
-      };
-      mockDocsAPI.documents.batchUpdate.mockResolvedValue(mockResponse);
+  describe('writeText', () => {
+    it('should write text to beginning of document', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
 
-      const result = await docsService.insertText({
+      const result = await docsService.writeText({
         documentId: 'test-doc-id',
         text: 'Hello',
+        position: 'beginning',
       });
 
       expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
@@ -199,45 +200,107 @@ describe('DocsService', () => {
           requests: [
             {
               insertText: {
-                location: { index: 1 },
+                location: { index: 1, tabId: undefined },
                 text: 'Hello',
               },
             },
           ],
         },
       });
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        documentId: 'test-doc-id',
-        writeControl: {},
-      });
+      expect(result.content[0].text).toContain(
+        'Successfully wrote text to document test-doc-id',
+      );
     });
 
-    it('should handle errors during text insertion', async () => {
-      const apiError = new Error('API Error');
-      mockDocsAPI.documents.batchUpdate.mockRejectedValue(apiError);
-
-      const result = await docsService.insertText({
-        documentId: 'test-doc-id',
-        text: 'Hello',
-      });
-
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        error: 'API Error',
-      });
-    });
-
-    it('should insert text into a specific tab', async () => {
-      const mockResponse = {
+    it('should write text to end of document (default)', async () => {
+      const mockDoc = {
         data: {
-          documentId: 'test-doc-id',
-          writeControl: {},
+          tabs: [
+            {
+              documentTab: {
+                body: {
+                  content: [{ endIndex: 10 }],
+                },
+              },
+            },
+          ],
         },
       };
-      mockDocsAPI.documents.batchUpdate.mockResolvedValue(mockResponse);
+      mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
 
-      await docsService.insertText({
+      const result = await docsService.writeText({
+        documentId: 'test-doc-id',
+        text: ' Appended',
+      });
+
+      expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        fields: 'tabs',
+        includeTabsContent: true,
+      });
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: { index: 9, tabId: undefined },
+                text: ' Appended',
+              },
+            },
+          ],
+        },
+      });
+      expect(result.content[0].text).toContain(
+        'Successfully wrote text to document test-doc-id',
+      );
+    });
+
+    it('should write text at a specific numeric index', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.writeText({
+        documentId: 'test-doc-id',
+        text: 'Inserted',
+        position: '5',
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              insertText: {
+                location: { index: 5, tabId: undefined },
+                text: 'Inserted',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should reject invalid position values', async () => {
+      const result = await docsService.writeText({
         documentId: 'test-doc-id',
         text: 'Hello',
+        position: 'invalid',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error:
+          'Invalid position: "invalid". Use "beginning", "end", or a positive integer index.',
+      });
+    });
+
+    it('should write text to a specific tab', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.writeText({
+        documentId: 'test-doc-id',
+        text: 'Hello',
+        position: 'beginning',
         tabId: 'tab-1',
       });
 
@@ -256,6 +319,196 @@ describe('DocsService', () => {
             },
           ],
         },
+      });
+    });
+
+    it('should handle errors during writeText', async () => {
+      const apiError = new Error('API Error');
+      mockDocsAPI.documents.batchUpdate.mockRejectedValue(apiError);
+
+      const result = await docsService.writeText({
+        documentId: 'test-doc-id',
+        text: 'Hello',
+        position: 'beginning',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'API Error',
+      });
+    });
+  });
+
+  describe('formatText', () => {
+    it('should apply bold and italic text styles', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [
+          { startIndex: 1, endIndex: 10, style: 'bold' },
+          { startIndex: 12, endIndex: 20, style: 'italic' },
+        ],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                range: { startIndex: 1, endIndex: 10, tabId: undefined },
+                textStyle: { bold: true },
+                fields: 'bold',
+              },
+            },
+            {
+              updateTextStyle: {
+                range: { startIndex: 12, endIndex: 20, tabId: undefined },
+                textStyle: { italic: true },
+                fields: 'italic',
+              },
+            },
+          ],
+        },
+      });
+      expect(result.content[0].text).toContain(
+        'Successfully applied 2 formatting change(s)',
+      );
+    });
+
+    it('should apply heading paragraph styles', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [{ startIndex: 1, endIndex: 15, style: 'heading1' }],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              updateParagraphStyle: {
+                range: { startIndex: 1, endIndex: 15, tabId: undefined },
+                paragraphStyle: { namedStyleType: 'HEADING_1' },
+                fields: 'namedStyleType',
+              },
+            },
+          ],
+        },
+      });
+      expect(result.content[0].text).toContain(
+        'Successfully applied 1 formatting change(s)',
+      );
+    });
+
+    it('should apply code (monospace) formatting', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [{ startIndex: 5, endIndex: 15, style: 'code' }],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                range: { startIndex: 5, endIndex: 15, tabId: undefined },
+                textStyle: {
+                  weightedFontFamily: { fontFamily: 'Courier New' },
+                },
+                fields: 'weightedFontFamily',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should apply link formatting with URL', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [
+          {
+            startIndex: 1,
+            endIndex: 10,
+            style: 'link',
+            url: 'https://example.com',
+          },
+        ],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                range: { startIndex: 1, endIndex: 10, tabId: undefined },
+                textStyle: { link: { url: 'https://example.com' } },
+                fields: 'link',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should pass tabId to formatting requests', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [{ startIndex: 1, endIndex: 5, style: 'bold' }],
+        tabId: 'tab-123',
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              updateTextStyle: {
+                range: { startIndex: 1, endIndex: 5, tabId: 'tab-123' },
+                textStyle: { bold: true },
+                fields: 'bold',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should return message for unknown format styles', async () => {
+      const result = await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [{ startIndex: 1, endIndex: 5, style: 'unknownStyle' }],
+      });
+
+      expect(result.content[0].text).toBe(
+        'No valid formatting requests to apply.',
+      );
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDocsAPI.documents.batchUpdate.mockRejectedValue(
+        new Error('Permission denied'),
+      );
+
+      const result = await docsService.formatText({
+        documentId: 'test-doc-id',
+        formats: [{ startIndex: 1, endIndex: 5, style: 'bold' }],
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Permission denied',
       });
     });
   });
@@ -616,163 +869,6 @@ describe('DocsService', () => {
     });
   });
 
-  describe('appendText', () => {
-    it('should append text to a document', async () => {
-      const mockDoc = {
-        data: {
-          tabs: [
-            {
-              documentTab: {
-                body: {
-                  content: [{ endIndex: 10 }],
-                },
-              },
-            },
-          ],
-        },
-      };
-      mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
-
-      const result = await docsService.appendText({
-        documentId: 'test-doc-id',
-        text: ' Appended',
-      });
-
-      expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
-        documentId: 'test-doc-id',
-        fields: 'tabs',
-        includeTabsContent: true,
-      });
-      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
-        documentId: 'test-doc-id',
-        requestBody: {
-          requests: [
-            {
-              insertText: {
-                location: { index: 9 },
-                text: ' Appended',
-              },
-            },
-          ],
-        },
-      });
-      expect(result.content[0].text).toBe(
-        'Successfully appended text to document test-doc-id',
-      );
-    });
-
-    it('should handle errors during appendText', async () => {
-      const apiError = new Error('API Error');
-      mockDocsAPI.documents.get.mockRejectedValue(apiError);
-
-      const result = await docsService.appendText({
-        documentId: 'test-doc-id',
-        text: ' Appended',
-      });
-
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        error: 'API Error',
-      });
-    });
-
-    it('should append text to a specific tab', async () => {
-      const mockDoc = {
-        data: {
-          tabs: [
-            {
-              tabProperties: { tabId: 'tab-1' },
-              documentTab: {
-                body: {
-                  content: [{ endIndex: 10 }],
-                },
-              },
-            },
-          ],
-        },
-      };
-      mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
-
-      await docsService.appendText({
-        documentId: 'test-doc-id',
-        text: ' Appended',
-        tabId: 'tab-1',
-      });
-
-      expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
-        documentId: 'test-doc-id',
-        fields: 'tabs',
-        includeTabsContent: true,
-      });
-      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
-        documentId: 'test-doc-id',
-        requestBody: {
-          requests: [
-            {
-              insertText: {
-                location: {
-                  index: 9,
-                  tabId: 'tab-1',
-                },
-                text: ' Appended',
-              },
-            },
-          ],
-        },
-      });
-    });
-
-    it('should append text to a nested child tab by tabId', async () => {
-      const mockDoc = {
-        data: {
-          tabs: [
-            {
-              tabProperties: { tabId: 'parent-tab' },
-              documentTab: {
-                body: {
-                  content: [{ endIndex: 10 }],
-                },
-              },
-              childTabs: [
-                {
-                  tabProperties: { tabId: 'child-tab' },
-                  documentTab: {
-                    body: {
-                      content: [{ endIndex: 20 }],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      };
-      mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
-
-      await docsService.appendText({
-        documentId: 'test-doc-id',
-        text: ' Appended',
-        tabId: 'child-tab',
-      });
-
-      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
-        documentId: 'test-doc-id',
-        requestBody: {
-          requests: [
-            {
-              insertText: {
-                location: {
-                  index: 19,
-                  tabId: 'child-tab',
-                },
-                text: ' Appended',
-              },
-            },
-          ],
-        },
-      });
-    });
-  });
-
   describe('replaceText', () => {
     it('should replace text in a document', async () => {
       // Mock the document get call that finds occurrences
@@ -847,7 +943,7 @@ describe('DocsService', () => {
       );
     });
 
-    it('should replace text with markdown formatting', async () => {
+    it('should replace text with literal content (no markdown parsing)', async () => {
       // Mock the document get call that finds occurrences
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
@@ -894,12 +990,13 @@ describe('DocsService', () => {
         includeTabsContent: true,
       });
 
+      // Text is inserted literally — no markdown parsing
       expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
         requestBody: {
-          requests: expect.arrayContaining([
+          requests: [
             // First occurrence
-            expect.objectContaining({
+            {
               deleteContentRange: {
                 range: {
                   tabId: undefined,
@@ -907,56 +1004,36 @@ describe('DocsService', () => {
                   endIndex: 18,
                 },
               },
-            }),
-            expect.objectContaining({
+            },
+            {
               insertText: {
                 location: {
                   tabId: undefined,
                   index: 9,
                 },
-                text: 'bold text',
+                text: '**bold text**',
               },
-            }),
-            expect.objectContaining({
-              updateTextStyle: expect.objectContaining({
-                range: {
-                  tabId: undefined,
-                  startIndex: 9,
-                  endIndex: 18,
-                },
-                textStyle: { bold: true },
-              }),
-            }),
-            // Second occurrence
-            expect.objectContaining({
+            },
+            // Second occurrence (offset by length diff: 13 - 9 = +4)
+            {
               deleteContentRange: {
                 range: {
                   tabId: undefined,
-                  startIndex: 23,
-                  endIndex: 32,
+                  startIndex: 27,
+                  endIndex: 36,
                 },
               },
-            }),
-            expect.objectContaining({
+            },
+            {
               insertText: {
                 location: {
                   tabId: undefined,
-                  index: 23,
+                  index: 27,
                 },
-                text: 'bold text',
+                text: '**bold text**',
               },
-            }),
-            expect.objectContaining({
-              updateTextStyle: expect.objectContaining({
-                range: {
-                  tabId: undefined,
-                  startIndex: 23,
-                  endIndex: 32,
-                },
-                textStyle: { bold: true },
-              }),
-            }),
-          ]),
+            },
+          ],
         },
       });
       expect(result.content[0].text).toBe(

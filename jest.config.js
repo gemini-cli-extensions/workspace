@@ -19,12 +19,10 @@ module.exports = {
           },
         ],
       },
-      transformIgnorePatterns: ['node_modules/(?!(marked)/)'],
+      transformIgnorePatterns: ['node_modules/'],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/workspace-server/src/$1',
         '\\.wasm$': '<rootDir>/workspace-server/src/__tests__/mocks/wasm.js',
-        '^marked$': '<rootDir>/workspace-server/src/__tests__/mocks/marked.js',
-        '^jsdom$': '<rootDir>/workspace-server/src/__tests__/mocks/jsdom.ts',
       },
       roots: ['<rootDir>/workspace-server/src'],
       setupFilesAfterEnv: ['<rootDir>/workspace-server/src/__tests__/setup.ts'],

@@ -227,9 +227,8 @@ Choose output format based on use case:
 
 ### Google Docs
 
-- Support for markdown content creation
-- Automatic HTML conversion from markdown
-- Position-based text insertion (index 1 for beginning)
+- See the **Docs skill** for detailed guidance on document content formatting,
+  creation, editing, tab management, and document organization.
 
 ### Google Sheets
 
