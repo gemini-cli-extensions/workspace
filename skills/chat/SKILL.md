@@ -42,7 +42,7 @@ Always convert these before sending a message to Chat:
 | `**bold**` (double `*`)     | `*bold*` (single `*`)            |
 | `[text](url)` markdown link | `<url\|text>` Chat link format   |
 | `# Heading`                 | `*Heading*` (bold text)          |
-| Nested lists                | Flatten: `- parent\n- -- child`  |
+| Nested lists                | Flatten to a single-level list.  |
 | `> blockquote`              | Preserve the `>` character as-is |
 
 ### Message Formatting Examples
@@ -120,7 +120,7 @@ Threads keep related messages grouped together within a space. Use the
    `chat.sendDm`. The API uses `REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD` — if the
    thread doesn't exist, a new thread is created.
 3. **List threads**: Use `chat.listThreads` to discover threads in a space. It
-   returns the first message of each unique thread in reverse chronological
+   returns the most recent message of each unique thread in reverse chronological
    order.
 4. **Get thread messages**: Use `chat.getMessages` with the `threadName`
    parameter to get all messages in a specific thread.
@@ -188,7 +188,7 @@ chat.setUpSpace({
 
 > **Important:** The `userNames` parameter expects user resource names in the
 > format `users/{userId}`, not email addresses. Use `people.getUserProfile` to
-> look up user IDs from names or emails.
+> look up user IDs and convert the `people/{id}` resource name to `users/{id}`.
 
 ## Resource Name Formats
 
