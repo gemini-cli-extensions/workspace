@@ -275,9 +275,8 @@ Choose output format based on use case:
 
 ### Google Chat
 
-- Space vs. DM distinction
-- Thread-aware messaging
-- Unread message filtering
+- See the **Chat skill** for detailed guidance on formatting messages,
+  spaces vs. DMs, threading, unread filtering, and space management.
 
 Remember: This guide focuses on **how to think** about using these tools
 effectively. For specific parameter details, refer to the tool descriptions
