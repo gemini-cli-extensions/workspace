@@ -131,7 +131,6 @@ When asked about "next meeting" or "today's schedule":
 - Convert all times appropriately before display
 - Include timezone abbreviation (EST, PST, etc.) for clarity
 
-
 ## 📄 Docs, Sheets, and Slides
 
 ### Format Selection (Sheets)
@@ -251,8 +250,8 @@ Choose output format based on use case:
 
 ### Google Chat
 
-- See the **Chat skill** for detailed guidance on formatting messages,
-  spaces vs. DMs, threading, unread filtering, and space management.
+- See the **Chat skill** for detailed guidance on formatting messages, spaces
+  vs. DMs, threading, unread filtering, and space management.
 
 Remember: This guide focuses on **how to think** about using these tools
 effectively. For specific parameter details, refer to the tool descriptions
