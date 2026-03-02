@@ -213,20 +213,6 @@ describe('DocsService', () => {
     });
 
     it('should write text to end of document (default)', async () => {
-      const mockDoc = {
-        data: {
-          tabs: [
-            {
-              documentTab: {
-                body: {
-                  content: [{ endIndex: 10 }],
-                },
-              },
-            },
-          ],
-        },
-      };
-      mockDocsAPI.documents.get.mockResolvedValue(mockDoc);
       mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
 
       const result = await docsService.writeText({
@@ -234,22 +220,12 @@ describe('DocsService', () => {
         text: ' Appended',
       });
 
-      expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
-        documentId: 'test-doc-id',
-        fields: 'tabs',
-        includeTabsContent: true,
-      });
+      // Optimized path: no documents.get call needed
+      expect(mockDocsAPI.documents.get).not.toHaveBeenCalled();
       expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
         requestBody: {
-          requests: [
-            {
-              insertText: {
-                location: { index: 9, tabId: undefined },
-                text: ' Appended',
-              },
-            },
-          ],
+          requests: [{ insertText: { text: ' Appended' } }],
         },
       });
       expect(result.content[0].text).toContain(

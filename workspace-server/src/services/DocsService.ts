@@ -133,60 +133,71 @@ export class DocsService {
       const id = extractDocId(documentId) || documentId;
       const docs = await this.getDocsClient();
 
-      let index: number;
-
-      if (position === 'beginning') {
-        index = 1;
-      } else if (position === 'end') {
-        // Discover the end index by reading the document
-        const res = await docs.documents.get({
+      // Optimize: when appending to the main body, omit location to skip
+      // an extra documents.get API call — the Docs API auto-appends.
+      if (position === 'end' && !tabId) {
+        await docs.documents.batchUpdate({
           documentId: id,
-          fields: 'tabs',
-          includeTabsContent: true,
+          requestBody: {
+            requests: [{ insertText: { text } }],
+          },
         });
-
-        const tabs = this._flattenTabs(res.data.tabs || []);
-        let content: docs_v1.Schema$StructuralElement[] | undefined;
-
-        if (tabId) {
-          const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
-          if (!tab) {
-            throw new Error(`Tab with ID ${tabId} not found.`);
-          }
-          content = tab.documentTab?.body?.content;
-        } else if (tabs.length > 0) {
-          content = tabs[0].documentTab?.body?.content;
-        }
-
-        const lastElement = content?.[content.length - 1];
-        const endIndex = lastElement?.endIndex || 1;
-        index = Math.max(1, endIndex - 1);
       } else {
-        // Treat as a numeric index
-        index = parseInt(position, 10);
-        if (isNaN(index) || index < 1) {
-          throw new Error(
-            `Invalid position: "${position}". Use "beginning", "end", or a positive integer index.`,
-          );
-        }
-      }
+        let index: number;
 
-      await docs.documents.batchUpdate({
-        documentId: id,
-        requestBody: {
-          requests: [
-            {
-              insertText: {
-                location: {
-                  index,
-                  tabId: tabId,
+        if (position === 'beginning') {
+          index = 1;
+        } else if (position === 'end') {
+          // Discover the end index by reading the document (required for tabs)
+          const res = await docs.documents.get({
+            documentId: id,
+            fields: 'tabs',
+            includeTabsContent: true,
+          });
+
+          const tabs = this._flattenTabs(res.data.tabs || []);
+          let content: docs_v1.Schema$StructuralElement[] | undefined;
+
+          if (tabId) {
+            const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
+            if (!tab) {
+              throw new Error(`Tab with ID ${tabId} not found.`);
+            }
+            content = tab.documentTab?.body?.content;
+          } else if (tabs.length > 0) {
+            content = tabs[0].documentTab?.body?.content;
+          }
+
+          const lastElement = content?.[content.length - 1];
+          const endIndex = lastElement?.endIndex || 1;
+          index = Math.max(1, endIndex - 1);
+        } else {
+          // Treat as a numeric index
+          index = parseInt(position, 10);
+          if (isNaN(index) || index < 1) {
+            throw new Error(
+              `Invalid position: "${position}". Use "beginning", "end", or a positive integer index.`,
+            );
+          }
+        }
+
+        await docs.documents.batchUpdate({
+          documentId: id,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  location: {
+                    index,
+                    tabId: tabId,
+                  },
+                  text,
                 },
-                text,
               },
-            },
-          ],
-        },
-      });
+            ],
+          },
+        });
+      }
 
       logToFile(`[DocsService] Finished writeText for document: ${id}`);
       return {
