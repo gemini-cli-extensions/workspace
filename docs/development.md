@@ -211,7 +211,7 @@ Use `--force` to re-authenticate if credentials already exist.
 
 The extension uses a **hybrid storage strategy** for OAuth credentials. It first
 attempts to use the OS-level secure storage (via the
-[keytar](https://github.com/atom/node-keytar) library). If the keychain is
+[keytar](https://github.com/nicedoc/keytar) library). If the keychain is
 unavailable, it falls back to AES-256-GCM encrypted file storage.
 
 Credentials are stored under the service name `gemini-cli-workspace-oauth` with
@@ -236,9 +236,9 @@ extension's installation directory:
 | `gemini-cli-workspace-token.json`  | AES-256-GCM encrypted token data                     |
 | `.gemini-cli-workspace-master-key` | 256-bit master key used to derive the encryption key |
 
-Both files are created with restrictive permissions (`0o600`) and their
-containing directory with `0o700`. The encryption key is derived from the master
-key using `scrypt` with a machine-specific salt.
+Both files are created with restrictive permissions (`0o600` / `0o700`). The
+encryption key is derived from the master key using `scrypt` with a
+machine-specific salt.
 
 #### Forcing File Storage
 
