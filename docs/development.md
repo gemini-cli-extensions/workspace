@@ -206,3 +206,45 @@ process stdin, so credentials are never exposed to an AI model that may have
 spawned the process.
 
 Use `--force` to re-authenticate if credentials already exist.
+
+### Token Storage
+
+The extension uses a **hybrid storage strategy** for OAuth credentials. It first
+attempts to use the OS-level secure storage (via the
+[keytar](https://github.com/nicedoc/keytar) library). If the keychain is
+unavailable, it falls back to AES-256-GCM encrypted file storage.
+
+Credentials are stored under the service name `gemini-cli-workspace-oauth` with
+the account name `main-account`.
+
+#### OS Keychain (Primary)
+
+| Platform  | Backend                          | How to find stored credentials                                                                                                |
+| --------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **macOS** | Keychain Access                  | Open **Keychain Access** → search for `gemini-cli-workspace-oauth`                                                            |
+| **Windows** | Windows Credential Manager     | Start Menu → search **Credential Manager** → **Windows Credentials** → **Generic Credentials** → `gemini-cli-workspace-oauth` |
+| **Linux** | GNOME Keyring / KWallet (`libsecret`) | Use `secret-tool search service gemini-cli-workspace-oauth` or your desktop's keyring manager                           |
+
+#### Encrypted File Fallback
+
+When the OS keychain is not available (e.g., headless servers, containers, or CI
+environments), the extension stores credentials in an encrypted file within the
+extension's installation directory:
+
+| File                                  | Purpose                                              |
+| ------------------------------------- | ---------------------------------------------------- |
+| `gemini-cli-workspace-token.json`     | AES-256-GCM encrypted token data                     |
+| `.gemini-cli-workspace-master-key`    | 256-bit master key used to derive the encryption key  |
+
+Both files are created with restrictive permissions (`0o600` / `0o700`). The
+encryption key is derived from the master key using `scrypt` with a
+machine-specific salt.
+
+#### Forcing File Storage
+
+To bypass the OS keychain and always use encrypted file storage, set the
+environment variable:
+
+```bash
+export GEMINI_CLI_WORKSPACE_FORCE_FILE_STORAGE=true
+```
