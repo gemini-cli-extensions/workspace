@@ -4,13 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, docs_v1, drive_v3 } from 'googleapis';
+import { google, docs_v1 } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
-import { DriveService } from './DriveService';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
-import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
 import { extractDocumentId as validateAndExtractDocId } from '../utils/validation';
 
 interface BaseDocsSuggestion {
@@ -59,21 +57,12 @@ export class DocsService {
     });
   }
 
-  constructor(
-    private authManager: AuthManager,
-    private driveService: DriveService,
-  ) {}
+  constructor(private authManager: AuthManager) {}
 
   private async getDocsClient(): Promise<docs_v1.Docs> {
     const auth = await this.authManager.getAuthenticatedClient();
     const options = { ...gaxiosOptions, auth };
     return google.docs({ version: 'v1', ...options });
-  }
-
-  private async getDriveClient(): Promise<drive_v3.Drive> {
-    const auth = await this.authManager.getAuthenticatedClient();
-    const options = { ...gaxiosOptions, auth };
-    return google.drive({ version: 'v3', ...options });
   }
 
   public getSuggestions = async ({ documentId }: { documentId: string }) => {
@@ -213,57 +202,15 @@ export class DocsService {
       .join('');
   }
 
-  public getComments = async ({ documentId }: { documentId: string }) => {
-    logToFile(`[DocsService] Starting getComments for document: ${documentId}`);
-    try {
-      const id = extractDocId(documentId) || documentId;
-      const drive = await this.getDriveClient();
-      const res = await drive.comments.list({
-        fileId: id,
-        fields:
-          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value), replies(id, content, author(displayName, emailAddress), createdTime, action))',
-      });
-
-      const comments = res.data.comments || [];
-      logToFile(
-        `[DocsService] Found ${comments.length} comments for document: ${id}`,
-      );
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(comments, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[DocsService] Error during docs.getComments: ${errorMessage}`);
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
-
   public create = async ({
     title,
-    folderName,
     content,
   }: {
     title: string;
-    folderName?: string;
     content?: string;
   }) => {
     logToFile(
-      `[DocsService] Starting create with title: ${title}, folderName: ${folderName}, content: ${content ? 'true' : 'false'}`,
+      `[DocsService] Starting create with title: ${title}, content: ${content ? 'true' : 'false'}`,
     );
     try {
       logToFile('[DocsService] Calling docs.documents.create');
@@ -292,12 +239,6 @@ export class DocsService {
           },
         });
         logToFile('[DocsService] Content insertion finished');
-      }
-
-      if (folderName) {
-        logToFile(`[DocsService] Moving doc to folder: ${folderName}`);
-        await this._moveFileToFolder(documentId, folderName);
-        logToFile(`[DocsService] Finished moving doc to folder: ${folderName}`);
       }
 
       return {
@@ -571,106 +512,6 @@ export class DocsService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logToFile(`[DocsService] Error during docs.formatText: ${errorMessage}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
-
-  public find = async ({
-    query,
-    pageToken,
-    pageSize = 10,
-  }: {
-    query: string;
-    pageToken?: string;
-    pageSize?: number;
-  }) => {
-    logToFile(`Searching for documents with query: ${query}`);
-    if (pageToken) {
-      logToFile(`Using pageToken: ${pageToken}`);
-    }
-    if (pageSize) {
-      logToFile(`Using pageSize: ${pageSize}`);
-    }
-    try {
-      const q = buildDriveSearchQuery(MIME_TYPES.DOCUMENT, query);
-      logToFile(`Executing Drive API query: ${q}`);
-
-      const drive = await this.getDriveClient();
-      const res = await drive.files.list({
-        pageSize: pageSize,
-        fields: 'nextPageToken, files(id, name)',
-        q: q,
-        pageToken: pageToken,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      });
-
-      const files = res.data.files || [];
-      const nextPageToken = res.data.nextPageToken;
-
-      logToFile(`Found ${files.length} files.`);
-      if (nextPageToken) {
-        logToFile(`Next page token: ${nextPageToken}`);
-      }
-      logToFile(`API Response: ${JSON.stringify(res.data, null, 2)}`);
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              files: files,
-              nextPageToken: nextPageToken,
-            }),
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`Error during docs.find: ${errorMessage}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
-
-  public move = async ({
-    documentId,
-    folderName,
-  }: {
-    documentId: string;
-    folderName: string;
-  }) => {
-    logToFile(`[DocsService] Starting move for document: ${documentId}`);
-    try {
-      const id = extractDocId(documentId) || documentId;
-      await this._moveFileToFolder(id, folderName);
-      logToFile(`[DocsService] Finished move for document: ${id}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Moved document ${id} to folder ${folderName}`,
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[DocsService] Error during docs.move: ${errorMessage}`);
       return {
         content: [
           {
@@ -980,60 +821,5 @@ export class DocsService {
       });
     }
     return text;
-  }
-
-  private async _moveFileToFolder(
-    documentId: string,
-    folderName: string,
-  ): Promise<void> {
-    try {
-      const findFolderResponse = await this.driveService.findFolder({
-        folderName,
-      });
-      const parsedResponse = JSON.parse(findFolderResponse.content[0].text);
-
-      if (parsedResponse.error) {
-        throw new Error(parsedResponse.error);
-      }
-
-      const folders = parsedResponse as { id: string; name: string }[];
-
-      if (folders.length === 0) {
-        throw new Error(`Folder not found: ${folderName}`);
-      }
-
-      if (folders.length > 1) {
-        logToFile(
-          `Warning: Found multiple folders with name "${folderName}". Using the first one found.`,
-        );
-      }
-
-      const folderId = folders[0].id;
-      const drive = await this.getDriveClient();
-      const file = await drive.files.get({
-        fileId: documentId,
-        fields: 'parents',
-        supportsAllDrives: true,
-      });
-
-      const previousParents = file.data.parents?.join(',');
-
-      await drive.files.update({
-        fileId: documentId,
-        addParents: folderId,
-        removeParents: previousParents,
-        fields: 'id, parents',
-        supportsAllDrives: true,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        logToFile(`Error during _moveFileToFolder: ${error.message}`);
-      } else {
-        logToFile(
-          `An unknown error occurred during _moveFileToFolder: ${JSON.stringify(error)}`,
-        );
-      }
-      throw error;
-    }
   }
 }

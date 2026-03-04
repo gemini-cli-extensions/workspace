@@ -78,9 +78,12 @@ Should I create this event?
 
 When creating documents in specific folders:
 
-1. Create the document first
-2. Then move it to the folder (if specified)
+1. Create the document with `docs.create` (blank)
+2. Move it to the target folder with `drive.moveFile`
 3. Confirm successful completion
+
+To find Google Docs, use `drive.search` with a document MIME type filter rather
+than searching by name alone.
 
 ## 📄 Docs, Sheets, and Slides
 

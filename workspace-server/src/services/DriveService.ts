@@ -416,6 +416,126 @@ export class DriveService {
     }
   };
 
+  public getComments = async ({ fileId }: { fileId: string }) => {
+    logToFile(`[DriveService] Starting getComments for file: ${fileId}`);
+    try {
+      const drive = await this.getDriveClient();
+      const res = await drive.comments.list({
+        fileId,
+        fields:
+          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value), replies(id, content, author(displayName, emailAddress), createdTime, action))',
+      });
+
+      const comments = res.data.comments || [];
+      logToFile(
+        `[DriveService] Found ${comments.length} comments for file: ${fileId}`,
+      );
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(comments, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[DriveService] Error during drive.getComments: ${errorMessage}`,
+      );
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public moveFile = async ({
+    fileId,
+    folderId,
+    folderName,
+  }: {
+    fileId: string;
+    folderId?: string;
+    folderName?: string;
+  }) => {
+    logToFile(
+      `Moving Drive file: ${fileId} to ${folderId ? `folder ID: ${folderId}` : `folder name: ${folderName}`}`,
+    );
+    try {
+      const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
+
+      let targetFolderId = folderId;
+
+      if (!targetFolderId && folderName) {
+        const findResult = await this.findFolder({ folderName });
+        const parsed = JSON.parse(findResult.content[0].text);
+
+        if (parsed.error) {
+          throw new Error(parsed.error);
+        }
+
+        const folders = parsed as { id: string; name: string }[];
+        if (folders.length === 0) {
+          throw new Error(`Folder not found: ${folderName}`);
+        }
+
+        if (folders.length > 1) {
+          logToFile(
+            `Warning: Found multiple folders with name "${folderName}". Using the first one found.`,
+          );
+        }
+
+        targetFolderId = folders[0].id;
+      }
+
+      if (!targetFolderId) {
+        throw new Error('Either folderId or folderName must be provided.');
+      }
+
+      const file = await drive.files.get({
+        fileId: id,
+        fields: 'parents',
+        supportsAllDrives: true,
+      });
+
+      const previousParents = file.data.parents?.join(',');
+
+      const updated = await drive.files.update({
+        fileId: id,
+        addParents: targetFolderId,
+        removeParents: previousParents,
+        fields: 'id, name, parents',
+        supportsAllDrives: true,
+      });
+
+      logToFile(`Successfully moved file ${id} to folder ${targetFolderId}`);
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              id: updated.data.id,
+              name: updated.data.name,
+              parents: updated.data.parents,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.moveFile', error);
+    }
+  };
+
   public downloadFile = async ({
     fileId,
     localPath,

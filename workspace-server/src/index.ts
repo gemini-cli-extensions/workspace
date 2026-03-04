@@ -120,7 +120,7 @@ async function main() {
   });
 
   const driveService = new DriveService(authManager);
-  const docsService = new DocsService(authManager, driveService);
+  const docsService = new DocsService(authManager);
   const peopleService = new PeopleService(authManager);
   const calendarService = new CalendarService(authManager);
   const chatService = new ChatService(authManager);
@@ -188,16 +188,17 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.getComments',
+    'drive.getComments',
     {
-      description: 'Retrieves comments from a Google Doc.',
+      description:
+        'Retrieves comments from a Google Drive file (Docs, Sheets, Slides, etc.).',
       inputSchema: {
-        documentId: z
+        fileId: z
           .string()
-          .describe('The ID of the document to retrieve comments from.'),
+          .describe('The ID of the file to retrieve comments from.'),
       },
     },
-    docsService.getComments,
+    driveService.getComments,
   );
 
   server.registerTool(
@@ -207,10 +208,6 @@ async function main() {
         'Creates a new Google Doc. Can be blank or with initial text content.',
       inputSchema: {
         title: z.string().describe('The title for the new Google Doc.'),
-        folderName: z
-          .string()
-          .optional()
-          .describe('The name of the folder to create the document in.'),
         content: z
           .string()
           .optional()
@@ -245,29 +242,6 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.find',
-    {
-      description:
-        'Finds Google Docs by searching for a query in their title. Supports pagination.',
-      inputSchema: {
-        query: z
-          .string()
-          .describe('The text to search for in the document titles.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    docsService.find,
-  );
-
-  server.registerTool(
     'drive.findFolder',
     {
       description: 'Finds a folder by name in Google Drive.',
@@ -296,18 +270,6 @@ async function main() {
       },
     },
     driveService.createFolder,
-  );
-
-  server.registerTool(
-    'docs.move',
-    {
-      description: 'Moves a document to a specified folder.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to move.'),
-        folderName: z.string().describe('The name of the destination folder.'),
-      },
-    },
-    docsService.move,
   );
 
   server.registerTool(
@@ -610,6 +572,30 @@ async function main() {
       },
     },
     driveService.downloadFile,
+  );
+
+  server.registerTool(
+    'drive.moveFile',
+    {
+      description:
+        'Moves a file or folder to a different folder in Google Drive.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to move.'),
+        folderId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the destination folder. Either folderId or folderName must be provided.',
+          ),
+        folderName: z
+          .string()
+          .optional()
+          .describe(
+            'The name of the destination folder. Either folderId or folderName must be provided.',
+          ),
+      },
+    },
+    driveService.moveFile,
   );
 
   server.registerTool(

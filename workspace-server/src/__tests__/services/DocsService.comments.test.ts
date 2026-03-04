@@ -13,7 +13,6 @@ import {
   afterEach,
 } from '@jest/globals';
 import { DocsService } from '../../services/DocsService';
-import { DriveService } from '../../services/DriveService';
 import { AuthManager } from '../../auth/AuthManager';
 import { google } from 'googleapis';
 
@@ -24,19 +23,13 @@ jest.mock('../../utils/logger');
 describe('DocsService Comments and Suggestions', () => {
   let docsService: DocsService;
   let mockAuthManager: jest.Mocked<AuthManager>;
-  let mockDriveService: jest.Mocked<DriveService>;
   let mockDocsAPI: any;
-  let mockDriveAPI: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     mockAuthManager = {
       getAuthenticatedClient: jest.fn(),
-    } as any;
-
-    mockDriveService = {
-      findFolder: jest.fn(),
     } as any;
 
     mockDocsAPI = {
@@ -47,22 +40,9 @@ describe('DocsService Comments and Suggestions', () => {
       },
     };
 
-    mockDriveAPI = {
-      files: {
-        create: jest.fn(),
-        list: jest.fn(),
-        get: jest.fn(),
-        update: jest.fn(),
-      },
-      comments: {
-        list: jest.fn(),
-      },
-    };
-
     (google.docs as jest.Mock) = jest.fn().mockReturnValue(mockDocsAPI);
-    (google.drive as jest.Mock) = jest.fn().mockReturnValue(mockDriveAPI);
 
-    docsService = new DocsService(mockAuthManager, mockDriveService);
+    docsService = new DocsService(mockAuthManager);
 
     const mockAuthClient = { access_token: 'test-token' };
     mockAuthManager.getAuthenticatedClient.mockResolvedValue(
@@ -414,166 +394,6 @@ describe('DocsService Comments and Suggestions', () => {
       const suggestions = JSON.parse(result.content[0].text);
       expect(suggestions).toHaveLength(1);
       expect(suggestions[0].text).toBe('');
-    });
-  });
-
-  describe('getComments', () => {
-    it('should return comments as type text with JSON-stringified array', async () => {
-      const mockComments = [
-        {
-          id: 'comment1',
-          content: 'This is a comment.',
-          author: {
-            displayName: 'Test User',
-            emailAddress: 'test@example.com',
-          },
-          createdTime: '2025-01-01T00:00:00Z',
-          resolved: false,
-          quotedFileContent: { value: 'quoted text' },
-          replies: [],
-        },
-      ];
-      mockDriveAPI.comments.list.mockResolvedValue({
-        data: { comments: mockComments },
-      });
-
-      const result = await docsService.getComments({
-        documentId: 'test-doc-id',
-      });
-
-      expect(result.content[0].type).toBe('text');
-      const comments = JSON.parse(result.content[0].text);
-      expect(comments).toEqual(mockComments);
-    });
-
-    it('should include replies in comment threads', async () => {
-      const mockComments = [
-        {
-          id: 'comment1',
-          content: 'Top-level comment.',
-          author: { displayName: 'Alice', emailAddress: 'alice@example.com' },
-          createdTime: '2025-01-01T00:00:00Z',
-          resolved: false,
-          quotedFileContent: { value: 'some text' },
-          replies: [
-            {
-              id: 'reply1',
-              content: 'Reply to comment.',
-              author: {
-                displayName: 'Bob',
-                emailAddress: 'bob@example.com',
-              },
-              createdTime: '2025-01-02T00:00:00Z',
-            },
-          ],
-        },
-      ];
-      mockDriveAPI.comments.list.mockResolvedValue({
-        data: { comments: mockComments },
-      });
-
-      const result = await docsService.getComments({
-        documentId: 'test-doc-id',
-      });
-
-      expect(result.content[0].type).toBe('text');
-      const comments = JSON.parse(result.content[0].text);
-      expect(comments).toHaveLength(1);
-      expect(comments[0].replies).toHaveLength(1);
-      expect(comments[0].replies[0].id).toBe('reply1');
-      expect(comments[0].replies[0].content).toBe('Reply to comment.');
-    });
-
-    it('should request replies fields in the Drive API call', async () => {
-      mockDriveAPI.comments.list.mockResolvedValue({ data: { comments: [] } });
-
-      await docsService.getComments({ documentId: 'test-doc-id' });
-
-      expect(mockDriveAPI.comments.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fields: expect.stringContaining('replies('),
-        }),
-      );
-    });
-
-    it('should handle empty comments list', async () => {
-      mockDriveAPI.comments.list.mockResolvedValue({
-        data: { comments: [] },
-      });
-
-      const result = await docsService.getComments({
-        documentId: 'test-doc-id',
-      });
-
-      const comments = JSON.parse(result.content[0].text);
-      expect(comments).toEqual([]);
-    });
-
-    it('should handle API errors gracefully', async () => {
-      mockDriveAPI.comments.list.mockRejectedValue(
-        new Error('Comments API failed'),
-      );
-
-      const result = await docsService.getComments({
-        documentId: 'test-doc-id',
-      });
-
-      expect(result.isError).toBe(true);
-      expect(result.content[0].type).toBe('text');
-      const parsed = JSON.parse(result.content[0].text);
-      expect(parsed).toEqual({ error: 'Comments API failed' });
-    });
-
-    it('should return resolved comments with reply actions', async () => {
-      const mockComments = [
-        {
-          id: 'comment1',
-          content: 'Please fix this typo.',
-          author: {
-            displayName: 'Alice',
-            emailAddress: 'alice@example.com',
-          },
-          createdTime: '2025-01-01T00:00:00Z',
-          resolved: true,
-          quotedFileContent: { value: 'teh' },
-          replies: [
-            {
-              id: 'reply1',
-              content: 'Fixed!',
-              author: {
-                displayName: 'Bob',
-                emailAddress: 'bob@example.com',
-              },
-              createdTime: '2025-01-02T00:00:00Z',
-              action: 'resolve',
-            },
-          ],
-        },
-      ];
-      mockDriveAPI.comments.list.mockResolvedValue({
-        data: { comments: mockComments },
-      });
-
-      const result = await docsService.getComments({
-        documentId: 'test-doc-id',
-      });
-
-      const comments = JSON.parse(result.content[0].text);
-      expect(comments).toHaveLength(1);
-      expect(comments[0].resolved).toBe(true);
-      expect(comments[0].replies[0].action).toBe('resolve');
-    });
-
-    it('should request action field in replies', async () => {
-      mockDriveAPI.comments.list.mockResolvedValue({ data: { comments: [] } });
-
-      await docsService.getComments({ documentId: 'test-doc-id' });
-
-      expect(mockDriveAPI.comments.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fields: expect.stringContaining('action'),
-        }),
-      );
     });
   });
 });

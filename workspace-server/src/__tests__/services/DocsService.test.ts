@@ -13,7 +13,6 @@ import {
   afterEach,
 } from '@jest/globals';
 import { DocsService } from '../../services/DocsService';
-import { DriveService } from '../../services/DriveService';
 import { AuthManager } from '../../auth/AuthManager';
 import { google } from 'googleapis';
 
@@ -24,9 +23,7 @@ jest.mock('../../utils/logger');
 describe('DocsService', () => {
   let docsService: DocsService;
   let mockAuthManager: jest.Mocked<AuthManager>;
-  let mockDriveService: jest.Mocked<DriveService>;
   let mockDocsAPI: any;
-  let mockDriveAPI: any;
 
   beforeEach(() => {
     // Clear all mocks before each test
@@ -35,11 +32,6 @@ describe('DocsService', () => {
     // Create mock AuthManager
     mockAuthManager = {
       getAuthenticatedClient: jest.fn(),
-    } as any;
-
-    // Create mock DriveService
-    mockDriveService = {
-      findFolder: jest.fn(),
     } as any;
 
     // Create mock Docs API
@@ -51,21 +43,11 @@ describe('DocsService', () => {
       },
     };
 
-    mockDriveAPI = {
-      files: {
-        create: jest.fn(),
-        list: jest.fn(),
-        get: jest.fn(),
-        update: jest.fn(),
-      },
-    };
-
     // Mock the google constructors
     (google.docs as jest.Mock) = jest.fn().mockReturnValue(mockDocsAPI);
-    (google.drive as jest.Mock) = jest.fn().mockReturnValue(mockDriveAPI);
 
     // Create DocsService instance
-    docsService = new DocsService(mockAuthManager, mockDriveService);
+    docsService = new DocsService(mockAuthManager);
 
     const mockAuthClient = { access_token: 'test-token' };
     mockAuthManager.getAuthenticatedClient.mockResolvedValue(
@@ -132,43 +114,6 @@ describe('DocsService', () => {
       expect(JSON.parse(result.content[0].text)).toEqual({
         documentId: 'test-doc-id',
         title: 'Test Title',
-      });
-    });
-
-    it('should move the document to a folder if folderName is provided', async () => {
-      const mockDoc = {
-        data: {
-          documentId: 'test-doc-id',
-          title: 'Test Title',
-        },
-      };
-      mockDocsAPI.documents.create.mockResolvedValue(mockDoc);
-      mockDriveService.findFolder.mockResolvedValue({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify([
-              { id: 'test-folder-id', name: 'Test Folder' },
-            ]),
-          },
-        ],
-      });
-      mockDriveAPI.files.get.mockResolvedValue({ data: { parents: ['root'] } });
-
-      await docsService.create({
-        title: 'Test Title',
-        folderName: 'Test Folder',
-      });
-
-      expect(mockDriveService.findFolder).toHaveBeenCalledWith({
-        folderName: 'Test Folder',
-      });
-      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
-        fileId: 'test-doc-id',
-        addParents: 'test-folder-id',
-        removeParents: 'root',
-        fields: 'id, parents',
-        supportsAllDrives: true,
       });
     });
 
@@ -485,122 +430,6 @@ describe('DocsService', () => {
 
       expect(JSON.parse(result.content[0].text)).toEqual({
         error: 'Permission denied',
-      });
-    });
-  });
-
-  describe('find', () => {
-    it('should find documents with a given query', async () => {
-      const mockResponse = {
-        data: {
-          files: [{ id: 'test-doc-id', name: 'Test Document' }],
-          nextPageToken: 'next-page-token',
-        },
-      };
-      mockDriveAPI.files.list.mockResolvedValue(mockResponse);
-
-      const result = await docsService.find({ query: 'Test' });
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          q: expect.stringContaining("fullText contains 'Test'"),
-          supportsAllDrives: true,
-          includeItemsFromAllDrives: true,
-        }),
-      );
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        files: [{ id: 'test-doc-id', name: 'Test Document' }],
-        nextPageToken: 'next-page-token',
-      });
-    });
-
-    it('should search by title when query starts with title:', async () => {
-      const mockResponse = {
-        data: {
-          files: [{ id: 'test-doc-id', name: 'Test Document' }],
-        },
-      };
-      mockDriveAPI.files.list.mockResolvedValue(mockResponse);
-
-      const result = await docsService.find({ query: 'title:Test Document' });
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          q: expect.stringContaining("name contains 'Test Document'"),
-        }),
-      );
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          q: expect.not.stringContaining('fullText contains'),
-        }),
-      );
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        files: [{ id: 'test-doc-id', name: 'Test Document' }],
-      });
-    });
-
-    it('should handle errors during find', async () => {
-      const apiError = new Error('API Error');
-      mockDriveAPI.files.list.mockRejectedValue(apiError);
-
-      const result = await docsService.find({ query: 'Test' });
-
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        error: 'API Error',
-      });
-    });
-  });
-
-  describe('move', () => {
-    it('should move a document to a folder', async () => {
-      mockDriveService.findFolder.mockResolvedValue({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify([
-              { id: 'test-folder-id', name: 'Test Folder' },
-            ]),
-          },
-        ],
-      });
-      mockDriveAPI.files.get.mockResolvedValue({ data: { parents: ['root'] } });
-
-      const result = await docsService.move({
-        documentId: 'test-doc-id',
-        folderName: 'Test Folder',
-      });
-
-      expect(mockDriveService.findFolder).toHaveBeenCalledWith({
-        folderName: 'Test Folder',
-      });
-      expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
-        expect.objectContaining({
-          supportsAllDrives: true,
-        }),
-      );
-      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
-        fileId: 'test-doc-id',
-        addParents: 'test-folder-id',
-        removeParents: 'root',
-        fields: 'id, parents',
-        supportsAllDrives: true,
-      });
-      expect(result.content[0].text).toBe(
-        'Moved document test-doc-id to folder Test Folder',
-      );
-    });
-
-    it('should handle errors during move', async () => {
-      const apiError = new Error('API Error');
-      mockDriveService.findFolder.mockRejectedValue(apiError);
-
-      const result = await docsService.move({
-        documentId: 'test-doc-id',
-        folderName: 'Test Folder',
-      });
-
-      expect(JSON.parse(result.content[0].text)).toEqual({
-        error: 'API Error',
       });
     });
   });
