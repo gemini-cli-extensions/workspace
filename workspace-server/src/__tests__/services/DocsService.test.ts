@@ -869,7 +869,6 @@ describe('DocsService', () => {
       },
     );
 
-
     it('should include text from nested child tabs', async () => {
       const mockDoc = {
         data: {
