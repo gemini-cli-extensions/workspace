@@ -7,23 +7,31 @@ CLI.
 
 The extension provides the following tools:
 
+### Authentication
+
+- `auth.clear`: Clears the authentication credentials, forcing a re-login on the next request.
+- `auth.refreshToken`: Manually triggers the token refresh process.
+
 ### Google Docs
 
 - `docs.create`: Creates a new Google Doc.
-- `docs.insertText`: Inserts text at the beginning of a Google Doc.
+- `docs.getSuggestions`: Retrieves suggested edits from a Google Doc.
+- `docs.getComments`: Retrieves comments from a Google Doc.
+- `docs.writeText`: Writes text to a Google Doc at a specified position.
 - `docs.find`: Finds Google Docs by searching for a query in their title.
 - `docs.move`: Moves a document to a specified folder.
 - `docs.getText`: Retrieves the text content of a Google Doc.
-- `docs.appendText`: Appends text to the end of a Google Doc.
 - `docs.replaceText`: Replaces all occurrences of a given text with new text in
   a Google Doc.
-- `docs.extractIdFromUrl`: Extracts the document ID from a Google Workspace URL.
+- `docs.formatText`: Applies formatting (bold, italic, headings, etc.) to text ranges in a Google Doc.
 
 ### Google Slides
 
 - `slides.getText`: Retrieves the text content of a Google Slides presentation.
 - `slides.find`: Finds Google Slides presentations by searching for a query.
 - `slides.getMetadata`: Gets metadata about a Google Slides presentation.
+- `slides.getImages`: Downloads all images embedded in a Google Slides presentation to a local directory.
+- `slides.getSlideThumbnail`: Downloads a thumbnail image for a specific slide in a Google Slides presentation.
 
 ### Google Sheets
 
@@ -72,10 +80,13 @@ The extension provides the following tools:
 - `gmail.downloadAttachment`: Downloads an attachment from a Gmail message to a
   local file.
 - `gmail.modify`: Modify a Gmail message.
+- `gmail.batchModify`: Bulk modify up to 1,000 Gmail messages at once.
+- `gmail.modifyThread`: Modify labels on all messages in a Gmail thread.
 - `gmail.send`: Send an email message.
 - `gmail.createDraft`: Create a draft email message.
 - `gmail.sendDraft`: Send a previously created draft email.
 - `gmail.listLabels`: List all Gmail labels in the user's mailbox.
+- `gmail.createLabel`: Create a new Gmail label.
 
 ### Time
 
@@ -92,12 +103,6 @@ The extension provides the following tools:
 - `people.getUserRelations`: Gets a user's relations (e.g., manager, spouse,
   assistant). Defaults to the authenticated user and supports filtering by
   relation type.
-
-### Authentication
-
-- `auth.clear`: Clears authentication credentials, forcing a re-login on the
-  next request.
-- `auth.refreshToken`: Manually triggers the token refresh process.
 
 ## Custom Commands
 
