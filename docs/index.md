@@ -31,7 +31,7 @@ The extension provides the following tools:
 - `slides.find`: Finds Google Slides presentations by searching for a query.
 - `slides.getMetadata`: Gets metadata about a Google Slides presentation.
 - `slides.getImages`: Downloads all images embedded in a Google Slides presentation to a local directory.
-- `slides.getSlideThumbnail`: Downloads a thumbnail image for a specific slide in a Google Slides presentation.
+- `slides.getSlideThumbnail`: Downloads a thumbnail image for a specific slide in a Google Slides presentation to a local path.
 
 ### Google Sheets
 
