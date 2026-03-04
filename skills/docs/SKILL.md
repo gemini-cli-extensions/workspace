@@ -223,6 +223,38 @@ Use `docs.find` to search by title. Supports pagination with `pageToken`.
 Use `docs.move` to move a document to a named folder. If multiple folders share
 the same name, the first match is used.
 
+## Comments & Suggestions
+
+### Reading Comments
+
+Use `docs.getComments` to retrieve all comments on a document:
+
+- Returns comment threads with author, content, timestamp, and resolution status
+- Includes **threaded replies** with author, content, timestamp, and action
+  (e.g., `resolve`, `reopen`)
+- Includes **quoted file content** showing what text the comment is anchored to
+
+```
+docs.getComments({ documentId: "doc-id" })
+```
+
+### Reading Suggestions
+
+Use `docs.getSuggestions` to retrieve suggested edits from a document:
+
+- **Insertions** — text proposed for addition (`suggestedInsertionIds`)
+- **Deletions** — text proposed for removal (`suggestedDeletionIds`)
+- **Style changes** — text formatting changes (bold, italic, etc.)
+- **Paragraph style changes** — heading level changes (e.g., NORMAL_TEXT →
+  HEADING_2)
+
+Each suggestion includes the affected text, suggestion IDs, and start/end
+indices.
+
+```
+docs.getSuggestions({ documentId: "doc-id" })
+```
+
 ## ID Handling
 
 - All tools accept Google Drive URLs directly — no manual ID extraction needed

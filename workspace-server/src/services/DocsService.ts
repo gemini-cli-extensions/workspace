@@ -145,9 +145,10 @@ export class DocsService {
                 type: 'paragraphStyleChange',
                 text: this._getParagraphText(element.paragraph),
                 suggestionIds: [suggestionId],
-                namedStyleType: suggestion?.paragraphStyle?.namedStyleType,
-                startIndex: element.startIndex,
-                endIndex: element.endIndex,
+                namedStyleType:
+                  suggestion?.paragraphStyle?.namedStyleType ?? undefined,
+                startIndex: element.startIndex ?? undefined,
+                endIndex: element.endIndex ?? undefined,
               });
             }
           }
@@ -157,8 +158,8 @@ export class DocsService {
             if (pElement.textRun) {
               const baseSuggestion = {
                 text: pElement.textRun.content || '',
-                startIndex: pElement.startIndex,
-                endIndex: pElement.endIndex,
+                startIndex: pElement.startIndex ?? undefined,
+                endIndex: pElement.endIndex ?? undefined,
               };
 
               if (pElement.textRun.suggestedInsertionIds) {
@@ -220,7 +221,7 @@ export class DocsService {
       const res = await drive.comments.list({
         fileId: id,
         fields:
-          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value), replies(id, content, author(displayName, emailAddress), createdTime))',
+          'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value), replies(id, content, author(displayName, emailAddress), createdTime, action))',
       });
 
       const comments = res.data.comments || [];

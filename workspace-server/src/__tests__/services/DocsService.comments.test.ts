@@ -20,11 +20,6 @@ import { google } from 'googleapis';
 // Mock the googleapis module
 jest.mock('googleapis');
 jest.mock('../../utils/logger');
-jest.mock('dompurify', () => {
-  return jest.fn().mockImplementation(() => ({
-    sanitize: jest.fn((content) => content),
-  }));
-});
 
 describe('DocsService Comments and Suggestions', () => {
   let docsService: DocsService;
@@ -527,6 +522,58 @@ describe('DocsService Comments and Suggestions', () => {
       expect(result.content[0].type).toBe('text');
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed).toEqual({ error: 'Comments API failed' });
+    });
+
+    it('should return resolved comments with reply actions', async () => {
+      const mockComments = [
+        {
+          id: 'comment1',
+          content: 'Please fix this typo.',
+          author: {
+            displayName: 'Alice',
+            emailAddress: 'alice@example.com',
+          },
+          createdTime: '2025-01-01T00:00:00Z',
+          resolved: true,
+          quotedFileContent: { value: 'teh' },
+          replies: [
+            {
+              id: 'reply1',
+              content: 'Fixed!',
+              author: {
+                displayName: 'Bob',
+                emailAddress: 'bob@example.com',
+              },
+              createdTime: '2025-01-02T00:00:00Z',
+              action: 'resolve',
+            },
+          ],
+        },
+      ];
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: mockComments },
+      });
+
+      const result = await docsService.getComments({
+        documentId: 'test-doc-id',
+      });
+
+      const comments = JSON.parse(result.content[0].text);
+      expect(comments).toHaveLength(1);
+      expect(comments[0].resolved).toBe(true);
+      expect(comments[0].replies[0].action).toBe('resolve');
+    });
+
+    it('should request action field in replies', async () => {
+      mockDriveAPI.comments.list.mockResolvedValue({ data: { comments: [] } });
+
+      await docsService.getComments({ documentId: 'test-doc-id' });
+
+      expect(mockDriveAPI.comments.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: expect.stringContaining('action'),
+        }),
+      );
     });
   });
 });
