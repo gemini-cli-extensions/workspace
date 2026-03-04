@@ -580,6 +580,34 @@ async function main() {
   );
 
   server.registerTool(
+    'drive.trashFile',
+    {
+      description:
+        'Moves a file or folder to the trash in Google Drive. This is a safe, reversible operation.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to trash.'),
+      },
+    },
+    driveService.trashFile,
+  );
+
+  server.registerTool(
+    'drive.renameFile',
+    {
+      description: 'Renames a file or folder in Google Drive.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to rename.'),
+        newName: z
+          .string()
+          .trim()
+          .min(1)
+          .describe('The new name for the file.'),
+      },
+    },
+    driveService.renameFile,
+  );
+
+  server.registerTool(
     'calendar.list',
     {
       description: "Lists all of the user's calendars.",

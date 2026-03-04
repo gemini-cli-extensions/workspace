@@ -961,6 +961,123 @@ describe('DriveService', () => {
     });
   });
 
+  describe('trashFile', () => {
+    it('should trash a file by ID', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'file-id-123', name: 'My File.pdf' },
+      });
+
+      const result = await driveService.trashFile({ fileId: 'file-id-123' });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'file-id-123',
+        requestBody: { trashed: true },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'file-id-123',
+        name: 'My File.pdf',
+        trashed: true,
+      });
+    });
+
+    it('should extract ID from a Drive URL', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'file-url-id', name: 'URL File.pdf' },
+      });
+
+      const result = await driveService.trashFile({
+        fileId: 'https://drive.google.com/file/d/file-url-id/view',
+      });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'file-url-id',
+        requestBody: { trashed: true },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'file-url-id',
+        name: 'URL File.pdf',
+        trashed: true,
+      });
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDriveAPI.files.update.mockRejectedValue(
+        new Error('Permission denied'),
+      );
+
+      const result = await driveService.trashFile({ fileId: 'file-id-123' });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Permission denied',
+      });
+    });
+  });
+
+  describe('renameFile', () => {
+    it('should rename a file by ID', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'file-id-123', name: 'New Name' },
+      });
+
+      const result = await driveService.renameFile({
+        fileId: 'file-id-123',
+        newName: 'New Name',
+      });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'file-id-123',
+        requestBody: { name: 'New Name' },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'file-id-123',
+        name: 'New Name',
+      });
+    });
+
+    it('should extract ID from a Drive URL', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'doc-url-id', name: 'Renamed Doc' },
+      });
+
+      const result = await driveService.renameFile({
+        fileId: 'https://docs.google.com/document/d/doc-url-id/edit',
+        newName: 'Renamed Doc',
+      });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'doc-url-id',
+        requestBody: { name: 'Renamed Doc' },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'doc-url-id',
+        name: 'Renamed Doc',
+      });
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDriveAPI.files.update.mockRejectedValue(new Error('File not found'));
+
+      const result = await driveService.renameFile({
+        fileId: 'file-id-123',
+        newName: 'New Name',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'File not found',
+      });
+    });
+  });
+
   describe('Shared Drive Support', () => {
     it('findFolder should include shared drive flags', async () => {
       mockDriveAPI.files.list.mockResolvedValue({ data: { files: [] } });

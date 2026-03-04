@@ -35,6 +35,19 @@ export class DriveService {
     return google.drive({ version: 'v3', ...options });
   }
 
+  private handleError(context: string, error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logToFile(`Error during ${context}: ${errorMessage}`);
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ error: errorMessage }),
+        },
+      ],
+    };
+  }
+
   public findFolder = async ({ folderName }: { folderName: string }) => {
     logToFile(`Searching for folder with name: ${folderName}`);
     try {
@@ -62,17 +75,7 @@ export class DriveService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`Error during drive.findFolder: ${errorMessage}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('drive.findFolder', error);
     }
   };
 
@@ -343,6 +346,73 @@ export class DriveService {
           },
         ],
       };
+    }
+  };
+
+  public trashFile = async ({ fileId }: { fileId: string }) => {
+    logToFile(`Trashing Drive file: ${fileId}`);
+    try {
+      const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
+
+      const file = await drive.files.update({
+        fileId: id,
+        requestBody: { trashed: true },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      logToFile(`Successfully trashed file: ${id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              id: file.data.id,
+              name: file.data.name,
+              trashed: true,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.trashFile', error);
+    }
+  };
+
+  public renameFile = async ({
+    fileId,
+    newName,
+  }: {
+    fileId: string;
+    newName: string;
+  }) => {
+    logToFile(`Renaming Drive file: ${fileId} to "${newName}"`);
+    try {
+      const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
+
+      const file = await drive.files.update({
+        fileId: id,
+        requestBody: { name: newName },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      logToFile(`Successfully renamed file: ${id} to "${file.data.name}"`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              id: file.data.id,
+              name: file.data.name,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.renameFile', error);
     }
   };
 
