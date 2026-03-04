@@ -82,55 +82,6 @@ When creating documents in specific folders:
 2. Then move it to the folder (if specified)
 3. Confirm successful completion
 
-### Calendar Scheduling Workflow
-
-1. Get user's timezone with `time.getTimeZone()`
-2. Check availability with `calendar.listEvents()`
-3. Create event with proper timezone handling
-4. Always show times in user's local timezone
-
-### Event Deletion
-
-When using `calendar.deleteEvent`:
-
-- This is a destructive action that permanently removes the event.
-- For organizers, this cancels the event for all attendees.
-- For attendees, this only removes it from their own calendar.
-- Always confirm with the user before executing a deletion.
-
-## 📅 Calendar Best Practices
-
-### Understanding "Next Meeting"
-
-When asked about "next meeting" or "today's schedule":
-
-1. **Fetch the full day's context** - Use start of day (00:00:00) to end of day
-   (23:59:59)
-2. **Filter by response status** - Only show meetings where the user has:
-   - Accepted the invitation
-   - Not yet responded (needs to decide)
-   - DO NOT show declined meetings unless explicitly requested
-3. **Compare with current time** - Identify meetings relative to now
-4. **Handle edge cases**:
-   - If a meeting is in progress, mention it first
-   - "Next" means the first meeting after current time
-   - Keep full day context for follow-up questions
-
-### Meeting Response Filtering
-
-- **Default behavior**: Show only accepted and pending meetings
-- **Declined meetings**: Exclude unless user asks "show me all meetings" or
-  "including declined"
-- **Use `attendeeResponseStatus`** parameter to filter appropriately
-- This respects the user's time by not cluttering their schedule with irrelevant
-  meetings
-
-### Timezone Management
-
-- Always display times in the user's timezone
-- Convert all times appropriately before display
-- Include timezone abbreviation (EST, PST, etc.) for clarity
-
 ## 📄 Docs, Sheets, and Slides
 
 ### Format Selection (Sheets)
@@ -238,9 +189,8 @@ Choose output format based on use case:
 
 ### Google Calendar
 
-- Event creation requires both start and end times
-- Support for attendee management
-- Response status filtering available
+- See the **Calendar skill** for detailed guidance on timezone handling, meeting
+  queries, event management, responding to invitations, and scheduling.
 
 ### Gmail
 
