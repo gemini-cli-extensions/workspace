@@ -9,7 +9,8 @@ The extension provides the following tools:
 
 ### Authentication
 
-- `auth.clear`: Clears the authentication credentials, forcing a re-login on the next request.
+- `auth.clear`: Clears the authentication credentials, forcing a re-login on the
+  next request.
 - `auth.refreshToken`: Manually triggers the token refresh process.
 
 ### Google Docs
@@ -23,15 +24,18 @@ The extension provides the following tools:
 - `docs.getText`: Retrieves the text content of a Google Doc.
 - `docs.replaceText`: Replaces all occurrences of a given text with new text in
   a Google Doc.
-- `docs.formatText`: Applies formatting (bold, italic, headings, etc.) to text ranges in a Google Doc.
+- `docs.formatText`: Applies formatting (bold, italic, headings, etc.) to text
+  ranges in a Google Doc.
 
 ### Google Slides
 
 - `slides.getText`: Retrieves the text content of a Google Slides presentation.
 - `slides.find`: Finds Google Slides presentations by searching for a query.
 - `slides.getMetadata`: Gets metadata about a Google Slides presentation.
-- `slides.getImages`: Downloads all images embedded in a Google Slides presentation to a local directory.
-- `slides.getSlideThumbnail`: Downloads a thumbnail image for a specific slide in a Google Slides presentation to a local path.
+- `slides.getImages`: Downloads all images embedded in a Google Slides
+  presentation to a local directory.
+- `slides.getSlideThumbnail`: Downloads a thumbnail image for a specific slide
+  in a Google Slides presentation to a local path.
 
 ### Google Sheets
 
