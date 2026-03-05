@@ -815,6 +815,17 @@ describe('DocsService', () => {
         expected: '[jane@example.com](mailto:jane@example.com)',
       },
       {
+        name: 'person without email falls back to name only',
+        element: {
+          person: {
+            personProperties: {
+              name: 'John Doe',
+            },
+          },
+        },
+        expected: 'John Doe',
+      },
+      {
         name: 'rich link without title falls back to uri',
         element: {
           richLink: {
@@ -825,6 +836,17 @@ describe('DocsService', () => {
         },
         expected:
           '[https://docs.google.com/spreadsheets/d/xyz](https://docs.google.com/spreadsheets/d/xyz)',
+      },
+      {
+        name: 'rich link without uri falls back to title only',
+        element: {
+          richLink: {
+            richLinkProperties: {
+              title: 'Some Document',
+            },
+          },
+        },
+        expected: 'Some Document',
       },
       {
         name: 'date without displayText falls back to timestamp',
