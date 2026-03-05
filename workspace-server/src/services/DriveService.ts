@@ -440,20 +440,7 @@ export class DriveService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[DriveService] Error during drive.getComments: ${errorMessage}`,
-      );
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('drive.getComments', error);
     }
   };
 
