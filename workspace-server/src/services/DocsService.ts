@@ -817,23 +817,15 @@ export class DocsService {
         if (pElement.textRun && pElement.textRun.content) {
           text += pElement.textRun.content;
         } else if (pElement.person?.personProperties) {
-          const { name, email } = pElement.person.personProperties;
-          if (email) {
-            text += `[${name || email}](mailto:${email})`;
-          } else if (name) {
-            text += name;
-          }
+          text += this._renderPersonChip(pElement.person.personProperties);
         } else if (pElement.richLink?.richLinkProperties) {
-          const { title, uri } = pElement.richLink.richLinkProperties;
-          if (uri) {
-            text += `[${title || uri}](${uri})`;
-          } else if (title) {
-            text += title;
-          }
+          text += this._renderRichLinkChip(
+            pElement.richLink.richLinkProperties,
+          );
         } else if (pElement.dateElement?.dateElementProperties) {
-          const { displayText, timestamp } =
-            pElement.dateElement.dateElementProperties;
-          text += displayText || timestamp || '';
+          text += this._renderDateChip(
+            pElement.dateElement.dateElementProperties,
+          );
         }
       });
     } else if (element.table) {
@@ -846,6 +838,29 @@ export class DocsService {
       });
     }
     return text;
+  }
+
+  private _renderPersonChip(props: docs_v1.Schema$PersonProperties): string {
+    const { name, email } = props;
+    if (email) {
+      return `[${name || email}](mailto:${email})`;
+    }
+    return name || '';
+  }
+
+  private _renderRichLinkChip(
+    props: docs_v1.Schema$RichLinkProperties,
+  ): string {
+    const { title, uri } = props;
+    if (uri) {
+      return `[${title || uri}](${uri})`;
+    }
+    return title || '';
+  }
+
+  private _renderDateChip(props: docs_v1.Schema$DateElementProperties): string {
+    const { displayText, timestamp } = props;
+    return displayText || timestamp || '';
   }
 
   public replaceText = async ({
