@@ -1379,7 +1379,7 @@ describe('DriveService', () => {
         fileId: 'test-doc-id',
       });
 
-      expect(result.isError).toBe(true);
+      expect('isError' in result && result.isError).toBe(true);
       expect(result.content[0].type).toBe('text');
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed).toEqual({ error: 'Comments API failed' });

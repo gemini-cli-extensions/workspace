@@ -35,10 +35,17 @@ export class DriveService {
     return google.drive({ version: 'v3', ...options });
   }
 
-  private handleError(context: string, error: unknown) {
+  private handleError(
+    context: string,
+    error: unknown,
+  ): {
+    isError: true;
+    content: { type: 'text'; text: string }[];
+  } {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logToFile(`Error during ${context}: ${errorMessage}`);
     return {
+      isError: true,
       content: [
         {
           type: 'text' as const,
@@ -52,7 +59,7 @@ export class DriveService {
     logToFile(`Searching for folder with name: ${folderName}`);
     try {
       const drive = await this.getDriveClient();
-      const query = `mimeType='application/vnd.google-apps.folder' and name = '${folderName}'`;
+      const query = `mimeType='application/vnd.google-apps.folder' and name = '${escapeQueryString(folderName)}'`;
       logToFile(`Executing Drive API query: ${query}`);
       const res = await drive.files.list({
         q: query,
@@ -420,8 +427,9 @@ export class DriveService {
     logToFile(`[DriveService] Starting getComments for file: ${fileId}`);
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
       const res = await drive.comments.list({
-        fileId,
+        fileId: id,
         fields:
           'comments(id, content, author(displayName, emailAddress), createdTime, resolved, quotedFileContent(value), replies(id, content, author(displayName, emailAddress), createdTime, action))',
       });
@@ -463,7 +471,7 @@ export class DriveService {
       let targetFolderId = folderId;
 
       if (!targetFolderId && folderName) {
-        const findResult = await this.findFolder({ folderName: escapeQueryString(folderName) });
+        const findResult = await this.findFolder({ folderName });
         const parsed = JSON.parse(findResult.content[0].text);
 
         if (parsed.error) {
