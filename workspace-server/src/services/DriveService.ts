@@ -476,7 +476,7 @@ export class DriveService {
       let targetFolderId = folderId;
 
       if (!targetFolderId && folderName) {
-        const findResult = await this.findFolder({ folderName });
+        const findResult = await this.findFolder({ folderName: escapeQueryString(folderName) });
         const parsed = JSON.parse(findResult.content[0].text);
 
         if (parsed.error) {
