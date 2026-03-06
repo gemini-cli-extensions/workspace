@@ -5,9 +5,7 @@
   "mcpServers": {
     "google-workspace": {
       "command": "node",
-      "args": [
-        "scripts${/}start.js"
-      ],
+      "args": ["scripts${/}start.js"],
       "cwd": "${extensionPath}"
     }
   }

@@ -20,7 +20,8 @@
   once.
 - **Gmail**: Added `modifyThread` tool for modifying all messages in a Gmail
   thread.
-- **Gmail**: Added `threadId` support in `createDraft` for creating reply drafts.
+- **Gmail**: Added `threadId` support in `createDraft` for creating reply
+  drafts.
 - **Authentication**: Added headless OAuth login for SSH, WSL, and Cloud Shell
   environments.
 
