@@ -224,6 +224,9 @@ drive.search({
 })
 ```
 
+For full-text search across document content, use `fullText contains` instead
+of `name contains`.
+
 ### Moving Documents
 
 Use `drive.moveFile` to move a document to a different folder. You can specify
