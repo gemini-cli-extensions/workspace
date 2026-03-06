@@ -51,6 +51,8 @@ The extension provides the following tools:
 - `drive.findFolder`: Finds a folder by name in Google Drive.
 - `drive.createFolder`: Creates a new folder in Google Drive.
 - `drive.downloadFile`: Downloads a file from Google Drive to a local path.
+- `drive.trashFile`: Moves a file or folder to the trash in Google Drive.
+- `drive.renameFile`: Renames a file or folder in Google Drive.
 
 ### Google Calendar
 
