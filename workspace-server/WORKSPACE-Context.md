@@ -89,21 +89,6 @@ filter rather than searching by name alone. Example MIME type queries:
 - Sheets: `mimeType='application/vnd.google-apps.spreadsheet' and name contains 'query'`
 - Slides: `mimeType='application/vnd.google-apps.presentation' and name contains 'query'`
 
-## 📄 Docs, Sheets, and Slides
-
-### Format Selection (Sheets)
-
-Choose output format based on use case:
-
-- **text**: Human-readable, good for quick review
-- **csv**: Data export, analysis in other tools
-- **json**: Programmatic processing, structured data
-
-### Content Handling
-
-- Docs/Sheets/Slides tools accept URLs directly - no ID extraction needed
-- Use markdown for initial document creation when appropriate
-- Preserve formatting when reading/modifying content
 
 ## 🚫 Common Pitfalls to Avoid
 
@@ -190,9 +175,13 @@ Choose output format based on use case:
 
 ### Google Sheets
 
-- Multiple output formats available
-- Range-based operations with A1 notation
-- Metadata includes sheet structure information
+- See the **Sheets skill** for detailed guidance on finding spreadsheets,
+  output format selection, and range-based operations.
+
+### Google Slides
+
+- See the **Slides skill** for detailed guidance on finding presentations,
+  text extraction, image downloads, and slide thumbnails.
 
 ### Google Calendar
 
