@@ -82,8 +82,12 @@ When creating documents in specific folders:
 2. Move it to the target folder with `drive.moveFile`
 3. Confirm successful completion
 
-To find Google Docs, use `drive.search` with a document MIME type filter rather
-than searching by name alone.
+To find Google Docs, Sheets, or Slides, use `drive.search` with a MIME type
+filter rather than searching by name alone. Example MIME type queries:
+
+- Docs: `mimeType='application/vnd.google-apps.document' and name contains 'query'`
+- Sheets: `mimeType='application/vnd.google-apps.spreadsheet' and name contains 'query'`
+- Slides: `mimeType='application/vnd.google-apps.presentation' and name contains 'query'`
 
 ## 📄 Docs, Sheets, and Slides
 

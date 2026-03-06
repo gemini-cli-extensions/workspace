@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, sheets_v4, drive_v3 } from 'googleapis';
+import { google, sheets_v4 } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
-import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
+
 
 export class SheetsService {
   constructor(private authManager: AuthManager) {}
@@ -20,11 +20,6 @@ export class SheetsService {
     return google.sheets({ version: 'v4', ...options });
   }
 
-  private async getDriveClient(): Promise<drive_v3.Drive> {
-    const auth = await this.authManager.getAuthenticatedClient();
-    const options = { ...gaxiosOptions, auth };
-    return google.drive({ version: 'v3', ...options });
-  }
 
   public getText = async ({
     spreadsheetId,
@@ -201,62 +196,6 @@ export class SheetsService {
     }
   };
 
-  public find = async ({
-    query,
-    pageToken,
-    pageSize = 10,
-  }: {
-    query: string;
-    pageToken?: string;
-    pageSize?: number;
-  }) => {
-    logToFile(
-      `[SheetsService] Searching for spreadsheets with query: ${query}`,
-    );
-    try {
-      const q = buildDriveSearchQuery(MIME_TYPES.SPREADSHEET, query);
-      logToFile(`[SheetsService] Executing Drive API query: ${q}`);
-
-      const drive = await this.getDriveClient();
-      const res = await drive.files.list({
-        pageSize: pageSize,
-        fields: 'nextPageToken, files(id, name)',
-        q: q,
-        pageToken: pageToken,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      });
-
-      const files = res.data.files || [];
-      const nextPageToken = res.data.nextPageToken;
-
-      logToFile(`[SheetsService] Found ${files.length} spreadsheets.`);
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              files: files,
-              nextPageToken: nextPageToken,
-            }),
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[SheetsService] Error during sheets.find: ${errorMessage}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
 
   public getMetadata = async ({ spreadsheetId }: { spreadsheetId: string }) => {
     logToFile(

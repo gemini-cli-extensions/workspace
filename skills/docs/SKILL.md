@@ -216,12 +216,18 @@ All write tools (`writeText`, `replaceText`, `formatText`) accept an optional
 
 ### Finding Documents
 
-Use `docs.find` to search by title. Supports pagination with `pageToken`.
+Use `drive.search` with a document MIME type filter to find Google Docs:
+
+```
+drive.search({
+  query: "mimeType='application/vnd.google-apps.document' and name contains 'Weekly Report'"
+})
+```
 
 ### Moving Documents
 
-Use `docs.move` to move a document to a named folder. If multiple folders share
-the same name, the first match is used.
+Use `drive.moveFile` to move a document to a different folder. You can specify
+the destination by folder ID or folder name.
 
 ## Comments & Suggestions
 

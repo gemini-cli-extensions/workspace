@@ -371,26 +371,6 @@ async function main() {
     slidesService.getText,
   );
 
-  server.registerTool(
-    'slides.find',
-    {
-      description:
-        'Finds Google Slides presentations by searching for a query. Supports pagination.',
-      inputSchema: {
-        query: z.string().describe('The text to search for in presentations.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    slidesService.find,
-  );
 
   server.registerTool(
     'slides.getMetadata',
@@ -486,26 +466,6 @@ async function main() {
     sheetsService.getRange,
   );
 
-  server.registerTool(
-    'sheets.find',
-    {
-      description:
-        'Finds Google Sheets spreadsheets by searching for a query. Supports pagination.',
-      inputSchema: {
-        query: z.string().describe('The text to search for in spreadsheets.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    sheetsService.find,
-  );
 
   server.registerTool(
     'sheets.getMetadata',
