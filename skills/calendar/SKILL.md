@@ -25,12 +25,29 @@ API. Follow these guidelines when helping users with calendar tasks.
 > offset (e.g., `2025-01-15T10:30:00-05:00`) or use UTC (`Z`). Never send "bare"
 > datetimes without an offset.
 
+## Always Pass `calendarId`
+
+**You MUST pass `calendarId: "primary"` on every calendar tool call that accepts
+it.** Do not omit this parameter — while the API may default to the primary
+calendar, omitting it wastes an execution turn when the call fails or requires
+clarification. Always include it explicitly:
+
+- `calendar.listEvents({ calendarId: "primary", ... })`
+- `calendar.createEvent({ calendarId: "primary", ... })`
+- `calendar.getEvent({ eventId: "...", calendarId: "primary" })`
+- `calendar.deleteEvent({ eventId: "...", calendarId: "primary" })`
+- `calendar.respondToEvent({ eventId: "...", calendarId: "primary", ... })`
+
+Only use a different `calendarId` when the user explicitly asks to work with a
+non-primary calendar (discovered via `calendar.list`).
+
 ## Understanding "Next Meeting"
 
 When asked about "next meeting", "today's schedule", or similar queries:
 
-1. **Fetch the full day's context** — Use `calendar.listEvents` with start of
-   day (`00:00:00`) to end of day (`23:59:59`) in the user's timezone
+1. **Fetch the full day's context** — Use `calendar.listEvents` with
+   `calendarId: "primary"`, start of day (`00:00:00`) to end of day
+   (`23:59:59`) in the user's timezone
 2. **Filter by response status** — Only show meetings where the user has:
    - Accepted the invitation
    - Not yet responded (needs to decide)
@@ -78,8 +95,8 @@ Should I create this event?
 
 ### Key Parameters
 
-- **`calendarId`** — Defaults to primary calendar if omitted. Use
-  `calendar.list` to discover other calendars.
+- **`calendarId`** — **Always pass `"primary"`**. Use `calendar.list` to
+  discover other calendars when needed.
 - **`start` / `end`** — Must include timezone offset in ISO 8601 format (e.g.,
   `2025-01-15T10:00:00-05:00`)
 - **`attendees`** — Array of email addresses
