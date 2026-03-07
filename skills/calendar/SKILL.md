@@ -35,6 +35,7 @@ clarification. Always include it explicitly:
 - `calendar.listEvents({ calendarId: "primary", ... })`
 - `calendar.createEvent({ calendarId: "primary", ... })`
 - `calendar.getEvent({ eventId: "...", calendarId: "primary" })`
+- `calendar.updateEvent({ eventId: "...", calendarId: "primary", ... })`
 - `calendar.deleteEvent({ eventId: "...", calendarId: "primary" })`
 - `calendar.respondToEvent({ eventId: "...", calendarId: "primary", ... })`
 
@@ -46,8 +47,8 @@ non-primary calendar (discovered via `calendar.list`).
 When asked about "next meeting", "today's schedule", or similar queries:
 
 1. **Fetch the full day's context** — Use `calendar.listEvents` with
-   `calendarId: "primary"`, start of day (`00:00:00`) to end of day
-   (`23:59:59`) in the user's timezone
+   `calendarId: "primary"`, start of day (`00:00:00`) to end of day (`23:59:59`)
+   in the user's timezone
 2. **Filter by response status** — Only show meetings where the user has:
    - Accepted the invitation
    - Not yet responded (needs to decide)
