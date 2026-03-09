@@ -1,9 +1,9 @@
 ---
 name: slides
 description: >
-  Activate this skill when the user wants to find, read, or extract content
-  from Google Slides presentations. Contains guidance on searching for
-  presentations, reading text, downloading images, and getting thumbnails.
+  Activate this skill when the user wants to find, read, or extract content from
+  Google Slides presentations. Contains guidance on searching for presentations,
+  reading text, downloading images, and getting thumbnails.
 ---
 
 # Google Slides Expert

@@ -85,10 +85,12 @@ When creating documents in specific folders:
 To find Google Docs, Sheets, or Slides, use `drive.search` with a MIME type
 filter rather than searching by name alone. Example MIME type queries:
 
-- Docs: `mimeType='application/vnd.google-apps.document' and name contains 'query'`
-- Sheets: `mimeType='application/vnd.google-apps.spreadsheet' and name contains 'query'`
-- Slides: `mimeType='application/vnd.google-apps.presentation' and name contains 'query'`
-
+- Docs:
+  `mimeType='application/vnd.google-apps.document' and name contains 'query'`
+- Sheets:
+  `mimeType='application/vnd.google-apps.spreadsheet' and name contains 'query'`
+- Slides:
+  `mimeType='application/vnd.google-apps.presentation' and name contains 'query'`
 
 ## 🚫 Common Pitfalls to Avoid
 
@@ -175,13 +177,13 @@ filter rather than searching by name alone. Example MIME type queries:
 
 ### Google Sheets
 
-- See the **Sheets skill** for detailed guidance on finding spreadsheets,
-  output format selection, and range-based operations.
+- See the **Sheets skill** for detailed guidance on finding spreadsheets, output
+  format selection, and range-based operations.
 
 ### Google Slides
 
-- See the **Slides skill** for detailed guidance on finding presentations,
-  text extraction, image downloads, and slide thumbnails.
+- See the **Slides skill** for detailed guidance on finding presentations, text
+  extraction, image downloads, and slide thumbnails.
 
 ### Google Calendar
 

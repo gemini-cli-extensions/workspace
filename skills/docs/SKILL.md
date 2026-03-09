@@ -224,8 +224,8 @@ drive.search({
 })
 ```
 
-For full-text search across document content, use `fullText contains` instead
-of `name contains`.
+For full-text search across document content, use `fullText contains` instead of
+`name contains`.
 
 ### Moving Documents
 

@@ -13,7 +13,6 @@ import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 
-
 export class SlidesService {
   constructor(private authManager: AuthManager) {}
 
@@ -22,7 +21,6 @@ export class SlidesService {
     const options = { ...gaxiosOptions, auth };
     return google.slides({ version: 'v1', ...options });
   }
-
 
   public getText = async ({ presentationId }: { presentationId: string }) => {
     logToFile(
@@ -126,7 +124,6 @@ export class SlidesService {
     }
     return text;
   }
-
 
   public getMetadata = async ({
     presentationId,

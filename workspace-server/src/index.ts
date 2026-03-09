@@ -371,7 +371,6 @@ async function main() {
     slidesService.getText,
   );
 
-
   server.registerTool(
     'slides.getMetadata',
     {
@@ -465,7 +464,6 @@ async function main() {
     },
     sheetsService.getRange,
   );
-
 
   server.registerTool(
     'sheets.getMetadata',

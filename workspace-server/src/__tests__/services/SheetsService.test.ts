@@ -44,10 +44,8 @@ describe('SheetsService', () => {
       },
     };
 
-
     // Mock the google constructors
     (google.sheets as jest.Mock) = jest.fn().mockReturnValue(mockSheetsAPI);
-
 
     // Create SheetsService instance
     sheetsService = new SheetsService(mockAuthManager);
@@ -299,7 +297,6 @@ describe('SheetsService', () => {
       expect(response.error).toBe('Range Error');
     });
   });
-
 
   describe('getMetadata', () => {
     it('should retrieve spreadsheet metadata', async () => {

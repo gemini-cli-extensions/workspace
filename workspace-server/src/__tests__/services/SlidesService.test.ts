@@ -61,10 +61,8 @@ describe('SlidesService', () => {
       },
     };
 
-
     // Mock the google constructors
     (google.slides as jest.Mock) = jest.fn().mockReturnValue(mockSlidesAPI);
-
 
     // Create SlidesService instance
     slidesService = new SlidesService(mockAuthManager);
@@ -188,7 +186,6 @@ describe('SlidesService', () => {
       expect(response.error).toBe('API Error');
     });
   });
-
 
   describe('getMetadata', () => {
     it('should retrieve presentation metadata', async () => {

@@ -10,7 +10,6 @@ import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 
-
 export class SheetsService {
   constructor(private authManager: AuthManager) {}
 
@@ -19,7 +18,6 @@ export class SheetsService {
     const options = { ...gaxiosOptions, auth };
     return google.sheets({ version: 'v4', ...options });
   }
-
 
   public getText = async ({
     spreadsheetId,
@@ -195,7 +193,6 @@ export class SheetsService {
       };
     }
   };
-
 
   public getMetadata = async ({ spreadsheetId }: { spreadsheetId: string }) => {
     logToFile(
