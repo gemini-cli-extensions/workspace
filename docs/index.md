@@ -19,8 +19,6 @@ The extension provides the following tools:
 - `docs.getSuggestions`: Retrieves suggested edits from a Google Doc.
 - `docs.getComments`: Retrieves comments from a Google Doc.
 - `docs.writeText`: Writes text to a Google Doc at a specified position.
-- `docs.find`: Finds Google Docs by searching for a query in their title.
-- `docs.move`: Moves a document to a specified folder.
 - `docs.getText`: Retrieves the text content of a Google Doc.
 - `docs.replaceText`: Replaces all occurrences of a given text with new text in
   a Google Doc.

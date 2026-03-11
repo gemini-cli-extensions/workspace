@@ -25,7 +25,7 @@
 - **Slides Skill**: New skill with `drive.search` guidance for finding
   presentations.
 - **Docs Skill**: Updated with `drive.search` guidance and removed stale
-  `docs.find`/`docs.move` references.
+  `docs.find`/`docs.move` references from skill and documentation.
 
 ## 0.0.6 (2026-03-08)
 
