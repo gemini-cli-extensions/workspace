@@ -1,5 +1,32 @@
 # Release Notes
 
+## 0.0.7 (2026-03-11)
+
+### Breaking Changes
+
+- **Google Sheets**: Removed `sheets.find` tool. Use `drive.search` with MIME
+  type filter instead (e.g.,
+  `mimeType='application/vnd.google-apps.spreadsheet'`).
+- **Google Slides**: Removed `slides.find` tool. Use `drive.search` with MIME
+  type filter instead (e.g.,
+  `mimeType='application/vnd.google-apps.presentation'`).
+
+### Improvements
+
+- **Skills**: Renamed all skill directories to `google-*` prefix (e.g.,
+  `calendar` → `google-calendar`) to avoid slash command conflicts.
+- **Calendar Skill**: Added explicit `calendarId='primary'` mandate to prevent
+  agents from omitting the required parameter.
+
+### Skills
+
+- **Sheets Skill**: New skill with `drive.search` guidance for finding
+  spreadsheets.
+- **Slides Skill**: New skill with `drive.search` guidance for finding
+  presentations.
+- **Docs Skill**: Updated with `drive.search` guidance and removed stale
+  `docs.find`/`docs.move` references.
+
 ## 0.0.6 (2026-03-08)
 
 ### New Features

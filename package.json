@@ -1,6 +1,6 @@
 {
   "name": "gemini-workspace-extension",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Google Workspace Server Extension",
   "private": true,
   "bin": {

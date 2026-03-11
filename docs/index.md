@@ -30,7 +30,6 @@ The extension provides the following tools:
 ### Google Slides
 
 - `slides.getText`: Retrieves the text content of a Google Slides presentation.
-- `slides.find`: Finds Google Slides presentations by searching for a query.
 - `slides.getMetadata`: Gets metadata about a Google Slides presentation.
 - `slides.getImages`: Downloads all images embedded in a Google Slides
   presentation to a local directory.
@@ -42,7 +41,6 @@ The extension provides the following tools:
 - `sheets.getText`: Retrieves the content of a Google Sheets spreadsheet.
 - `sheets.getRange`: Gets values from a specific range in a Google Sheets
   spreadsheet.
-- `sheets.find`: Finds Google Sheets spreadsheets by searching for a query.
 - `sheets.getMetadata`: Gets metadata about a Google Sheets spreadsheet.
 
 ### Google Drive
