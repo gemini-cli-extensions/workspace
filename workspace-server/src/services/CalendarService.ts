@@ -4,22 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import crypto from 'node:crypto';
 import { calendar_v3, google } from 'googleapis';
 import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { iso8601DateTimeSchema, emailArraySchema } from '../utils/validation';
 import { z } from 'zod';
-
-/**
- * Google Drive file attachment for calendar events.
- * Attachments are fully replaced (not appended) when provided.
- */
-interface EventAttachment {
-  fileUrl: string;
-  title?: string;
-  mimeType?: string;
-}
 
 export interface CreateEventInput {
   calendarId?: string;
@@ -28,9 +17,39 @@ export interface CreateEventInput {
   start: { dateTime: string };
   end: { dateTime: string };
   attendees?: string[];
-  sendUpdates?: 'all' | 'externalOnly' | 'none';
-  addGoogleMeet?: boolean;
-  attachments?: EventAttachment[];
+}
+
+export interface CreateRecurringEventInput {
+  calendarId?: string;
+  summary: string;
+  description?: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  attendees?: string[];
+  recurrence: string[];
+  reminders?: {
+    useDefault?: boolean;
+    overrides?: Array<{
+      method: 'email' | 'popup';
+      minutes: number;
+    }>;
+  };
+}
+
+export interface CreateCalendarInput {
+  summary: string;
+  description?: string;
+  timeZone?: string;
+}
+
+export interface SetEventRemindersInput {
+  eventId: string;
+  calendarId?: string;
+  useDefault?: boolean;
+  overrides?: Array<{
+    method: 'email' | 'popup';
+    minutes: number;
+  }>;
 }
 
 export interface ListEventsInput {
@@ -58,8 +77,6 @@ export interface UpdateEventInput {
   start?: { dateTime: string };
   end?: { dateTime: string };
   attendees?: string[];
-  addGoogleMeet?: boolean;
-  attachments?: EventAttachment[];
 }
 
 export interface RespondToEventInput {
@@ -81,37 +98,6 @@ export class CalendarService {
   private primaryCalendarId: string | null = null;
 
   constructor(private authManager: any) {}
-
-  /**
-   * Adds conferenceData and attachments to an event body and its API params.
-   *
-   * IMPORTANT: Attachments are fully REPLACED, not appended. When attachments
-   * are provided, any existing attachments on the event will be removed.
-   */
-  private applyMeetAndAttachments(
-    event: calendar_v3.Schema$Event,
-    params: { conferenceDataVersion?: number; supportsAttachments?: boolean },
-    addGoogleMeet?: boolean,
-    attachments?: EventAttachment[],
-  ): void {
-    if (addGoogleMeet) {
-      event.conferenceData = {
-        createRequest: {
-          requestId: crypto.randomUUID(),
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      };
-      params.conferenceDataVersion = 1;
-    }
-    if (attachments && attachments.length > 0) {
-      event.attachments = attachments.map((a) => ({
-        fileUrl: a.fileUrl,
-        title: a.title,
-        mimeType: a.mimeType,
-      }));
-      params.supportsAttachments = true;
-    }
-  }
 
   private createValidationErrorResponse(error: unknown) {
     const errorMessage =
@@ -142,6 +128,160 @@ export class CalendarService {
       ],
     };
   }
+
+  createRecurringEvent = async (input: CreateRecurringEventInput) => {
+    const {
+      calendarId,
+      summary,
+      description,
+      start,
+      end,
+      attendees,
+      recurrence,
+      reminders,
+    } = input;
+
+    try {
+      iso8601DateTimeSchema.parse(start.dateTime);
+      iso8601DateTimeSchema.parse(end.dateTime);
+      if (attendees) {
+        emailArraySchema.parse(attendees);
+      }
+      if (!recurrence || recurrence.length === 0) {
+        throw new Error('recurrence must contain at least one RRULE string');
+      }
+    } catch (error) {
+      return this.createValidationErrorResponse(error);
+    }
+
+    const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
+    logToFile(`Creating recurring event in calendar: ${finalCalendarId}`);
+
+    try {
+      const event: calendar_v3.Schema$Event = {
+        summary,
+        description,
+        start,
+        end,
+        attendees: attendees?.map((email) => ({ email })),
+        recurrence,
+      };
+
+      if (reminders) {
+        event.reminders = {
+          useDefault: reminders.useDefault,
+          overrides: reminders.overrides,
+        };
+      }
+
+      const calendar = await this.getCalendar();
+      const res = await calendar.events.insert({
+        calendarId: finalCalendarId,
+        requestBody: event,
+      });
+
+      logToFile(`Successfully created recurring event: ${res.data.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.createRecurringEvent: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  createCalendar = async (input: CreateCalendarInput) => {
+    const { summary, description, timeZone } = input;
+    logToFile(`Creating calendar with summary: ${summary}`);
+
+    try {
+      const calendar = await this.getCalendar();
+      const res = await calendar.calendars.insert({
+        requestBody: {
+          summary,
+          description,
+          timeZone,
+        },
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.createCalendar: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  setEventReminders = async (input: SetEventRemindersInput) => {
+    const { eventId, calendarId, useDefault = true, overrides } = input;
+
+    const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
+    logToFile(`Setting reminders for event ${eventId} in ${finalCalendarId}`);
+
+    try {
+      const calendar = await this.getCalendar();
+      const res = await calendar.events.patch({
+        calendarId: finalCalendarId,
+        eventId,
+        requestBody: {
+          reminders: {
+            useDefault,
+            overrides,
+          },
+        },
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.setEventReminders: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
 
   private async getCalendar(): Promise<calendar_v3.Calendar> {
     logToFile('Getting authenticated client for calendar...');
@@ -206,17 +346,7 @@ export class CalendarService {
   };
 
   createEvent = async (input: CreateEventInput) => {
-    const {
-      calendarId,
-      summary,
-      description,
-      start,
-      end,
-      attendees,
-      sendUpdates,
-      addGoogleMeet,
-      attachments,
-    } = input;
+    const { calendarId, summary, description, start, end, attendees } = input;
 
     // Validate datetime formats
     try {
@@ -236,42 +366,19 @@ export class CalendarService {
     logToFile(`Event start: ${start.dateTime}`);
     logToFile(`Event end: ${end.dateTime}`);
     logToFile(`Event attendees: ${attendees?.join(', ')}`);
-    if (addGoogleMeet) logToFile('Adding Google Meet link');
-    if (attachments?.length)
-      logToFile(`Attachments: ${attachments.length} file(s)`);
-
-    // Determine sendUpdates value
-    let finalSendUpdates = sendUpdates;
-    if (finalSendUpdates === undefined) {
-      finalSendUpdates = attendees?.length ? 'all' : 'none';
-    }
-    if (finalSendUpdates) {
-      logToFile(`Sending updates: ${finalSendUpdates}`);
-    }
-
     try {
-      const event: calendar_v3.Schema$Event = {
+      const event = {
         summary,
         description,
         start,
         end,
         attendees: attendees?.map((email) => ({ email })),
       };
-
       const calendar = await this.getCalendar();
-      const insertParams: calendar_v3.Params$Resource$Events$Insert = {
+      const res = await calendar.events.insert({
         calendarId: finalCalendarId,
         requestBody: event,
-        sendUpdates: finalSendUpdates,
-      };
-      this.applyMeetAndAttachments(
-        event,
-        insertParams,
-        addGoogleMeet,
-        attachments,
-      );
-
-      const res = await calendar.events.insert(insertParams);
+      });
       logToFile(`Successfully created event: ${res.data.id}`);
       return {
         content: [
@@ -440,17 +547,8 @@ export class CalendarService {
   };
 
   updateEvent = async (input: UpdateEventInput) => {
-    const {
-      eventId,
-      calendarId,
-      summary,
-      description,
-      start,
-      end,
-      attendees,
-      addGoogleMeet,
-      attachments,
-    } = input;
+    const { eventId, calendarId, summary, description, start, end, attendees } =
+      input;
 
     // Validate datetime formats if provided
     try {
@@ -469,9 +567,6 @@ export class CalendarService {
 
     const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
     logToFile(`Updating event ${eventId} in calendar: ${finalCalendarId}`);
-    if (addGoogleMeet) logToFile('Adding Google Meet link');
-    if (attachments?.length)
-      logToFile(`Attachments: ${attachments.length} file(s)`);
 
     try {
       const calendar = await this.getCalendar();
@@ -485,19 +580,11 @@ export class CalendarService {
       if (attendees)
         requestBody.attendees = attendees.map((email) => ({ email }));
 
-      const updateParams: calendar_v3.Params$Resource$Events$Update = {
+      const res = await calendar.events.update({
         calendarId: finalCalendarId,
         eventId,
         requestBody,
-      };
-      this.applyMeetAndAttachments(
-        requestBody,
-        updateParams,
-        addGoogleMeet,
-        attachments,
-      );
-
-      const res = await calendar.events.update(updateParams);
+      });
 
       logToFile(`Successfully updated event: ${res.data.id}`);
       return {
