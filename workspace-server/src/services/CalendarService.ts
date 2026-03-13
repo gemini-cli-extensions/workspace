@@ -58,6 +58,7 @@ export interface UpdateEventInput {
   start?: { dateTime: string };
   end?: { dateTime: string };
   attendees?: string[];
+  sendUpdates?: 'all' | 'externalOnly' | 'none';
   addGoogleMeet?: boolean;
   attachments?: EventAttachment[];
 }
@@ -85,6 +86,7 @@ export interface CreateRecurringEventInput {
   end: { dateTime: string };
   attendees?: string[];
   recurrence: string[];
+  sendUpdates?: 'all' | 'externalOnly' | 'none';
   reminders?: {
     useDefault?: boolean;
     overrides?: Array<{ method: 'email' | 'popup'; minutes: number }>;
@@ -340,7 +342,7 @@ export class CalendarService {
   };
 
   createRecurringEvent = async (input: CreateRecurringEventInput) => {
-    const { calendarId, summary, description, start, end, attendees, recurrence, reminders } = input;
+    const { calendarId, summary, description, start, end, attendees, recurrence, sendUpdates, reminders } = input;
     try {
       iso8601DateTimeSchema.parse(start.dateTime);
       iso8601DateTimeSchema.parse(end.dateTime);
@@ -351,11 +353,21 @@ export class CalendarService {
     }
     const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
     logToFile(`Creating recurring event in calendar: ${finalCalendarId}`);
+
+    // Determine sendUpdates value
+    let finalSendUpdates = sendUpdates;
+    if (finalSendUpdates === undefined) {
+      finalSendUpdates = attendees?.length ? 'all' : 'none';
+    }
+    if (finalSendUpdates) {
+      logToFile(`Sending updates: ${finalSendUpdates}`);
+    }
+
     try {
       const event: calendar_v3.Schema$Event = { summary, description, start, end, attendees: attendees?.map((email) => ({ email })), recurrence };
       if (reminders) event.reminders = { useDefault: reminders.useDefault, overrides: reminders.overrides };
       const calendar = await this.getCalendar();
-      const res = await calendar.events.insert({ calendarId: finalCalendarId, requestBody: event });
+      const res = await calendar.events.insert({ calendarId: finalCalendarId, requestBody: event, sendUpdates: finalSendUpdates });
       logToFile(`Successfully created recurring event: ${res.data.id}`);
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
@@ -532,6 +544,7 @@ export class CalendarService {
       start,
       end,
       attendees,
+      sendUpdates,
       addGoogleMeet,
       attachments,
     } = input;
@@ -557,6 +570,15 @@ export class CalendarService {
     if (attachments?.length)
       logToFile(`Attachments: ${attachments.length} file(s)`);
 
+    // Determine sendUpdates value
+    let finalSendUpdates = sendUpdates;
+    if (finalSendUpdates === undefined) {
+      finalSendUpdates = attendees?.length ? 'all' : 'none';
+    }
+    if (finalSendUpdates) {
+      logToFile(`Sending updates: ${finalSendUpdates}`);
+    }
+
     try {
       const calendar = await this.getCalendar();
 
@@ -573,6 +595,7 @@ export class CalendarService {
         calendarId: finalCalendarId,
         eventId,
         requestBody,
+        sendUpdates: finalSendUpdates,
       };
       this.applyMeetAndAttachments(
         requestBody,
