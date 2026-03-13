@@ -142,9 +142,17 @@ export class CalendarService {
     }
   }
 
+  /**
+   * Standardized error message extraction helper.
+   * Converts any error to a string message safely.
+   */
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
   private createValidationErrorResponse(error: unknown) {
     const errorMessage =
-      error instanceof Error ? error.message : 'Validation failed';
+      error instanceof Error ? this.getErrorMessage(error) : 'Validation failed';
     let helpMessage =
       'Please use strict ISO 8601 format with seconds and timezone. Examples: 2024-01-15T10:30:00Z (UTC) or 2024-01-15T10:30:00-05:00 (EST)';
 
@@ -220,8 +228,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.list: ${errorMessage}`);
       return {
         content: [
@@ -311,8 +318,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.createEvent: ${errorMessage}`);
       return {
         content: [
@@ -335,7 +341,7 @@ export class CalendarService {
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.createCalendar: ${errorMessage}`);
       return { content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMessage }) }] };
     }
@@ -371,7 +377,7 @@ export class CalendarService {
       logToFile(`Successfully created recurring event: ${res.data.id}`);
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.createRecurringEvent: ${errorMessage}`);
       return { content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMessage }) }] };
     }
@@ -386,7 +392,7 @@ export class CalendarService {
       const res = await calendar.events.patch({ calendarId: finalCalendarId, eventId, requestBody: { reminders: { useDefault, overrides } } });
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.setEventReminders: ${errorMessage}`);
       return { content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMessage }) }] };
     }
@@ -447,8 +453,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.listEvents: ${errorMessage}`);
       return {
         content: [
@@ -483,7 +488,7 @@ export class CalendarService {
     } catch (error) {
       const errorMessage =
         (error as any).response?.data?.error?.message ||
-        (error instanceof Error ? error.message : String(error));
+        this.getErrorMessage(error);
       logToFile(`Error during calendar.getEvent: ${errorMessage}`);
       return {
         content: [
@@ -522,7 +527,7 @@ export class CalendarService {
     } catch (error) {
       const errorMessage =
         (error as any).response?.data?.error?.message ||
-        (error instanceof Error ? error.message : String(error));
+        this.getErrorMessage(error);
       logToFile(`Error during calendar.deleteEvent: ${errorMessage}`);
       return {
         content: [
@@ -616,8 +621,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.updateEvent: ${errorMessage}`);
       return {
         content: [
@@ -718,8 +722,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.respondToEvent: ${errorMessage}`);
       return {
         content: [
@@ -910,8 +913,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.getErrorMessage(error);
       logToFile(`Error during calendar.findFreeTime: ${errorMessage}`);
       return {
         content: [
