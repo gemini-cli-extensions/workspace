@@ -696,7 +696,7 @@ export class DocsService {
           content = tabs[0].documentTab?.body?.content;
         }
         const lastElement = content?.[content.length - 1];
-        const endIndex = lastElement?.endIndex || 2;
+        const endIndex = lastElement?.endIndex || 1;
         insertIndex = Math.max(1, endIndex - 1);
       }
 
@@ -711,14 +711,14 @@ export class DocsService {
       };
 
       if (widthPt || heightPt) {
-        imageRequest.insertInlineImage!.objectSize = {
-          width: widthPt
-            ? { magnitude: widthPt, unit: 'PT' }
-            : { magnitude: 300, unit: 'PT' },
-          height: heightPt
-            ? { magnitude: heightPt, unit: 'PT' }
-            : { magnitude: 200, unit: 'PT' },
-        };
+        const objectSize: docs_v1.Schema$Size = {};
+        if (widthPt) {
+          objectSize.width = { magnitude: widthPt, unit: 'PT' };
+        }
+        if (heightPt) {
+          objectSize.height = { magnitude: heightPt, unit: 'PT' };
+        }
+        imageRequest.insertInlineImage!.objectSize = objectSize;
       }
 
       const update = await docs.documents.batchUpdate({
@@ -793,7 +793,7 @@ export class DocsService {
           content = tabs[0].documentTab?.body?.content;
         }
         const lastElement = content?.[content.length - 1];
-        const endIndex = lastElement?.endIndex || 2;
+        const endIndex = lastElement?.endIndex || 1;
         insertIndex = Math.max(1, endIndex - 1);
       }
 
