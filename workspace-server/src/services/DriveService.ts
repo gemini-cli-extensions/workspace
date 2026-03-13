@@ -59,6 +59,7 @@ export class DriveService {
     logToFile(`Searching for folder with name: ${folderName}`);
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
       const query = `mimeType='application/vnd.google-apps.folder' and name = '${escapeQueryString(folderName)}'`;
       logToFile(`Executing Drive API query: ${query}`);
       const res = await drive.files.list({
@@ -98,6 +99,7 @@ export class DriveService {
     );
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
       const fileMetadata: drive_v3.Schema$File = {
         name: name,
         mimeType: 'application/vnd.google-apps.folder',
@@ -157,6 +159,7 @@ export class DriveService {
     sharedWithMe?: boolean;
   }) => {
     const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
     let q = query;
     let isProcessed = false;
 
@@ -209,7 +212,7 @@ export class DriveService {
           logToFile(`Extracted File ID from URL: ${fileId}, using files.get`);
           try {
             const res = await drive.files.get({
-              fileId: fileId,
+              fileId: id,
               fields:
                 'id, name, modifiedTime, viewedByMeTime, mimeType, parents',
               supportsAllDrives: true,
@@ -361,6 +364,7 @@ export class DriveService {
     try {
       const drive = await this.getDriveClient();
       const id = extractDocumentId(fileId);
+      const id = extractDocumentId(fileId);
 
       const file = await drive.files.update({
         fileId: id,
@@ -398,6 +402,7 @@ export class DriveService {
     try {
       const drive = await this.getDriveClient();
       const id = extractDocumentId(fileId);
+      const id = extractDocumentId(fileId);
 
       const file = await drive.files.update({
         fileId: id,
@@ -427,6 +432,7 @@ export class DriveService {
     logToFile(`[DriveService] Starting getComments for file: ${fileId}`);
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
       const id = extractDocumentId(fileId);
       const res = await drive.comments.list({
         fileId: id,
@@ -466,6 +472,7 @@ export class DriveService {
     );
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
       const id = extractDocumentId(fileId);
 
       let targetFolderId = folderId;
@@ -545,6 +552,7 @@ export class DriveService {
     );
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
 
       const requestBody: drive_v3.Schema$File = { name };
       if (folderId) {
@@ -552,7 +560,7 @@ export class DriveService {
       }
 
       const copy = await drive.files.copy({
-        fileId: fileId,
+        fileId: id,
         requestBody: requestBody,
         fields: 'id, name, mimeType, webViewLink',
         supportsAllDrives: true,
@@ -590,6 +598,7 @@ export class DriveService {
     logToFile(`Downloading Drive file ${fileId} to ${localPath}`);
     try {
       const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
       const id = extractDocumentId(fileId);
 
       // 1. Check if it's a Google Doc (special handling required, export instead of download)
