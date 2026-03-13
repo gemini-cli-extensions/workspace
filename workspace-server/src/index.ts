@@ -313,6 +313,95 @@ async function main() {
   );
 
   server.registerTool(
+    'docs.insertImage',
+    {
+      description:
+        'Inserts an image into a Google Doc at a specified position or at the end of the document.',
+      inputSchema: {
+        documentId: z.string().describe('The ID of the document to modify.'),
+        imageUrl: z
+          .string()
+          .describe('The URL of the image to insert. Must be publicly accessible.'),
+        positionIndex: z
+          .number()
+          .optional()
+          .describe(
+            'The index position to insert the image. If not provided, inserts at the end.',
+          ),
+        tabId: z
+          .string()
+          .optional()
+          .describe('The ID of the tab to modify. If not provided, modifies the first tab.'),
+        widthPt: z
+          .number()
+          .optional()
+          .describe('The width of the image in points (pt).'),
+        heightPt: z
+          .number()
+          .optional()
+          .describe('The height of the image in points (pt).'),
+      },
+    },
+    docsService.insertImage,
+  );
+
+  server.registerTool(
+    'docs.insertTable',
+    {
+      description:
+        'Inserts a table into a Google Doc at a specified position or at the end of the document.',
+      inputSchema: {
+        documentId: z.string().describe('The ID of the document to modify.'),
+        rows: z.number().min(1).describe('The number of rows in the table.'),
+        columns: z.number().min(1).describe('The number of columns in the table.'),
+        tabId: z
+          .string()
+          .optional()
+          .describe('The ID of the tab to modify. If not provided, modifies the first tab.'),
+        positionIndex: z
+          .number()
+          .optional()
+          .describe(
+            'The index position to insert the table. If not provided, inserts at the end.',
+          ),
+      },
+    },
+    docsService.insertTable,
+  );
+
+  server.registerTool(
+    'docs.createHeaderFooter',
+    {
+      description:
+        'Creates a header or footer in a Google Doc with optional initial text.',
+      inputSchema: {
+        documentId: z.string().describe('The ID of the document to modify.'),
+        type: z
+          .enum(['header', 'footer'])
+          .describe('The type of element to create: "header" or "footer".'),
+        text: z
+          .string()
+          .optional()
+          .describe('Optional text to insert into the header or footer.'),
+      },
+    },
+    docsService.createHeaderFooter,
+  );
+
+  server.registerTool(
+    'docs.addComment',
+    {
+      description:
+        'Adds a comment to a Google Doc. The comment will appear in the document\'s comment thread.',
+      inputSchema: {
+        documentId: z.string().describe('The ID of the document to comment on.'),
+        content: z.string().describe('The text content of the comment.'),
+      },
+    },
+    docsService.addComment,
+  );
+
+  server.registerTool(
     'docs.formatText',
     {
       description:

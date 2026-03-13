@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, docs_v1 } from 'googleapis';
+import { google, docs_v1, drive_v3 } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
@@ -63,6 +63,12 @@ export class DocsService {
     const auth = await this.authManager.getAuthenticatedClient();
     const options = { ...gaxiosOptions, auth };
     return google.docs({ version: 'v1', ...options });
+  }
+
+  private async getDriveClient(): Promise<drive_v3.Drive> {
+    const auth = await this.authManager.getAuthenticatedClient();
+    const options = { ...gaxiosOptions, auth };
+    return google.drive({ version: 'v3', ...options });
   }
 
   public getSuggestions = async ({ documentId }: { documentId: string }) => {
@@ -638,6 +644,316 @@ export class DocsService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logToFile(`[DocsService] Error during docs.getText: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public insertImage = async ({
+    documentId,
+    imageUrl,
+    positionIndex,
+    tabId,
+    widthPt,
+    heightPt,
+  }: {
+    documentId: string;
+    imageUrl: string;
+    positionIndex?: number;
+    tabId?: string;
+    widthPt?: number;
+    heightPt?: number;
+  }) => {
+    logToFile(
+      `[DocsService] Starting insertImage for document: ${documentId}, tabId: ${tabId}`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const docs = await this.getDocsClient();
+
+      let insertIndex = positionIndex;
+      if (!insertIndex) {
+        const res = await docs.documents.get({
+          documentId: id,
+          fields: 'tabs',
+          includeTabsContent: true,
+        });
+        const tabs = res.data.tabs || [];
+        let content: docs_v1.Schema$StructuralElement[] | undefined;
+        if (tabId) {
+          const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
+          if (!tab) {
+            throw new Error(`Tab with ID ${tabId} not found.`);
+          }
+          content = tab.documentTab?.body?.content;
+        } else if (tabs.length > 0) {
+          content = tabs[0].documentTab?.body?.content;
+        }
+        const lastElement = content?.[content.length - 1];
+        const endIndex = lastElement?.endIndex || 2;
+        insertIndex = Math.max(1, endIndex - 1);
+      }
+
+      const imageRequest: docs_v1.Schema$Request = {
+        insertInlineImage: {
+          uri: imageUrl,
+          location: {
+            index: insertIndex,
+            tabId,
+          },
+        },
+      };
+
+      if (widthPt || heightPt) {
+        imageRequest.insertInlineImage!.objectSize = {
+          width: widthPt
+            ? { magnitude: widthPt, unit: 'PT' }
+            : { magnitude: 300, unit: 'PT' },
+          height: heightPt
+            ? { magnitude: heightPt, unit: 'PT' }
+            : { magnitude: 200, unit: 'PT' },
+        };
+      }
+
+      const update = await docs.documents.batchUpdate({
+        documentId: id,
+        requestBody: {
+          requests: [imageRequest],
+        },
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              documentId: update.data.documentId,
+              insertedAt: insertIndex,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[DocsService] Error during docs.insertImage: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public insertTable = async ({
+    documentId,
+    rows,
+    columns,
+    tabId,
+    positionIndex,
+  }: {
+    documentId: string;
+    rows: number;
+    columns: number;
+    tabId?: string;
+    positionIndex?: number;
+  }) => {
+    logToFile(
+      `[DocsService] Starting insertTable for document: ${documentId}, tabId: ${tabId}`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const docs = await this.getDocsClient();
+
+      let insertIndex = positionIndex;
+      if (!insertIndex) {
+        const res = await docs.documents.get({
+          documentId: id,
+          fields: 'tabs',
+          includeTabsContent: true,
+        });
+        const tabs = res.data.tabs || [];
+        let content: docs_v1.Schema$StructuralElement[] | undefined;
+        if (tabId) {
+          const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
+          if (!tab) {
+            throw new Error(`Tab with ID ${tabId} not found.`);
+          }
+          content = tab.documentTab?.body?.content;
+        } else if (tabs.length > 0) {
+          content = tabs[0].documentTab?.body?.content;
+        }
+        const lastElement = content?.[content.length - 1];
+        const endIndex = lastElement?.endIndex || 2;
+        insertIndex = Math.max(1, endIndex - 1);
+      }
+
+      const update = await docs.documents.batchUpdate({
+        documentId: id,
+        requestBody: {
+          requests: [
+            {
+              insertTable: {
+                rows,
+                columns,
+                location: {
+                  index: insertIndex,
+                  tabId,
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              documentId: update.data.documentId,
+              rows,
+              columns,
+              insertedAt: insertIndex,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[DocsService] Error during docs.insertTable: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public createHeaderFooter = async ({
+    documentId,
+    type,
+    text,
+  }: {
+    documentId: string;
+    type: 'header' | 'footer';
+    text?: string;
+  }) => {
+    logToFile(
+      `[DocsService] Starting createHeaderFooter for document: ${documentId}, type: ${type}`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const docs = await this.getDocsClient();
+
+      const createRequest: docs_v1.Schema$Request =
+        type === 'header'
+          ? ({ createHeader: { type: 'DEFAULT' } } as docs_v1.Schema$Request)
+          : ({ createFooter: { type: 'DEFAULT' } } as docs_v1.Schema$Request);
+
+      const createResult = await docs.documents.batchUpdate({
+        documentId: id,
+        requestBody: {
+          requests: [createRequest],
+        },
+      });
+
+      const segmentId =
+        type === 'header'
+          ? createResult.data.replies?.[0]?.createHeader?.headerId
+          : createResult.data.replies?.[0]?.createFooter?.footerId;
+
+      if (text && segmentId) {
+        await docs.documents.batchUpdate({
+          documentId: id,
+          requestBody: {
+            requests: [
+              {
+                insertText: {
+                  endOfSegmentLocation: {
+                    segmentId,
+                  },
+                  text,
+                },
+              },
+            ],
+          },
+        });
+      }
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              documentId: id,
+              type,
+              segmentId,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[DocsService] Error during docs.createHeaderFooter: ${errorMessage}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  public addComment = async ({
+    documentId,
+    content,
+  }: {
+    documentId: string;
+    content: string;
+  }) => {
+    logToFile(`[DocsService] Starting addComment for document: ${documentId}`);
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const drive = await this.getDriveClient();
+      const res = await drive.comments.create({
+        fileId: id,
+        requestBody: {
+          content,
+        },
+        fields: 'id,content,createdTime,author',
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[DocsService] Error during docs.addComment: ${errorMessage}`);
       return {
         content: [
           {
