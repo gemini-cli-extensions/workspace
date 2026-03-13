@@ -639,113 +639,6 @@ async function main() {
   );
 
   server.registerTool(
-    'calendar.createCalendar',
-    {
-      description: 'Creates a new calendar.',
-      inputSchema: {
-        summary: z.string().describe('Calendar name/title.'),
-        description: z
-          .string()
-          .optional()
-          .describe('Optional calendar description.'),
-        timeZone: z
-          .string()
-          .optional()
-          .describe('Optional IANA timezone (e.g., America/New_York).'),
-      },
-    },
-    calendarService.createCalendar,
-  );
-
-  server.registerTool(
-    'calendar.createRecurringEvent',
-    {
-      description: 'Creates a recurring event in a calendar.',
-      inputSchema: {
-        calendarId: z
-          .string()
-          .optional()
-          .describe(
-            'The ID of the calendar to create the recurring event in. Defaults to primary.',
-          ),
-        summary: z.string().describe('The summary or title of the event.'),
-        description: z
-          .string()
-          .optional()
-          .describe('The description of the event.'),
-        start: z.object({
-          dateTime: z
-            .string()
-            .describe(
-              'The start time in strict ISO 8601 format with seconds and timezone.',
-            ),
-        }),
-        end: z.object({
-          dateTime: z
-            .string()
-            .describe(
-              'The end time in strict ISO 8601 format with seconds and timezone.',
-            ),
-        }),
-        attendees: z
-          .array(z.string())
-          .optional()
-          .describe('The email addresses of the attendees.'),
-        recurrence: z
-          .array(z.string())
-          .min(1)
-          .describe(
-            'Recurrence rules (e.g., ["RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=10"]).',
-          ),
-        reminders: z
-          .object({
-            useDefault: z.boolean().optional(),
-            overrides: z
-              .array(
-                z.object({
-                  method: z.enum(['email', 'popup']),
-                  minutes: z.number().int().min(0),
-                }),
-              )
-              .optional(),
-          })
-          .optional()
-          .describe('Optional reminder configuration for the recurring event.'),
-      },
-    },
-    calendarService.createRecurringEvent,
-  );
-
-  server.registerTool(
-    'calendar.setEventReminders',
-    {
-      description:
-        'Sets custom reminders for an existing calendar event (or resets to default reminders).',
-      inputSchema: {
-        eventId: z.string().describe('The ID of the event to update reminders for.'),
-        calendarId: z
-          .string()
-          .optional()
-          .describe('The ID of the calendar containing the event.'),
-        useDefault: z
-          .boolean()
-          .optional()
-          .describe('Whether to use default calendar reminders (default: true).'),
-        overrides: z
-          .array(
-            z.object({
-              method: z.enum(['email', 'popup']),
-              minutes: z.number().int().min(0),
-            }),
-          )
-          .optional()
-          .describe('Custom reminder overrides.'),
-      },
-    },
-    calendarService.setEventReminders,
-  );
-
-  server.registerTool(
     'calendar.listEvents',
     {
       description: 'Lists events from a calendar. Defaults to upcoming events.',
@@ -907,12 +800,119 @@ async function main() {
             'The ID of the calendar to delete the event from. Defaults to the primary calendar.',
           ),
       },
-    },
-    calendarService.deleteEvent,
-  );
+     },
+     calendarService.deleteEvent,
+   );
 
-  server.registerTool(
-    'chat.listSpaces',
+   server.registerTool(
+     'calendar.createCalendar',
+     {
+       description: 'Creates a new calendar.',
+       inputSchema: {
+         summary: z.string().describe('Calendar name/title.'),
+         description: z
+           .string()
+           .optional()
+           .describe('Optional calendar description.'),
+         timeZone: z
+           .string()
+           .optional()
+           .describe('Optional IANA timezone (e.g., America/New_York).'),
+       },
+     },
+     calendarService.createCalendar,
+   );
+
+   server.registerTool(
+     'calendar.createRecurringEvent',
+     {
+       description: 'Creates a recurring event in a calendar.',
+       inputSchema: {
+         calendarId: z
+           .string()
+           .optional()
+           .describe(
+             'The ID of the calendar to create the recurring event in. Defaults to primary.',
+           ),
+         summary: z.string().describe('The summary or title of the event.'),
+         description: z
+           .string()
+           .optional()
+           .describe('The description of the event.'),
+         start: z.object({
+           dateTime: z
+             .string()
+             .describe(
+               'The start time in strict ISO 8601 format with seconds and timezone.',
+             ),
+         }),
+         end: z.object({
+           dateTime: z
+             .string()
+             .describe(
+               'The end time in strict ISO 8601 format with seconds and timezone.',
+             ),
+         }),
+         attendees: z
+           .array(z.string())
+           .optional()
+           .describe('The email addresses of the attendees.'),
+         recurrence: z
+           .array(z.string())
+           .min(1)
+           .describe(
+             'Recurrence rules (e.g., ["RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=10"]).',
+           ),
+         reminders: z
+           .object({
+             useDefault: z.boolean().optional(),
+             overrides: z
+               .array(
+                 z.object({
+                   method: z.enum(['email', 'popup']),
+                   minutes: z.number().min(0),
+                 }),
+               )
+               .optional(),
+           })
+           .optional()
+           .describe('Optional reminder configuration for the recurring event.'),
+       },
+     },
+     calendarService.createRecurringEvent,
+   );
+
+   server.registerTool(
+     'calendar.setEventReminders',
+     {
+       description:
+         'Sets custom reminders for an existing calendar event (or resets to default reminders).',
+       inputSchema: {
+         eventId: z.string().describe('The ID of the event to update reminders for.'),
+         calendarId: z
+           .string()
+           .optional()
+           .describe('The ID of the calendar containing the event.'),
+         useDefault: z
+           .boolean()
+           .optional()
+           .describe('Whether to use default calendar reminders (default: true).'),
+         overrides: z
+           .array(
+             z.object({
+               method: z.enum(['email', 'popup']),
+               minutes: z.number().min(0),
+             }),
+           )
+           .optional()
+           .describe('Custom reminder overrides.'),
+       },
+     },
+     calendarService.setEventReminders,
+   );
+
+   server.registerTool(
+     'chat.listSpaces',
     {
       description: 'Lists the spaces the user is a member of.',
       inputSchema: {},
