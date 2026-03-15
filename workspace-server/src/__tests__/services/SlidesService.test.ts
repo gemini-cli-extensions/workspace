@@ -76,6 +76,7 @@ describe('SlidesService', () => {
       },
     };
 
+
     // Mock the google constructors
     (google.slides as jest.Mock) = jest.fn().mockReturnValue(mockSlidesAPI);
     (google.drive as jest.Mock) = jest.fn().mockReturnValue(mockDriveAPI);
@@ -588,62 +589,6 @@ describe('SlidesService', () => {
       expect(result.content[0].type).toBe('text');
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('API Error');
-    });
-  });
-
-  describe('find', () => {
-    it('should find presentations by query', async () => {
-      const mockResponse = {
-        data: {
-          files: [
-            { id: 'pres1', name: 'Presentation 1' },
-            { id: 'pres2', name: 'Presentation 2' },
-          ],
-          nextPageToken: 'next-token',
-        },
-      };
-
-      mockDriveAPI.files.list.mockResolvedValue(mockResponse);
-
-      const result = await slidesService.find({ query: 'test query' });
-      const response = JSON.parse(result.content[0].text);
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
-        pageSize: 10,
-        fields: 'nextPageToken, files(id, name)',
-        q: "mimeType='application/vnd.google-apps.presentation' and fullText contains 'test query'",
-        pageToken: undefined,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      });
-
-      expect(response.files).toHaveLength(2);
-      expect(response.files[0].name).toBe('Presentation 1');
-      expect(response.nextPageToken).toBe('next-token');
-    });
-
-    it('should handle title-specific searches', async () => {
-      const mockResponse = {
-        data: {
-          files: [{ id: 'pres1', name: 'Specific Title' }],
-        },
-      };
-
-      mockDriveAPI.files.list.mockResolvedValue(mockResponse);
-
-      const result = await slidesService.find({
-        query: 'title:"Specific Title"',
-      });
-      const response = JSON.parse(result.content[0].text);
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          q: "mimeType='application/vnd.google-apps.presentation' and name contains 'Specific Title'",
-        }),
-      );
-
-      expect(response.files).toHaveLength(1);
-      expect(response.files[0].name).toBe('Specific Title');
     });
   });
 

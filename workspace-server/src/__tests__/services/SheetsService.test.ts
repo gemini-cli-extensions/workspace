@@ -24,7 +24,6 @@ describe('SheetsService', () => {
   let sheetsService: SheetsService;
   let mockAuthManager: jest.Mocked<AuthManager>;
   let mockSheetsAPI: any;
-  let mockDriveAPI: any;
 
   beforeEach(() => {
     // Clear all mocks before each test
@@ -45,15 +44,8 @@ describe('SheetsService', () => {
       },
     };
 
-    mockDriveAPI = {
-      files: {
-        list: jest.fn(),
-      },
-    };
-
     // Mock the google constructors
     (google.sheets as jest.Mock) = jest.fn().mockReturnValue(mockSheetsAPI);
-    (google.drive as jest.Mock) = jest.fn().mockReturnValue(mockDriveAPI);
 
     // Create SheetsService instance
     sheetsService = new SheetsService(mockAuthManager);
@@ -303,60 +295,6 @@ describe('SheetsService', () => {
 
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('Range Error');
-    });
-  });
-
-  describe('find', () => {
-    it('should find spreadsheets by query', async () => {
-      const mockResponse = {
-        data: {
-          files: [
-            { id: 'sheet1', name: 'Spreadsheet 1' },
-            { id: 'sheet2', name: 'Spreadsheet 2' },
-          ],
-          nextPageToken: 'next-token',
-        },
-      };
-
-      mockDriveAPI.files.list.mockResolvedValue(mockResponse);
-
-      const result = await sheetsService.find({ query: 'budget' });
-      const response = JSON.parse(result.content[0].text);
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith({
-        pageSize: 10,
-        fields: 'nextPageToken, files(id, name)',
-        q: "mimeType='application/vnd.google-apps.spreadsheet' and fullText contains 'budget'",
-        pageToken: undefined,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      });
-
-      expect(response.files).toHaveLength(2);
-      expect(response.files[0].name).toBe('Spreadsheet 1');
-      expect(response.nextPageToken).toBe('next-token');
-    });
-
-    it('should handle title-specific searches', async () => {
-      const mockResponse = {
-        data: {
-          files: [{ id: 'sheet1', name: 'Q4 Budget' }],
-        },
-      };
-
-      mockDriveAPI.files.list.mockResolvedValue(mockResponse);
-
-      const result = await sheetsService.find({ query: 'title:"Q4 Budget"' });
-      const response = JSON.parse(result.content[0].text);
-
-      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
-        expect.objectContaining({
-          q: "mimeType='application/vnd.google-apps.spreadsheet' and name contains 'Q4 Budget'",
-        }),
-      );
-
-      expect(response.files).toHaveLength(1);
-      expect(response.files[0].name).toBe('Q4 Budget');
     });
   });
 

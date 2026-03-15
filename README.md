@@ -54,6 +54,21 @@ Shows your schedule for today or a specified date.
 
 Searches your Google Drive for files matching the given query.
 
+## Headless / Remote Environments
+
+If you're using the extension over SSH, WSL, Cloud Shell, or another environment
+without a local browser, you can authenticate using the headless login tool:
+
+```bash
+node scripts/auth-utils.js login
+```
+
+This prints an OAuth URL you can open in any browser (local machine, phone,
+etc.). After signing in, paste the credentials JSON into the CLI. Credentials
+are read securely from `/dev/tty` and are never exposed to the AI model. See the
+[development docs](docs/development.md#headless--remote-environments) for more
+details.
+
 ## Deployment
 
 If you want to host your own version of this extension's infrastructure, see the

@@ -10,7 +10,11 @@ import * as path from 'node:path';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { MimeHelper } from '../utils/MimeHelper';
-import { GMAIL_SEARCH_MAX_RESULTS } from '../utils/constants';
+import {
+  GMAIL_SEARCH_MAX_RESULTS,
+  GMAIL_BATCH_MODIFY_MAX_IDS,
+  GMAIL_NO_LABEL_CHANGES_MESSAGE,
+} from '../utils/constants';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { emailArraySchema } from '../utils/validation';
 
@@ -285,6 +289,124 @@ export class GmailService {
       };
     } catch (error) {
       return this.handleError(error, 'gmail.modify');
+    }
+  };
+
+  public batchModify = async ({
+    messageIds,
+    addLabelIds = [],
+    removeLabelIds = [],
+  }: {
+    messageIds: string[];
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  }) => {
+    try {
+      if (addLabelIds.length === 0 && removeLabelIds.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                status: 'noop',
+                message: GMAIL_NO_LABEL_CHANGES_MESSAGE,
+              }),
+            },
+          ],
+        };
+      }
+
+      if (messageIds.length > GMAIL_BATCH_MODIFY_MAX_IDS) {
+        throw new Error(
+          `Too many message IDs. Maximum is ${GMAIL_BATCH_MODIFY_MAX_IDS}, got ${messageIds.length}.`,
+        );
+      }
+
+      logToFile(
+        `Batch modifying ${messageIds.length} messages with addLabelIds: ${addLabelIds}, removeLabelIds: ${removeLabelIds}`,
+      );
+
+      const gmail = await this.getGmailClient();
+      await gmail.users.messages.batchModify({
+        userId: 'me',
+        requestBody: {
+          ids: messageIds,
+          addLabelIds,
+          removeLabelIds,
+        },
+      });
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(
+              {
+                modifiedCount: messageIds.length,
+                addLabelIds,
+                removeLabelIds,
+                status: 'success',
+              },
+              null,
+              2,
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError(error, 'gmail.batchModify');
+    }
+  };
+
+  public modifyThread = async ({
+    threadId,
+    addLabelIds = [],
+    removeLabelIds = [],
+  }: {
+    threadId: string;
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  }) => {
+    try {
+      if (addLabelIds.length === 0 && removeLabelIds.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                status: 'noop',
+                message: GMAIL_NO_LABEL_CHANGES_MESSAGE,
+              }),
+            },
+          ],
+        };
+      }
+
+      logToFile(
+        `Modifying thread ${threadId} with addLabelIds: ${addLabelIds}, removeLabelIds: ${removeLabelIds}`,
+      );
+
+      const gmail = await this.getGmailClient();
+      const response = await gmail.users.threads.modify({
+        userId: 'me',
+        id: threadId,
+        requestBody: {
+          addLabelIds,
+          removeLabelIds,
+        },
+      });
+
+      const thread = response.data;
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(thread, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError(error, 'gmail.modifyThread');
     }
   };
 

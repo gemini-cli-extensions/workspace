@@ -23,7 +23,7 @@ async function build() {
         open: path.resolve(__dirname, 'src/utils/open-wrapper.ts'),
       },
       // External packages that shouldn't be bundled
-      external: ['jsdom'],
+      external: [],
       // Add a loader for .node files
       loader: {
         '.node': 'file',

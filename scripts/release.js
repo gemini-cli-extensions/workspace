@@ -120,6 +120,14 @@ const main = async () => {
     });
   }
 
+  // Copy the skills directory
+  const skillsDir = path.join(rootDir, 'skills');
+  if (fs.existsSync(skillsDir)) {
+    fs.cpSync(skillsDir, path.join(archiveDir, 'skills'), {
+      recursive: true,
+    });
+  }
+
   // Create the archive
   const output = fs.createWriteStream(path.join(releaseDir, archiveName));
   const archive = archiver('tar', {

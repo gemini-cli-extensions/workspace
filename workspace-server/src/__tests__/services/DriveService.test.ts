@@ -73,6 +73,9 @@ describe('DriveService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      comments: {
+        list: jest.fn(),
+      },
     };
 
     // Mock the google.drive constructor
@@ -961,6 +964,242 @@ describe('DriveService', () => {
     });
   });
 
+  describe('trashFile', () => {
+    it('should trash a file by ID', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'file-id-123', name: 'My File.pdf' },
+      });
+
+      const result = await driveService.trashFile({ fileId: 'file-id-123' });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'file-id-123',
+        requestBody: { trashed: true },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'file-id-123',
+        name: 'My File.pdf',
+        trashed: true,
+      });
+    });
+
+    it('should extract ID from a Drive URL', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'file-url-id', name: 'URL File.pdf' },
+      });
+
+      const result = await driveService.trashFile({
+        fileId: 'https://drive.google.com/file/d/file-url-id/view',
+      });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'file-url-id',
+        requestBody: { trashed: true },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'file-url-id',
+        name: 'URL File.pdf',
+        trashed: true,
+      });
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDriveAPI.files.update.mockRejectedValue(
+        new Error('Permission denied'),
+      );
+
+      const result = await driveService.trashFile({ fileId: 'file-id-123' });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Permission denied',
+      });
+    });
+  });
+
+  describe('renameFile', () => {
+    it('should rename a file by ID', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'file-id-123', name: 'New Name' },
+      });
+
+      const result = await driveService.renameFile({
+        fileId: 'file-id-123',
+        newName: 'New Name',
+      });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'file-id-123',
+        requestBody: { name: 'New Name' },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'file-id-123',
+        name: 'New Name',
+      });
+    });
+
+    it('should extract ID from a Drive URL', async () => {
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: { id: 'doc-url-id', name: 'Renamed Doc' },
+      });
+
+      const result = await driveService.renameFile({
+        fileId: 'https://docs.google.com/document/d/doc-url-id/edit',
+        newName: 'Renamed Doc',
+      });
+
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'doc-url-id',
+        requestBody: { name: 'Renamed Doc' },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'doc-url-id',
+        name: 'Renamed Doc',
+      });
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDriveAPI.files.update.mockRejectedValue(new Error('File not found'));
+
+      const result = await driveService.renameFile({
+        fileId: 'file-id-123',
+        newName: 'New Name',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'File not found',
+      });
+    });
+  });
+
+  describe('moveFile', () => {
+    it('should move a file to a folder by folderId', async () => {
+      mockDriveAPI.files.get.mockResolvedValue({
+        data: { parents: ['root'] },
+      });
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: {
+          id: 'test-file-id',
+          name: 'Test File',
+          parents: ['target-folder-id'],
+        },
+      });
+
+      const result = await driveService.moveFile({
+        fileId: 'test-file-id',
+        folderId: 'target-folder-id',
+      });
+
+      expect(mockDriveAPI.files.get).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fileId: 'test-file-id',
+          fields: 'parents',
+          supportsAllDrives: true,
+        }),
+      );
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'test-file-id',
+        addParents: 'target-folder-id',
+        removeParents: 'root',
+        fields: 'id, name, parents',
+        supportsAllDrives: true,
+      });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'test-file-id',
+        name: 'Test File',
+        parents: ['target-folder-id'],
+      });
+    });
+
+    it('should move a file to a folder by folderName', async () => {
+      mockDriveAPI.files.list.mockResolvedValue({
+        data: {
+          files: [{ id: 'test-folder-id', name: 'Test Folder' }],
+        },
+      });
+      mockDriveAPI.files.get.mockResolvedValue({
+        data: { parents: ['root'] },
+      });
+      mockDriveAPI.files.update.mockResolvedValue({
+        data: {
+          id: 'test-file-id',
+          name: 'Test File',
+          parents: ['test-folder-id'],
+        },
+      });
+
+      const result = await driveService.moveFile({
+        fileId: 'test-file-id',
+        folderName: 'Test Folder',
+      });
+
+      expect(mockDriveAPI.files.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          q: "mimeType='application/vnd.google-apps.folder' and name = 'Test Folder'",
+        }),
+      );
+      expect(mockDriveAPI.files.update).toHaveBeenCalledWith({
+        fileId: 'test-file-id',
+        addParents: 'test-folder-id',
+        removeParents: 'root',
+        fields: 'id, name, parents',
+        supportsAllDrives: true,
+      });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 'test-file-id',
+        name: 'Test File',
+        parents: ['test-folder-id'],
+      });
+    });
+
+    it('should error when folder not found by name', async () => {
+      mockDriveAPI.files.list.mockResolvedValue({
+        data: { files: [] },
+      });
+
+      const result = await driveService.moveFile({
+        fileId: 'test-file-id',
+        folderName: 'Nonexistent Folder',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Folder not found: Nonexistent Folder',
+      });
+    });
+
+    it('should error when neither folderId nor folderName provided', async () => {
+      const result = await driveService.moveFile({
+        fileId: 'test-file-id',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Either folderId or folderName must be provided.',
+      });
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDriveAPI.files.get.mockRejectedValue(new Error('API Error'));
+
+      const result = await driveService.moveFile({
+        fileId: 'test-file-id',
+        folderId: 'target-folder-id',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'API Error',
+      });
+    });
+  });
+
   describe('Shared Drive Support', () => {
     it('findFolder should include shared drive flags', async () => {
       mockDriveAPI.files.list.mockResolvedValue({ data: { files: [] } });
@@ -1033,6 +1272,170 @@ describe('DriveService', () => {
           supportsAllDrives: true,
         }),
         expect.any(Object),
+      );
+    });
+  });
+
+  describe('getComments', () => {
+    it('should return comments as type text with JSON-stringified array', async () => {
+      const mockComments = [
+        {
+          id: 'comment1',
+          content: 'This is a comment.',
+          author: {
+            displayName: 'Test User',
+            emailAddress: 'test@example.com',
+          },
+          createdTime: '2025-01-01T00:00:00Z',
+          resolved: false,
+          quotedFileContent: { value: 'quoted text' },
+          replies: [],
+        },
+      ];
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: mockComments },
+      });
+
+      const result = await driveService.getComments({
+        fileId: 'test-doc-id',
+      });
+
+      expect(result.content[0].type).toBe('text');
+      const comments = JSON.parse(result.content[0].text);
+      expect(comments).toEqual(mockComments);
+    });
+
+    it('should include replies in comment threads', async () => {
+      const mockComments = [
+        {
+          id: 'comment1',
+          content: 'Top-level comment.',
+          author: { displayName: 'Alice', emailAddress: 'alice@example.com' },
+          createdTime: '2025-01-01T00:00:00Z',
+          resolved: false,
+          quotedFileContent: { value: 'some text' },
+          replies: [
+            {
+              id: 'reply1',
+              content: 'Reply to comment.',
+              author: {
+                displayName: 'Bob',
+                emailAddress: 'bob@example.com',
+              },
+              createdTime: '2025-01-02T00:00:00Z',
+            },
+          ],
+        },
+      ];
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: mockComments },
+      });
+
+      const result = await driveService.getComments({
+        fileId: 'test-doc-id',
+      });
+
+      expect(result.content[0].type).toBe('text');
+      const comments = JSON.parse(result.content[0].text);
+      expect(comments).toHaveLength(1);
+      expect(comments[0].replies).toHaveLength(1);
+      expect(comments[0].replies[0].id).toBe('reply1');
+      expect(comments[0].replies[0].content).toBe('Reply to comment.');
+    });
+
+    it('should request replies fields in the Drive API call', async () => {
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: [] },
+      });
+
+      await driveService.getComments({ fileId: 'test-doc-id' });
+
+      expect(mockDriveAPI.comments.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: expect.stringContaining('replies('),
+        }),
+      );
+    });
+
+    it('should handle empty comments list', async () => {
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: [] },
+      });
+
+      const result = await driveService.getComments({
+        fileId: 'test-doc-id',
+      });
+
+      const comments = JSON.parse(result.content[0].text);
+      expect(comments).toEqual([]);
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockDriveAPI.comments.list.mockRejectedValue(
+        new Error('Comments API failed'),
+      );
+
+      const result = await driveService.getComments({
+        fileId: 'test-doc-id',
+      });
+
+      expect('isError' in result && result.isError).toBe(true);
+      expect(result.content[0].type).toBe('text');
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed).toEqual({ error: 'Comments API failed' });
+    });
+
+    it('should return resolved comments with reply actions', async () => {
+      const mockComments = [
+        {
+          id: 'comment1',
+          content: 'Please fix this typo.',
+          author: {
+            displayName: 'Alice',
+            emailAddress: 'alice@example.com',
+          },
+          createdTime: '2025-01-01T00:00:00Z',
+          resolved: true,
+          quotedFileContent: { value: 'teh' },
+          replies: [
+            {
+              id: 'reply1',
+              content: 'Fixed!',
+              author: {
+                displayName: 'Bob',
+                emailAddress: 'bob@example.com',
+              },
+              createdTime: '2025-01-02T00:00:00Z',
+              action: 'resolve',
+            },
+          ],
+        },
+      ];
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: mockComments },
+      });
+
+      const result = await driveService.getComments({
+        fileId: 'test-doc-id',
+      });
+
+      const comments = JSON.parse(result.content[0].text);
+      expect(comments).toHaveLength(1);
+      expect(comments[0].resolved).toBe(true);
+      expect(comments[0].replies[0].action).toBe('resolve');
+    });
+
+    it('should request action field in replies', async () => {
+      mockDriveAPI.comments.list.mockResolvedValue({
+        data: { comments: [] },
+      });
+
+      await driveService.getComments({ fileId: 'test-doc-id' });
+
+      expect(mockDriveAPI.comments.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: expect.stringContaining('action'),
+        }),
       );
     });
   });

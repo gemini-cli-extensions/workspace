@@ -20,10 +20,43 @@ import { PeopleService } from './services/PeopleService';
 import { SlidesService } from './services/SlidesService';
 import { SheetsService } from './services/SheetsService';
 import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
-import { extractDocId } from './utils/IdUtils';
 
 import { setLoggingEnabled } from './utils/logger';
 import { applyToolNameNormalization } from './utils/tool-normalization';
+import { SCOPES } from './auth/scopes';
+
+// Shared schemas for calendar event tools
+const eventMeetAndAttachmentsSchema = {
+  addGoogleMeet: z
+    .boolean()
+    .optional()
+    .describe(
+      "Whether to create a Google Meet link for the event. The Meet URL will be available in the response's hangoutLink field.",
+    ),
+  attachments: z
+    .array(
+      z.object({
+        fileUrl: z
+          .string()
+          .url()
+          .describe(
+            'Google Drive file URL (e.g., https://drive.google.com/file/d/...)',
+          ),
+        title: z
+          .string()
+          .optional()
+          .describe('Display title for the attachment.'),
+        mimeType: z
+          .string()
+          .optional()
+          .describe('MIME type of the attachment.'),
+      }),
+    )
+    .optional()
+    .describe(
+      'Google Drive file attachments. IMPORTANT: Providing attachments fully REPLACES any existing attachments on the event (not appended).',
+    ),
+};
 
 // Shared schemas for Gmail tools
 const emailComposeSchema = {
@@ -46,24 +79,17 @@ const emailComposeSchema = {
     .describe('Whether the body is HTML (default: false).'),
 };
 
-const SCOPES = [
-  'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/chat.spaces',
-  'https://www.googleapis.com/auth/chat.messages',
-  'https://www.googleapis.com/auth/chat.memberships',
-  'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/directory.readonly',
-  'https://www.googleapis.com/auth/presentations',
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
-];
 
 // Dynamically import version from package.json
 import { version } from '../package.json';
 
 async function main() {
+  // Handle 'login' subcommand for headless OAuth flow
+  if (process.argv.includes('login')) {
+    await import('./cli/headless-login');
+    return;
+  }
+
   // 1. Initialize services
   if (process.argv.includes('--debug')) {
     setLoggingEnabled(true);
@@ -95,7 +121,7 @@ async function main() {
   });
 
   const driveService = new DriveService(authManager);
-  const docsService = new DocsService(authManager, driveService);
+  const docsService = new DocsService(authManager);
   const peopleService = new PeopleService(authManager);
   const calendarService = new CalendarService(authManager);
   const chatService = new ChatService(authManager);
@@ -150,34 +176,61 @@ async function main() {
   );
 
   server.registerTool(
+    'docs.getSuggestions',
+    {
+      description: 'Retrieves suggested edits from a Google Doc.',
+      inputSchema: {
+        documentId: z
+          .string()
+          .describe('The ID of the document to retrieve suggestions from.'),
+      },
+    },
+    docsService.getSuggestions,
+  );
+
+  server.registerTool(
+    'drive.getComments',
+    {
+      description:
+        'Retrieves comments from a Google Drive file (Docs, Sheets, Slides, etc.).',
+      inputSchema: {
+        fileId: z
+          .string()
+          .describe('The ID of the file to retrieve comments from.'),
+      },
+    },
+    driveService.getComments,
+  );
+
+  server.registerTool(
     'docs.create',
     {
       description:
-        'Creates a new Google Doc. Can be blank or with Markdown content.',
+        'Creates a new Google Doc. Can be blank or with initial text content.',
       inputSchema: {
         title: z.string().describe('The title for the new Google Doc.'),
-        folderName: z
+        content: z
           .string()
           .optional()
-          .describe('The name of the folder to create the document in.'),
-        markdown: z
-          .string()
-          .optional()
-          .describe('The Markdown content to create the document from.'),
+          .describe('The text content to create the document with.'),
       },
     },
     docsService.create,
   );
 
   server.registerTool(
-    'docs.insertText',
+    'docs.writeText',
     {
-      description: 'Inserts text at the beginning of a Google Doc.',
+      description: 'Writes text to a Google Doc at a specified position.',
       inputSchema: {
         documentId: z.string().describe('The ID of the document to modify.'),
-        text: z
+        text: z.string().describe('The text to write to the document.'),
+        position: z
           .string()
-          .describe('The text to insert at the beginning of the document.'),
+          .optional()
+          .describe(
+            'Where to insert the text. Use "beginning" for the start, "end" for the end (default), or a numeric index for a specific position.',
+          ),
         tabId: z
           .string()
           .optional()
@@ -186,30 +239,7 @@ async function main() {
           ),
       },
     },
-    docsService.insertText,
-  );
-
-  server.registerTool(
-    'docs.find',
-    {
-      description:
-        'Finds Google Docs by searching for a query in their title. Supports pagination.',
-      inputSchema: {
-        query: z
-          .string()
-          .describe('The text to search for in the document titles.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    docsService.find,
+    docsService.writeText,
   );
 
   server.registerTool(
@@ -244,18 +274,6 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.move',
-    {
-      description: 'Moves a document to a specified folder.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to move.'),
-        folderName: z.string().describe('The name of the destination folder.'),
-      },
-    },
-    docsService.move,
-  );
-
-  server.registerTool(
     'docs.getText',
     {
       description: 'Retrieves the text content of a Google Doc.',
@@ -271,24 +289,6 @@ async function main() {
       ...readOnlyToolProps,
     },
     docsService.getText,
-  );
-
-  server.registerTool(
-    'docs.appendText',
-    {
-      description: 'Appends text to the end of a Google Doc.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to modify.'),
-        text: z.string().describe('The text to append to the document.'),
-        tabId: z
-          .string()
-          .optional()
-          .describe(
-            'The ID of the tab to modify. If not provided, modifies the first tab.',
-          ),
-      },
-    },
-    docsService.appendText,
   );
 
   server.registerTool(
@@ -314,25 +314,46 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.extractIdFromUrl',
+    'docs.formatText',
     {
-      description: 'Extracts the document ID from a Google Workspace URL.',
+      description:
+        'Applies formatting (bold, italic, headings, etc.) to text ranges in a Google Doc. Use after inserting text to apply rich formatting.',
       inputSchema: {
-        url: z.string().describe('The URL of the Google Workspace document.'),
+        documentId: z.string().describe('The ID of the document to format.'),
+        formats: z
+          .array(
+            z.object({
+              startIndex: z
+                .number()
+                .describe('The start index of the text range (1-based).'),
+              endIndex: z
+                .number()
+                .describe(
+                  'The end index of the text range (exclusive, 1-based).',
+                ),
+              style: z
+                .string()
+                .describe(
+                  'The formatting style to apply. Supported: bold, italic, underline, strikethrough, code, link, heading1, heading2, heading3, heading4, heading5, heading6, normalText.',
+                ),
+              url: z
+                .string()
+                .optional()
+                .describe(
+                  'The URL for link formatting. Required when style is "link".',
+                ),
+            }),
+          )
+          .describe('The formatting instructions to apply.'),
+        tabId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the tab to format. If not provided, formats the first tab.',
+          ),
       },
-      ...readOnlyToolProps,
     },
-    async (input: { url: string }) => {
-      const result = extractDocId(input.url);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: result || '',
-          },
-        ],
-      };
-    },
+    docsService.formatText,
   );
 
   // Slides tools
@@ -521,27 +542,6 @@ async function main() {
   );
 
   server.registerTool(
-    'slides.find',
-    {
-      description:
-        'Finds Google Slides presentations by searching for a query. Supports pagination.',
-      inputSchema: {
-        query: z.string().describe('The text to search for in presentations.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    slidesService.find,
-  );
-
-  server.registerTool(
     'slides.getMetadata',
     {
       description: 'Gets metadata about a Google Slides presentation.',
@@ -636,27 +636,6 @@ async function main() {
   );
 
   server.registerTool(
-    'sheets.find',
-    {
-      description:
-        'Finds Google Sheets spreadsheets by searching for a query. Supports pagination.',
-      inputSchema: {
-        query: z.string().describe('The text to search for in spreadsheets.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    sheetsService.find,
-  );
-
-  server.registerTool(
     'sheets.getMetadata',
     {
       description: 'Gets metadata about a Google Sheets spreadsheet.',
@@ -724,6 +703,58 @@ async function main() {
   );
 
   server.registerTool(
+    'drive.moveFile',
+    {
+      description:
+        'Moves a file or folder to a different folder in Google Drive.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to move.'),
+        folderId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the destination folder. Either folderId or folderName must be provided.',
+          ),
+        folderName: z
+          .string()
+          .optional()
+          .describe(
+            'The name of the destination folder. Either folderId or folderName must be provided.',
+          ),
+      },
+    },
+    driveService.moveFile,
+  );
+
+  server.registerTool(
+    'drive.trashFile',
+    {
+      description:
+        'Moves a file or folder to the trash in Google Drive. This is a safe, reversible operation.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to trash.'),
+      },
+    },
+    driveService.trashFile,
+  );
+
+  server.registerTool(
+    'drive.renameFile',
+    {
+      description: 'Renames a file or folder in Google Drive.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to rename.'),
+        newName: z
+          .string()
+          .trim()
+          .min(1)
+          .describe('The new name for the file.'),
+      },
+    },
+    driveService.renameFile,
+  );
+
+  server.registerTool(
     'calendar.list',
     {
       description: "Lists all of the user's calendars.",
@@ -736,7 +767,8 @@ async function main() {
   server.registerTool(
     'calendar.createEvent',
     {
-      description: 'Creates a new event in a calendar.',
+      description:
+        "Creates a new event in a calendar. Supports optional Google Meet link generation and Google Drive file attachments. When addGoogleMeet is true, the Meet URL will be in the response's hangoutLink field. Attachments fully replace any existing attachments.",
       inputSchema: {
         calendarId: z
           .string()
@@ -764,6 +796,13 @@ async function main() {
           .array(z.string())
           .optional()
           .describe('The email addresses of the attendees.'),
+        sendUpdates: z
+          .enum(['all', 'externalOnly', 'none'])
+          .optional()
+          .describe(
+            'Whether to send notifications to attendees. Defaults to "all" if attendees are provided, otherwise "none".',
+          ),
+        ...eventMeetAndAttachmentsSchema,
       },
     },
     calendarService.createEvent,
@@ -845,7 +884,8 @@ async function main() {
   server.registerTool(
     'calendar.updateEvent',
     {
-      description: 'Updates an existing event in a calendar.',
+      description:
+        "Updates an existing event in a calendar. Supports adding Google Meet links and Google Drive file attachments. When addGoogleMeet is true, the Meet URL will be in the response's hangoutLink field. Attachments fully replace any existing attachments (not appended).",
       inputSchema: {
         eventId: z.string().describe('The ID of the event to update.'),
         calendarId: z
@@ -882,6 +922,7 @@ async function main() {
           .array(z.string())
           .optional()
           .describe('The new list of attendees for the event.'),
+        ...eventMeetAndAttachmentsSchema,
       },
     },
     calendarService.updateEvent,
@@ -1205,6 +1246,78 @@ There are a list of system labels that can be modified on a message:
       },
     },
     gmailService.modify,
+  );
+
+  server.registerTool(
+    'gmail.batchModify',
+    {
+      description: `Bulk modify up to 1,000 Gmail messages at once. Applies the same label changes to all specified messages in a single API call. This is much more efficient than modifying messages individually.
+    - Add labels to messages.
+    - Remove labels from messages.
+System labels that can be modified:
+    - INBOX: removing INBOX label archives messages.
+    - SPAM: adding SPAM label marks messages as spam.
+    - TRASH: adding TRASH label moves messages to trash.
+    - UNREAD: removing UNREAD label marks messages as read.
+    - STARRED: adding STARRED label marks messages as starred.
+    - IMPORTANT: adding IMPORTANT label marks messages as important.`,
+      inputSchema: {
+        messageIds: z
+          .array(z.string())
+          .min(1, { message: 'At least one message ID must be provided.' })
+          .max(1000)
+          .describe(
+            'The IDs of the messages to modify. Maximum 1,000 per call.',
+          ),
+        addLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to add to the messages. Limit to 100 labels.',
+          ),
+        removeLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to remove from the messages. Limit to 100 labels.',
+          ),
+      },
+    },
+    gmailService.batchModify,
+  );
+
+  server.registerTool(
+    'gmail.modifyThread',
+    {
+      description: `Modify labels on all messages in a Gmail thread. This applies label changes to every message in the thread at once, which is useful for operations like marking an entire conversation as read.
+System labels that can be modified:
+    - INBOX: removing INBOX label archives the thread.
+    - SPAM: adding SPAM label marks the thread as spam.
+    - TRASH: adding TRASH label moves the thread to trash.
+    - UNREAD: removing UNREAD label marks all messages in the thread as read.
+    - STARRED: adding STARRED label marks the thread as starred.
+    - IMPORTANT: adding IMPORTANT label marks the thread as important.`,
+      inputSchema: {
+        threadId: z.string().describe('The ID of the thread to modify.'),
+        addLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to add to the thread. Limit to 100 labels.',
+          ),
+        removeLabelIds: z
+          .array(z.string())
+          .max(100)
+          .optional()
+          .describe(
+            'A list of label IDs to remove from the thread. Limit to 100 labels.',
+          ),
+      },
+    },
+    gmailService.modifyThread,
   );
 
   server.registerTool(

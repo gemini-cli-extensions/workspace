@@ -192,17 +192,25 @@ async function handleCallback(req, res) {
             <span id="copy-status">Copied!</span>
 
             <div class="instructions">
-              <h4>Keychain Storage Instructions:</h4>
-              <ol>
-                <li>Open your OS Keychain/Credential Manager.</li>
-                <li>Create a new secure entry (e.g., a "Generic Password" on macOS, a "Windows Credential", or similar on Linux).</li>
-                <li>Set the **Service** (or equivalent field) to: <code>${KEYCHAIN_SERVICE_NAME}</code></li>
-                <li>Set the **Account** (or username field) to: <code>${KEYCHAIN_ACCOUNT_NAME}</code></li>
-                <li>Paste the copied JSON into the **Password/Secret** field.</li>
-                <li>Save the entry.</li>
-              </ol>
-              <p>Your local MCP server will now be able to find and use these credentials automatically.</p>
-              <p><small>(If keychain is unavailable, the server falls back to an encrypted file, but keychain is recommended.)</small></p>
+              <h4>CLI Login (Recommended):</h4>
+              <p>In your terminal, run:</p>
+              <pre style="background:#eee;padding:0.75rem;border-radius:4px;overflow-x:auto;"><code>node dist/headless-login.js</code></pre>
+              <p>Then paste the JSON above when prompted. The CLI will securely store your credentials.</p>
+
+              <details style="margin-top: 1.5rem;">
+                <summary style="cursor:pointer;color:#555;"><strong>Advanced: Manual Keychain Storage</strong></summary>
+                <div style="margin-top: 0.5rem;">
+                  <ol>
+                    <li>Open your OS Keychain/Credential Manager.</li>
+                    <li>Create a new secure entry (e.g., a "Generic Password" on macOS, a "Windows Credential", or similar on Linux).</li>
+                    <li>Set the <strong>Service</strong> (or equivalent field) to: <code>${KEYCHAIN_SERVICE_NAME}</code></li>
+                    <li>Set the <strong>Account</strong> (or username field) to: <code>${KEYCHAIN_ACCOUNT_NAME}</code></li>
+                    <li>Paste the copied JSON into the <strong>Password/Secret</strong> field.</li>
+                    <li>Save the entry.</li>
+                  </ol>
+                  <p><small>(If keychain is unavailable, the server falls back to an encrypted file, but keychain is recommended.)</small></p>
+                </div>
+              </details>
             </div>
           </div>
 

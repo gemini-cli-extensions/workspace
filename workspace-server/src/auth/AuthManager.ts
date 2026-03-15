@@ -174,6 +174,16 @@ export class AuthManager {
       }
     }
 
+    // Fail fast in headless environments instead of hanging for 5 minutes
+    if (!shouldLaunchBrowser()) {
+      throw new Error(
+        'No browser available for authentication. ' +
+          'Please run: node dist/headless-login.js\n' +
+          '(from the workspace-server directory)\n' +
+          'After authenticating, retry your request.',
+      );
+    }
+
     const webLogin = await this.authWithWeb(oAuth2Client);
     await open(webLogin.authUrl);
     const msg = 'Waiting for authentication... Check your browser.';
