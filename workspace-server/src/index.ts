@@ -389,19 +389,6 @@ async function main() {
   );
 
   server.registerTool(
-    'docs.addComment',
-    {
-      description:
-        'Adds a comment to a Google Doc. The comment will appear in the document\'s comment thread.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to comment on.'),
-        content: z.string().describe('The text content of the comment.'),
-      },
-    },
-    docsService.addComment,
-  );
-
-  server.registerTool(
     'docs.formatText',
     {
       description:

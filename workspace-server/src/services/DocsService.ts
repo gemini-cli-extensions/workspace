@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, docs_v1, drive_v3 } from 'googleapis';
+import { google, docs_v1 } from 'googleapis';
 import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
@@ -63,12 +63,6 @@ export class DocsService {
     const auth = await this.authManager.getAuthenticatedClient();
     const options = { ...gaxiosOptions, auth };
     return google.docs({ version: 'v1', ...options });
-  }
-
-  private async getDriveClient(): Promise<drive_v3.Drive> {
-    const auth = await this.authManager.getAuthenticatedClient();
-    const options = { ...gaxiosOptions, auth };
-    return google.drive({ version: 'v3', ...options });
   }
 
   public getSuggestions = async ({ documentId }: { documentId: string }) => {
@@ -920,48 +914,6 @@ export class DocsService {
       logToFile(
         `[DocsService] Error during docs.createHeaderFooter: ${errorMessage}`,
       );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
-
-  public addComment = async ({
-    documentId,
-    content,
-  }: {
-    documentId: string;
-    content: string;
-  }) => {
-    logToFile(`[DocsService] Starting addComment for document: ${documentId}`);
-    try {
-      const id = extractDocId(documentId) || documentId;
-      const drive = await this.getDriveClient();
-      const res = await drive.comments.create({
-        fileId: id,
-        requestBody: {
-          content,
-        },
-        fields: 'id,content,createdTime,author',
-      });
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify(res.data),
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[DocsService] Error during docs.addComment: ${errorMessage}`);
       return {
         content: [
           {
