@@ -150,6 +150,19 @@ export class CalendarService {
     return error instanceof Error ? error.message : String(error);
   }
 
+  private createApiErrorResponse(error: unknown, toolName: string) {
+    const errorMessage = this.getErrorMessage(error);
+    logToFile(`Error during ${toolName}: ${errorMessage}`);
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ error: errorMessage }),
+        },
+      ],
+    };
+  }
+
   private createValidationErrorResponse(error: unknown) {
     const errorMessage =
       error instanceof Error ? this.getErrorMessage(error) : 'Validation failed';
@@ -341,9 +354,7 @@ export class CalendarService {
       });
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
-      const errorMessage = this.getErrorMessage(error);
-      logToFile(`Error during calendar.createCalendar: ${errorMessage}`);
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMessage }) }] };
+      return this.createApiErrorResponse(error, 'calendar.createCalendar');
     }
   };
 
@@ -377,9 +388,7 @@ export class CalendarService {
       logToFile(`Successfully created recurring event: ${res.data.id}`);
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
-      const errorMessage = this.getErrorMessage(error);
-      logToFile(`Error during calendar.createRecurringEvent: ${errorMessage}`);
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMessage }) }] };
+      return this.createApiErrorResponse(error, 'calendar.createRecurringEvent');
     }
   };
 
@@ -392,9 +401,7 @@ export class CalendarService {
       const res = await calendar.events.patch({ calendarId: finalCalendarId, eventId, requestBody: { reminders: { useDefault, overrides } } });
       return { content: [{ type: 'text' as const, text: JSON.stringify(res.data) }] };
     } catch (error) {
-      const errorMessage = this.getErrorMessage(error);
-      logToFile(`Error during calendar.setEventReminders: ${errorMessage}`);
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: errorMessage }) }] };
+      return this.createApiErrorResponse(error, 'calendar.setEventReminders');
     }
   };
 
