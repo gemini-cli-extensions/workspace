@@ -4,20 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { resolveFeatures } from '../features/index';
+
 /**
  * OAuth scopes required by the Google Workspace MCP server.
+ *
+ * Dynamically computed from the feature configuration registry,
+ * respecting WORKSPACE_FEATURE_OVERRIDES and default states.
+ *
  * Shared between the MCP server and the headless login CLI.
  */
-export const SCOPES = [
-  'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/chat.spaces',
-  'https://www.googleapis.com/auth/chat.messages',
-  'https://www.googleapis.com/auth/chat.memberships',
-  'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/directory.readonly',
-  'https://www.googleapis.com/auth/presentations.readonly',
-  'https://www.googleapis.com/auth/spreadsheets.readonly',
-];
+export const SCOPES: string[] = resolveFeatures(
+  undefined,
+  process.env['WORKSPACE_FEATURE_OVERRIDES'],
+).requiredScopes;

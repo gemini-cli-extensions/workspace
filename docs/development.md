@@ -156,6 +156,8 @@ used to maintain dot notation and avoid breaking existing configurations.
     - `__tests__/`: Contains all the tests.
     - `auth/`: Handles authentication.
     - `cli/`: CLI tools (e.g., headless OAuth login).
+    - `features/`: Feature configuration registry and resolver. See the
+      [Feature Configuration](../feature-configuration) docs.
     - `services/`: Contains the business logic for each service.
     - `utils/`: Contains utility functions.
   - `config/`: Contains configuration files.
