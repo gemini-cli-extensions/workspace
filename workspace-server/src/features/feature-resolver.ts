@@ -62,7 +62,10 @@ export function parseOverrides(raw: string): Override[] {
     }
 
     const key = trimmed.slice(0, colonIndex).trim();
-    const value = trimmed.slice(colonIndex + 1).trim().toLowerCase();
+    const value = trimmed
+      .slice(colonIndex + 1)
+      .trim()
+      .toLowerCase();
 
     if (value !== 'on' && value !== 'off') {
       logToFile(

@@ -1,35 +1,36 @@
 # Feature Configuration
 
-The extension provides a feature configuration system that lets you control which
-services and scopes are enabled. Each Google Workspace service is split into
-**read** and **write** feature groups, giving you granular control over what the
-extension can access.
+The extension provides a feature configuration system that lets you control
+which services and scopes are enabled. Each Google Workspace service is split
+into **read** and **write** feature groups, giving you granular control over
+what the extension can access.
 
 ## Feature Groups
 
-| Service    | Group | Scopes                                                    | Default |
-| ---------- | ----- | --------------------------------------------------------- | ------- |
-| `docs`     | read  | `documents`                                               | ON      |
-| `docs`     | write | `documents`, `drive`                                      | ON      |
-| `drive`    | read  | `drive.readonly`                                          | ON      |
-| `drive`    | write | `drive`                                                   | ON      |
-| `calendar` | read  | `calendar.readonly`                                       | ON      |
-| `calendar` | write | `calendar`                                                | ON      |
-| `chat`     | read  | `chat.spaces.readonly`, `chat.messages.readonly`, `chat.memberships.readonly` | ON |
-| `chat`     | write | `chat.spaces`, `chat.messages`, `chat.memberships`        | ON      |
-| `gmail`    | read  | `gmail.readonly`                                          | ON      |
-| `gmail`    | write | `gmail.modify`                                            | ON      |
-| `people`   | read  | `userinfo.profile`, `directory.readonly`                  | ON      |
-| `slides`   | read  | `presentations.readonly`                                  | ON      |
-| `slides`   | write | `presentations`                                           | **OFF** |
-| `sheets`   | read  | `spreadsheets.readonly`                                   | ON      |
-| `sheets`   | write | `spreadsheets`                                            | **OFF** |
-| `time`     | read  | _(none)_                                                  | ON      |
-| `tasks`    | read  | `tasks.readonly`                                          | **OFF** |
-| `tasks`    | write | `tasks`                                                   | **OFF** |
+| Service    | Group | Scopes                                                                        | Default |
+| ---------- | ----- | ----------------------------------------------------------------------------- | ------- |
+| `docs`     | read  | `documents`                                                                   | ON      |
+| `docs`     | write | `documents`, `drive`                                                          | ON      |
+| `drive`    | read  | `drive.readonly`                                                              | ON      |
+| `drive`    | write | `drive`                                                                       | ON      |
+| `calendar` | read  | `calendar.readonly`                                                           | ON      |
+| `calendar` | write | `calendar`                                                                    | ON      |
+| `chat`     | read  | `chat.spaces.readonly`, `chat.messages.readonly`, `chat.memberships.readonly` | ON      |
+| `chat`     | write | `chat.spaces`, `chat.messages`, `chat.memberships`                            | ON      |
+| `gmail`    | read  | `gmail.readonly`                                                              | ON      |
+| `gmail`    | write | `gmail.modify`                                                                | ON      |
+| `people`   | read  | `userinfo.profile`, `directory.readonly`                                      | ON      |
+| `slides`   | read  | `presentations.readonly`                                                      | ON      |
+| `slides`   | write | `presentations`                                                               | **OFF** |
+| `sheets`   | read  | `spreadsheets.readonly`                                                       | ON      |
+| `sheets`   | write | `spreadsheets`                                                                | **OFF** |
+| `time`     | read  | _(none)_                                                                      | ON      |
+| `tasks`    | read  | `tasks.readonly`                                                              | **OFF** |
+| `tasks`    | write | `tasks`                                                                       | **OFF** |
 
-**Read** groups contain tools with no side effects (search, get, list). **Write**
-groups contain tools that perform mutations (create, update, delete, send).
+**Read** groups contain tools with no side effects (search, get, list).
+**Write** groups contain tools that perform mutations (create, update, delete,
+send).
 
 Services whose write scopes aren't in the published GCP project (Slides write,
 Sheets write, Tasks) default to **OFF**. These can be enabled by contributors
@@ -47,6 +48,7 @@ WORKSPACE_FEATURE_OVERRIDES="key:on|off,key:on|off,..."
 ```
 
 Each entry is a comma-separated `key:value` pair where:
+
 - `key` is a feature group (e.g., `gmail.write`) or a tool name (e.g.,
   `calendar.deleteEvent`)
 - `value` is `on` or `off`
@@ -81,11 +83,9 @@ export WORKSPACE_FEATURE_OVERRIDES="gmail.send:off,gmail.sendDraft:off"
 export WORKSPACE_FEATURE_OVERRIDES="gmail.write:off,calendar.deleteEvent:off,slides.write:on"
 ```
 
-::: warning
-Tool-level overrides are **subtractive only**. You cannot use `tool:on` to
-enable a tool whose feature group is disabled. To enable tools, enable their
-parent feature group.
-:::
+::: warning Tool-level overrides are **subtractive only**. You cannot use
+`tool:on` to enable a tool whose feature group is disabled. To enable tools,
+enable their parent feature group. :::
 
 ### Precedence
 
@@ -99,48 +99,56 @@ The configuration follows a three-layer precedence model:
 ### Effects
 
 When a feature group is disabled:
+
 - Its **tools are not registered** with the MCP server (clients won't see them)
 - Its **OAuth scopes are not requested** during authentication
-- If you re-enable a previously disabled feature, you may need to re-authenticate
-  to grant the new scopes
+- If you re-enable a previously disabled feature, you may need to
+  re-authenticate to grant the new scopes
 
 ## Tools by Feature Group
 
 ### `docs.read`
+
 - `docs.getSuggestions`
 - `docs.getText`
 
 ### `docs.write`
+
 - `docs.create`
 - `docs.writeText`
 - `docs.replaceText`
 - `docs.formatText`
 
 ### `drive.read`
+
 - `drive.getComments`
 - `drive.findFolder`
 - `drive.search`
 - `drive.downloadFile`
 
 ### `drive.write`
+
 - `drive.createFolder`
 - `drive.moveFile`
 - `drive.trashFile`
 - `drive.renameFile`
 
 ### `calendar.read`
+
 - `calendar.list`
 - `calendar.listEvents`
 - `calendar.getEvent`
 - `calendar.findFreeTime`
 
 ### `calendar.write`
+
 - `calendar.createEvent`
 - `calendar.updateEvent`
 - `calendar.respondToEvent`
 - `calendar.deleteEvent`
 
 ### `chat.read`
+
 - `chat.listSpaces`
 - `chat.findSpaceByName`
 - `chat.getMessages`
@@ -148,17 +156,20 @@ When a feature group is disabled:
 - `chat.listThreads`
 
 ### `chat.write`
+
 - `chat.sendMessage`
 - `chat.sendDm`
 - `chat.setUpSpace`
 
 ### `gmail.read`
+
 - `gmail.search`
 - `gmail.get`
 - `gmail.downloadAttachment`
 - `gmail.listLabels`
 
 ### `gmail.write`
+
 - `gmail.modify`
 - `gmail.batchModify`
 - `gmail.modifyThread`
@@ -168,22 +179,26 @@ When a feature group is disabled:
 - `gmail.createLabel`
 
 ### `people.read`
+
 - `people.getUserProfile`
 - `people.getMe`
 - `people.getUserRelations`
 
 ### `slides.read`
+
 - `slides.getText`
 - `slides.getMetadata`
 - `slides.getImages`
 - `slides.getSlideThumbnail`
 
 ### `sheets.read`
+
 - `sheets.getText`
 - `sheets.getRange`
 - `sheets.getMetadata`
 
 ### `time.read`
+
 - `time.getCurrentDate`
 - `time.getCurrentTime`
 - `time.getTimeZone`
@@ -201,4 +216,5 @@ When adding a new service or tools:
 
 This lets contributors develop and merge new features without being blocked by
 the published GCP project's scope configuration. Contributors can test with
-their own GCP projects by enabling the feature via `WORKSPACE_FEATURE_OVERRIDES`.
+their own GCP projects by enabling the feature via
+`WORKSPACE_FEATURE_OVERRIDES`.

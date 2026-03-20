@@ -10,7 +10,10 @@ jest.mock('../../utils/logger', () => ({
   logToFile: jest.fn(),
 }));
 
-import { resolveFeatures, parseOverrides } from '../../features/feature-resolver';
+import {
+  resolveFeatures,
+  parseOverrides,
+} from '../../features/feature-resolver';
 import { FEATURE_GROUPS, featureGroupKey } from '../../features/feature-config';
 
 describe('parseOverrides', () => {
@@ -91,8 +94,7 @@ describe('resolveFeatures', () => {
       for (const scope of fg.scopes) {
         // Only check if scope is absent when it's not also in an ON group
         const inOnGroup = FEATURE_GROUPS.some(
-          (other) =>
-            other.defaultEnabled && other.scopes.includes(scope),
+          (other) => other.defaultEnabled && other.scopes.includes(scope),
         );
         if (!inOnGroup) {
           expect(requiredScopes).not.toContain(scope);

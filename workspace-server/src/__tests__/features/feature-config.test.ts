@@ -5,10 +5,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import {
-  FEATURE_GROUPS,
-  featureGroupKey,
-} from '../../features/feature-config';
+import { FEATURE_GROUPS, featureGroupKey } from '../../features/feature-config';
 
 describe('feature-config', () => {
   it('should have unique feature group keys', () => {
