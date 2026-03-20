@@ -9,6 +9,7 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Configuration', link: '/feature-configuration' },
       { text: 'Development', link: '/development' },
       { text: 'Release', link: '/release' },
       { text: 'Release Notes', link: '/release_notes' },
@@ -19,6 +20,7 @@ export default defineConfig({
         text: 'Documentation',
         items: [
           { text: 'Overview', link: '/' },
+          { text: 'Feature Configuration', link: '/feature-configuration' },
           { text: 'Development Guide', link: '/development' },
           { text: 'GCP Setup Guide', link: '/GCP-RECREATION' },
           { text: 'Release Guide', link: '/release' },
