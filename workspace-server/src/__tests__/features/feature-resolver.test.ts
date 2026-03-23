@@ -14,7 +14,7 @@ import {
   resolveFeatures,
   parseOverrides,
 } from '../../features/feature-resolver';
-import { FEATURE_GROUPS, featureGroupKey } from '../../features/feature-config';
+import { FEATURE_GROUPS, featureGroupKey as _featureGroupKey } from '../../features/feature-config';
 
 describe('parseOverrides', () => {
   it('should parse valid overrides', () => {
@@ -125,7 +125,7 @@ describe('resolveFeatures', () => {
   });
 
   it('should enable a default-OFF group via env override', () => {
-    const { enabledTools, requiredScopes } = resolveFeatures(
+    const { enabledTools: _enabledTools, requiredScopes } = resolveFeatures(
       undefined,
       'tasks.read:on',
     );
