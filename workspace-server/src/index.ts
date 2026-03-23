@@ -151,13 +151,17 @@ async function main() {
   // Wrap registerTool to skip tools disabled by feature config.
   // Auth tools are always registered (not gated by features).
   const originalRegisterTool = server.registerTool.bind(server);
-  const registerTool: typeof server.registerTool = (name, config, handler) => {
+  const registerTool: typeof server.registerTool = ((
+    name: string,
+    config: unknown,
+    handler: unknown,
+  ) => {
     if (!enabledTools.has(name) && !name.startsWith('auth.')) {
       logToFile(`[features] Skipping disabled tool: ${name}`);
-      return;
+      return undefined as never;
     }
-    return originalRegisterTool(name, config, handler);
-  };
+    return originalRegisterTool(name, config as never, handler as never);
+  }) as typeof server.registerTool;
 
   registerTool(
     'auth.clear',
