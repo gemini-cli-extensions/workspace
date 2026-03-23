@@ -114,8 +114,9 @@ export class DocsService {
 
   /**
    * Calculates the appropriate insertion index for new content in a document.
-   * If positionIndex is provided, uses that. Otherwise, finds the end of the document content
-   * and calculates an appropriate insertion point.
+   * If positionIndex is provided, uses that. Otherwise, finds the end of the
+   * target tab's content (or first tab when tabId is not provided) and
+   * calculates an appropriate insertion point.
    */
   private async _calculateInsertionIndex(
     documentId: string,
@@ -132,10 +133,10 @@ export class DocsService {
       fields: 'tabs',
       includeTabsContent: true,
     });
-    
-    const tabs = res.data.tabs || [];
+
+    const tabs = this._flattenTabs(res.data.tabs || []);
     let content: docs_v1.Schema$StructuralElement[] | undefined;
-    
+
     if (tabId) {
       const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
       if (!tab) {
@@ -145,9 +146,9 @@ export class DocsService {
     } else if (tabs.length > 0) {
       content = tabs[0].documentTab?.body?.content;
     }
-    
+
     const lastElement = content?.[content.length - 1];
-    const endIndex = lastElement?.endIndex || 1;
+    const endIndex = lastElement?.endIndex ?? 1;
     return Math.max(1, endIndex - 1);
   }
 
@@ -296,6 +297,7 @@ export class DocsService {
         error instanceof Error ? error.message : String(error);
       logToFile(`Error during docs.create: ${errorMessage}`);
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,
@@ -722,25 +724,25 @@ export class DocsService {
         },
       };
 
-      // Only set explicit dimensions if provided. When only one dimension is provided,
-      // Google Docs API will automatically preserve aspect ratio for the other dimension.
-      if (widthPt || heightPt) {
+      // Only set explicit dimensions if provided. If only one dimension is
+      // supplied, API behavior for the missing dimension may vary.
+      if (widthPt !== undefined || heightPt !== undefined) {
         const objectSize: docs_v1.Schema$Size = {};
-        if (widthPt) {
+        if (widthPt !== undefined) {
           objectSize.width = { magnitude: widthPt, unit: 'PT' };
         }
-        if (heightPt) {
+        if (heightPt !== undefined) {
           objectSize.height = { magnitude: heightPt, unit: 'PT' };
         }
         imageRequest.insertInlineImage!.objectSize = objectSize;
-        
+
         // Log dimension info for debugging
-        if (widthPt && heightPt) {
+        if (widthPt !== undefined && heightPt !== undefined) {
           logToFile(`[DocsService] Setting explicit dimensions: ${widthPt}pt x ${heightPt}pt`);
-        } else if (widthPt) {
-          logToFile(`[DocsService] Setting width: ${widthPt}pt (height will preserve aspect ratio)`);
+        } else if (widthPt !== undefined) {
+          logToFile(`[DocsService] Setting width only: ${widthPt}pt`);
         } else {
-          logToFile(`[DocsService] Setting height: ${heightPt}pt (width will preserve aspect ratio)`);
+          logToFile(`[DocsService] Setting height only: ${heightPt}pt`);
         }
       }
 
@@ -767,6 +769,7 @@ export class DocsService {
         error instanceof Error ? error.message : String(error);
       logToFile(`[DocsService] Error during docs.insertImage: ${errorMessage}`);
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,
@@ -835,6 +838,7 @@ export class DocsService {
         error instanceof Error ? error.message : String(error);
       logToFile(`[DocsService] Error during docs.insertTable: ${errorMessage}`);
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,
@@ -878,6 +882,12 @@ export class DocsService {
           ? createResult.data.replies?.[0]?.createHeader?.headerId
           : createResult.data.replies?.[0]?.createFooter?.footerId;
 
+      if (text && !segmentId) {
+        throw new Error(
+          `Created ${type} but could not retrieve its ID from the API response. The provided text was not inserted.`,
+        );
+      }
+
       if (text && segmentId) {
         await docs.documents.batchUpdate({
           documentId: id,
@@ -915,6 +925,7 @@ export class DocsService {
         `[DocsService] Error during docs.createHeaderFooter: ${errorMessage}`,
       );
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,

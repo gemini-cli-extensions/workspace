@@ -321,6 +321,7 @@ async function main() {
         documentId: z.string().describe('The ID of the document to modify.'),
         imageUrl: z
           .string()
+          .url()
           .describe('The URL of the image to insert. Must be publicly accessible.'),
         positionIndex: z
           .number()
