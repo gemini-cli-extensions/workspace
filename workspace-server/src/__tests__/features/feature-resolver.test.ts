@@ -14,7 +14,10 @@ import {
   resolveFeatures,
   parseOverrides,
 } from '../../features/feature-resolver';
-import { FEATURE_GROUPS, featureGroupKey as _featureGroupKey } from '../../features/feature-config';
+import {
+  FEATURE_GROUPS,
+  featureGroupKey as _featureGroupKey,
+} from '../../features/feature-config';
 
 describe('parseOverrides', () => {
   it('should parse valid overrides', () => {
