@@ -38,6 +38,7 @@ export interface ListEventsInput {
   timeMin?: string;
   timeMax?: string;
   attendeeResponseStatus?: string[];
+  eventTypes?: string[];
 }
 
 export interface GetEventInput {
@@ -75,6 +76,40 @@ export interface FindFreeTimeInput {
   timeMin: string;
   timeMax: string;
   duration: number;
+}
+
+export interface CreateFocusTimeInput {
+  calendarId?: string;
+  summary?: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  chatStatus?: 'available' | 'doNotDisturb';
+  autoDeclineMode?: 'declineNone' | 'declineAllConflictingInvitations' | 'declineOnlyNewConflictingInvitations';
+  declineMessage?: string;
+}
+
+export interface CreateOutOfOfficeInput {
+  calendarId?: string;
+  summary?: string;
+  start: { dateTime: string };
+  end: { dateTime: string };
+  autoDeclineMode?: 'declineNone' | 'declineAllConflictingInvitations' | 'declineOnlyNewConflictingInvitations';
+  declineMessage?: string;
+}
+
+export interface SetWorkingLocationInput {
+  calendarId?: string;
+  summary?: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+  type: 'homeOffice' | 'officeLocation' | 'customLocation';
+  officeLocation?: {
+    buildingId?: string;
+    label?: string;
+  };
+  customLocation?: {
+    label: string;
+  };
 }
 
 export class CalendarService {
@@ -301,6 +336,7 @@ export class CalendarService {
       calendarId,
       timeMin = new Date().toISOString(),
       attendeeResponseStatus = ['accepted', 'tentative', 'needsAction'],
+      eventTypes,
     } = input;
 
     let timeMax = input.timeMax;
@@ -314,17 +350,25 @@ export class CalendarService {
     logToFile(`Listing events for calendar: ${finalCalendarId}`);
     try {
       const calendar = await this.getCalendar();
-      const res = await calendar.events.list({
+      const listParams: calendar_v3.Params$Resource$Events$List = {
         calendarId: finalCalendarId,
         timeMin,
         timeMax,
         singleEvents: true,
         fields:
-          'items(id,summary,start,end,description,htmlLink,attendees,status)',
-      });
+          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties)',
+      };
+      if (eventTypes && eventTypes.length > 0) {
+        listParams.eventTypes = eventTypes;
+      }
+      const res = await calendar.events.list(listParams);
 
       const events = res.data.items
-        ?.filter((event) => event.status !== 'cancelled' && !!event.summary)
+        ?.filter(
+          (event) =>
+            event.status !== 'cancelled' &&
+            (!!event.summary || (event.eventType && event.eventType !== 'default')),
+        )
         .filter((event) => {
           if (!event.attendees || event.attendees.length === 0) {
             return true; // No attendees, so we can't filter, include it
@@ -806,6 +850,215 @@ export class CalendarService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logToFile(`Error during calendar.findFreeTime: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  createFocusTime = async (input: CreateFocusTimeInput) => {
+    const {
+      calendarId,
+      summary = 'Focus Time',
+      start,
+      end,
+      chatStatus = 'doNotDisturb',
+      autoDeclineMode = 'declineOnlyNewConflictingInvitations',
+      declineMessage,
+    } = input;
+
+    try {
+      iso8601DateTimeSchema.parse(start.dateTime);
+      iso8601DateTimeSchema.parse(end.dateTime);
+    } catch (error) {
+      return this.createValidationErrorResponse(error);
+    }
+
+    const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
+    logToFile(`Creating focus time in calendar: ${finalCalendarId}`);
+
+    try {
+      const calendar = await this.getCalendar();
+      const event: calendar_v3.Schema$Event = {
+        summary,
+        start,
+        end,
+        eventType: 'focusTime',
+        transparency: 'opaque',
+        focusTimeProperties: {
+          chatStatus,
+          autoDeclineMode,
+          declineMessage,
+        },
+      };
+
+      const res = await calendar.events.insert({
+        calendarId: finalCalendarId,
+        requestBody: event,
+      });
+      logToFile(`Successfully created focus time: ${res.data.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.createFocusTime: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  createOutOfOffice = async (input: CreateOutOfOfficeInput) => {
+    const {
+      calendarId,
+      summary = 'Out of Office',
+      start,
+      end,
+      autoDeclineMode = 'declineOnlyNewConflictingInvitations',
+      declineMessage,
+    } = input;
+
+    try {
+      iso8601DateTimeSchema.parse(start.dateTime);
+      iso8601DateTimeSchema.parse(end.dateTime);
+    } catch (error) {
+      return this.createValidationErrorResponse(error);
+    }
+
+    const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
+    logToFile(`Creating out of office in calendar: ${finalCalendarId}`);
+
+    try {
+      const calendar = await this.getCalendar();
+      const event: calendar_v3.Schema$Event = {
+        summary,
+        start,
+        end,
+        eventType: 'outOfOffice',
+        transparency: 'opaque',
+        outOfOfficeProperties: {
+          autoDeclineMode,
+          declineMessage,
+        },
+      };
+
+      const res = await calendar.events.insert({
+        calendarId: finalCalendarId,
+        requestBody: event,
+      });
+      logToFile(`Successfully created out of office: ${res.data.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.createOutOfOffice: ${errorMessage}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
+  setWorkingLocation = async (input: SetWorkingLocationInput) => {
+    const {
+      calendarId,
+      summary = 'Working Location',
+      start,
+      end,
+      type,
+      officeLocation,
+      customLocation,
+    } = input;
+
+    // Validate datetime formats if dateTime is provided (not all-day)
+    try {
+      if (start.dateTime) {
+        iso8601DateTimeSchema.parse(start.dateTime);
+      }
+      if (end.dateTime) {
+        iso8601DateTimeSchema.parse(end.dateTime);
+      }
+    } catch (error) {
+      return this.createValidationErrorResponse(error);
+    }
+
+    const finalCalendarId = calendarId || (await this.getPrimaryCalendarId());
+    logToFile(`Setting working location in calendar: ${finalCalendarId}`);
+    logToFile(`Working location type: ${type}`);
+
+    try {
+      const calendar = await this.getCalendar();
+
+      const workingLocationProperties: calendar_v3.Schema$EventWorkingLocationProperties =
+        { type };
+      if (type === 'homeOffice') {
+        workingLocationProperties.homeOffice = {};
+      } else if (type === 'officeLocation' && officeLocation) {
+        workingLocationProperties.officeLocation = {
+          buildingId: officeLocation.buildingId,
+          label: officeLocation.label,
+        };
+      } else if (type === 'customLocation' && customLocation) {
+        workingLocationProperties.customLocation = {
+          label: customLocation.label,
+        };
+      }
+
+      const event: calendar_v3.Schema$Event = {
+        summary,
+        start,
+        end,
+        eventType: 'workingLocation',
+        visibility: 'public',
+        transparency: 'transparent',
+        workingLocationProperties,
+      };
+
+      const res = await calendar.events.insert({
+        calendarId: finalCalendarId,
+        requestBody: event,
+      });
+      logToFile(`Successfully set working location: ${res.data.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`Error during calendar.setWorkingLocation: ${errorMessage}`);
       return {
         content: [
           {

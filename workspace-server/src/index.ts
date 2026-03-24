@@ -660,6 +660,21 @@ async function main() {
           .array(z.string())
           .optional()
           .describe('The response status of the attendee.'),
+        eventTypes: z
+          .array(
+            z.enum([
+              'default',
+              'focusTime',
+              'outOfOffice',
+              'workingLocation',
+              'birthday',
+              'fromGmail',
+            ]),
+          )
+          .optional()
+          .describe(
+            'Filter by event types. Possible values: default, focusTime, outOfOffice, workingLocation, birthday, fromGmail.',
+          ),
       },
       ...readOnlyToolProps,
     },
@@ -802,6 +817,199 @@ async function main() {
       },
     },
     calendarService.deleteEvent,
+  );
+
+  server.registerTool(
+    'calendar.createFocusTime',
+    {
+      description:
+        'Creates a focus time event on the calendar. Focus time blocks indicate concentrated work periods and can auto-decline conflicting meetings.',
+      inputSchema: {
+        calendarId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the calendar to create the focus time in. Defaults to the primary calendar.',
+          ),
+        summary: z
+          .string()
+          .optional()
+          .describe(
+            'The title of the focus time event. Defaults to "Focus Time".',
+          ),
+        start: z.object({
+          dateTime: z
+            .string()
+            .describe(
+              'The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).',
+            ),
+        }),
+        end: z.object({
+          dateTime: z
+            .string()
+            .describe(
+              'The end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00).',
+            ),
+        }),
+        chatStatus: z
+          .enum(['available', 'doNotDisturb'])
+          .optional()
+          .describe(
+            'Chat status during focus time. Defaults to "doNotDisturb".',
+          ),
+        autoDeclineMode: z
+          .enum([
+            'declineNone',
+            'declineAllConflictingInvitations',
+            'declineOnlyNewConflictingInvitations',
+          ])
+          .optional()
+          .describe(
+            'How to handle conflicting meeting invitations. Defaults to "declineOnlyNewConflictingInvitations".',
+          ),
+        declineMessage: z
+          .string()
+          .optional()
+          .describe(
+            'Message to send when auto-declining meetings.',
+          ),
+      },
+    },
+    calendarService.createFocusTime,
+  );
+
+  server.registerTool(
+    'calendar.createOutOfOffice',
+    {
+      description:
+        'Creates an out-of-office event on the calendar. OOO events signal unavailability and can auto-decline conflicting meetings.',
+      inputSchema: {
+        calendarId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the calendar to create the out-of-office event in. Defaults to the primary calendar.',
+          ),
+        summary: z
+          .string()
+          .optional()
+          .describe(
+            'The title of the out-of-office event. Defaults to "Out of Office".',
+          ),
+        start: z.object({
+          dateTime: z
+            .string()
+            .describe(
+              'The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).',
+            ),
+        }),
+        end: z.object({
+          dateTime: z
+            .string()
+            .describe(
+              'The end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00).',
+            ),
+        }),
+        autoDeclineMode: z
+          .enum([
+            'declineNone',
+            'declineAllConflictingInvitations',
+            'declineOnlyNewConflictingInvitations',
+          ])
+          .optional()
+          .describe(
+            'How to handle conflicting meeting invitations. Defaults to "declineOnlyNewConflictingInvitations".',
+          ),
+        declineMessage: z
+          .string()
+          .optional()
+          .describe(
+            'Message to send when auto-declining meetings.',
+          ),
+      },
+    },
+    calendarService.createOutOfOffice,
+  );
+
+  server.registerTool(
+    'calendar.setWorkingLocation',
+    {
+      description:
+        'Creates a working location event on the calendar. Specifies where the user is working from (home, office, or custom location). Supports both timed and all-day events.',
+      inputSchema: {
+        calendarId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the calendar. Defaults to the primary calendar.',
+          ),
+        summary: z
+          .string()
+          .optional()
+          .describe(
+            'The title of the working location event. Defaults to "Working Location".',
+          ),
+        start: z.object({
+          dateTime: z
+            .string()
+            .optional()
+            .describe(
+              'The start time in strict ISO 8601 format. Use for timed events.',
+            ),
+          date: z
+            .string()
+            .optional()
+            .describe(
+              'The start date in YYYY-MM-DD format. Use for all-day events.',
+            ),
+        }),
+        end: z.object({
+          dateTime: z
+            .string()
+            .optional()
+            .describe(
+              'The end time in strict ISO 8601 format. Use for timed events.',
+            ),
+          date: z
+            .string()
+            .optional()
+            .describe(
+              'The end date in YYYY-MM-DD format. Use for all-day events (exclusive, so use next day).',
+            ),
+        }),
+        type: z
+          .enum(['homeOffice', 'officeLocation', 'customLocation'])
+          .describe(
+            'The type of working location.',
+          ),
+        officeLocation: z
+          .object({
+            buildingId: z
+              .string()
+              .optional()
+              .describe('The building ID from the directory.'),
+            label: z
+              .string()
+              .optional()
+              .describe('Label for the office location.'),
+          })
+          .optional()
+          .describe(
+            'Office location details. Required when type is "officeLocation".',
+          ),
+        customLocation: z
+          .object({
+            label: z
+              .string()
+              .describe('Label for the custom location.'),
+          })
+          .optional()
+          .describe(
+            'Custom location details. Required when type is "customLocation".',
+          ),
+      },
+    },
+    calendarService.setWorkingLocation,
   );
 
   server.registerTool(

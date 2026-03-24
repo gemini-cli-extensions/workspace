@@ -414,7 +414,7 @@ describe('CalendarService', () => {
         timeMax: '2024-01-16T00:00:00Z',
         singleEvents: true,
         fields:
-          'items(id,summary,start,end,description,htmlLink,attendees,status)',
+          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties)',
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvents);
@@ -456,7 +456,7 @@ describe('CalendarService', () => {
         timeMax: '2024-01-16T00:00:00Z',
         singleEvents: true,
         fields:
-          'items(id,summary,start,end,description,htmlLink,attendees,status)',
+          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties)',
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvents);
@@ -648,6 +648,41 @@ describe('CalendarService', () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe('event1');
+    });
+
+    it('should keep status events without summary (focusTime, outOfOffice, workingLocation)', async () => {
+      const mockEvents = [
+        {
+          id: 'event1',
+          // No summary, but has a non-default eventType
+          status: 'confirmed',
+          eventType: 'focusTime',
+          focusTimeProperties: { chatStatus: 'doNotDisturb' },
+        },
+        {
+          id: 'event2',
+          // No summary, no eventType — should be filtered out
+          status: 'confirmed',
+        },
+        {
+          id: 'event3',
+          status: 'confirmed',
+          eventType: 'workingLocation',
+          workingLocationProperties: { type: 'homeOffice' },
+        },
+      ];
+
+      mockCalendarAPI.events.list.mockResolvedValue({
+        data: { items: mockEvents },
+      });
+
+      const result = await calendarService.listEvents({
+        calendarId: 'primary',
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult).toHaveLength(2);
+      expect(parsedResult.map((e: any) => e.id)).toEqual(['event1', 'event3']);
     });
 
     it('should handle API errors gracefully', async () => {
@@ -1528,6 +1563,489 @@ describe('CalendarService', () => {
         ]);
 
         expect(JSON.parse(result.content[0].text)).toEqual(updatedEvent);
+      });
+    });
+  });
+
+  describe('listEvents with eventTypes', () => {
+    beforeEach(async () => {
+      mockCalendarAPI.calendarList.list.mockResolvedValue({
+        data: {
+          items: [{ id: 'primary-calendar-id', primary: true }],
+        },
+      });
+    });
+
+    it('should pass eventTypes to the API when provided', async () => {
+      mockCalendarAPI.events.list.mockResolvedValue({
+        data: { items: [] },
+      });
+
+      await calendarService.listEvents({
+        calendarId: 'primary',
+        eventTypes: ['focusTime', 'outOfOffice'],
+      });
+
+      expect(mockCalendarAPI.events.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calendarId: 'primary',
+          eventTypes: ['focusTime', 'outOfOffice'],
+        }),
+      );
+    });
+
+    it('should not pass eventTypes when not provided', async () => {
+      mockCalendarAPI.events.list.mockResolvedValue({
+        data: { items: [] },
+      });
+
+      await calendarService.listEvents({
+        calendarId: 'primary',
+      });
+
+      const callArgs = mockCalendarAPI.events.list.mock.calls[0][0];
+      expect(callArgs.eventTypes).toBeUndefined();
+    });
+
+    it('should include eventType and status properties in fields', async () => {
+      mockCalendarAPI.events.list.mockResolvedValue({
+        data: { items: [] },
+      });
+
+      await calendarService.listEvents({
+        calendarId: 'primary',
+      });
+
+      const callArgs = mockCalendarAPI.events.list.mock.calls[0][0];
+      expect(callArgs.fields).toContain('eventType');
+      expect(callArgs.fields).toContain('focusTimeProperties');
+      expect(callArgs.fields).toContain('outOfOfficeProperties');
+      expect(callArgs.fields).toContain('workingLocationProperties');
+    });
+
+    it('should return focus time events when filtered', async () => {
+      const mockEvents = [
+        {
+          id: 'focus1',
+          summary: 'Focus Time',
+          status: 'confirmed',
+          eventType: 'focusTime',
+          focusTimeProperties: {
+            chatStatus: 'doNotDisturb',
+            autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+          },
+        },
+      ];
+
+      mockCalendarAPI.events.list.mockResolvedValue({
+        data: { items: mockEvents },
+      });
+
+      const result = await calendarService.listEvents({
+        calendarId: 'primary',
+        eventTypes: ['focusTime'],
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult).toHaveLength(1);
+      expect(parsedResult[0].eventType).toBe('focusTime');
+    });
+  });
+
+  describe('createFocusTime', () => {
+    beforeEach(async () => {
+      mockCalendarAPI.calendarList.list.mockResolvedValue({
+        data: {
+          items: [{ id: 'primary-calendar-id', primary: true }],
+        },
+      });
+    });
+
+    it('should create a focus time event with defaults', async () => {
+      const mockCreatedEvent = {
+        id: 'focus123',
+        summary: 'Focus Time',
+        eventType: 'focusTime',
+        focusTimeProperties: {
+          chatStatus: 'doNotDisturb',
+          autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+        },
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.createFocusTime({
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'primary-calendar-id',
+        requestBody: {
+          summary: 'Focus Time',
+          start: { dateTime: '2024-01-15T10:00:00Z' },
+          end: { dateTime: '2024-01-15T12:00:00Z' },
+          eventType: 'focusTime',
+          transparency: 'opaque',
+          focusTimeProperties: {
+            chatStatus: 'doNotDisturb',
+            autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+            declineMessage: undefined,
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should create a focus time event with custom properties', async () => {
+      const mockCreatedEvent = {
+        id: 'focus123',
+        summary: 'Deep Work',
+        eventType: 'focusTime',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.createFocusTime({
+        calendarId: 'work-calendar',
+        summary: 'Deep Work',
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+        chatStatus: 'available',
+        autoDeclineMode: 'declineAllConflictingInvitations',
+        declineMessage: 'In focus mode, will respond later',
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'work-calendar',
+        requestBody: {
+          summary: 'Deep Work',
+          start: { dateTime: '2024-01-15T10:00:00Z' },
+          end: { dateTime: '2024-01-15T12:00:00Z' },
+          eventType: 'focusTime',
+          transparency: 'opaque',
+          focusTimeProperties: {
+            chatStatus: 'available',
+            autoDeclineMode: 'declineAllConflictingInvitations',
+            declineMessage: 'In focus mode, will respond later',
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should reject invalid datetime formats', async () => {
+      const result = await calendarService.createFocusTime({
+        start: { dateTime: 'not-a-date' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should handle API errors gracefully', async () => {
+      const apiError = new Error('Calendar API failed');
+      mockCalendarAPI.events.insert.mockRejectedValue(apiError);
+
+      const result = await calendarService.createFocusTime({
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Calendar API failed',
+      });
+    });
+  });
+
+  describe('createOutOfOffice', () => {
+    beforeEach(async () => {
+      mockCalendarAPI.calendarList.list.mockResolvedValue({
+        data: {
+          items: [{ id: 'primary-calendar-id', primary: true }],
+        },
+      });
+    });
+
+    it('should create an out-of-office event with defaults', async () => {
+      const mockCreatedEvent = {
+        id: 'ooo123',
+        summary: 'Out of Office',
+        eventType: 'outOfOffice',
+        outOfOfficeProperties: {
+          autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+        },
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.createOutOfOffice({
+        start: { dateTime: '2024-01-15T00:00:00Z' },
+        end: { dateTime: '2024-01-19T00:00:00Z' },
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'primary-calendar-id',
+        requestBody: {
+          summary: 'Out of Office',
+          start: { dateTime: '2024-01-15T00:00:00Z' },
+          end: { dateTime: '2024-01-19T00:00:00Z' },
+          eventType: 'outOfOffice',
+          transparency: 'opaque',
+          outOfOfficeProperties: {
+            autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+            declineMessage: undefined,
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should create an out-of-office event with custom properties', async () => {
+      const mockCreatedEvent = {
+        id: 'ooo123',
+        summary: 'Vacation',
+        eventType: 'outOfOffice',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.createOutOfOffice({
+        calendarId: 'work-calendar',
+        summary: 'Vacation',
+        start: { dateTime: '2024-01-15T00:00:00Z' },
+        end: { dateTime: '2024-01-19T00:00:00Z' },
+        autoDeclineMode: 'declineAllConflictingInvitations',
+        declineMessage: 'I am on vacation until Jan 19',
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'work-calendar',
+        requestBody: {
+          summary: 'Vacation',
+          start: { dateTime: '2024-01-15T00:00:00Z' },
+          end: { dateTime: '2024-01-19T00:00:00Z' },
+          eventType: 'outOfOffice',
+          transparency: 'opaque',
+          outOfOfficeProperties: {
+            autoDeclineMode: 'declineAllConflictingInvitations',
+            declineMessage: 'I am on vacation until Jan 19',
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should reject invalid datetime formats', async () => {
+      const result = await calendarService.createOutOfOffice({
+        start: { dateTime: 'bad-date' },
+        end: { dateTime: '2024-01-19T00:00:00Z' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should handle API errors gracefully', async () => {
+      const apiError = new Error('Calendar API failed');
+      mockCalendarAPI.events.insert.mockRejectedValue(apiError);
+
+      const result = await calendarService.createOutOfOffice({
+        start: { dateTime: '2024-01-15T00:00:00Z' },
+        end: { dateTime: '2024-01-19T00:00:00Z' },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Calendar API failed',
+      });
+    });
+  });
+
+  describe('setWorkingLocation', () => {
+    beforeEach(async () => {
+      mockCalendarAPI.calendarList.list.mockResolvedValue({
+        data: {
+          items: [{ id: 'primary-calendar-id', primary: true }],
+        },
+      });
+    });
+
+    it('should create a home office working location event', async () => {
+      const mockCreatedEvent = {
+        id: 'wl123',
+        summary: 'Working Location',
+        eventType: 'workingLocation',
+        workingLocationProperties: { type: 'homeOffice', homeOffice: {} },
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.setWorkingLocation({
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        type: 'homeOffice',
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'primary-calendar-id',
+        requestBody: {
+          summary: 'Working Location',
+          start: { date: '2024-01-15' },
+          end: { date: '2024-01-16' },
+          eventType: 'workingLocation',
+          visibility: 'public',
+          transparency: 'transparent',
+          workingLocationProperties: {
+            type: 'homeOffice',
+            homeOffice: {},
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should create an office location working location event', async () => {
+      const mockCreatedEvent = {
+        id: 'wl123',
+        summary: 'Working from NYC Office',
+        eventType: 'workingLocation',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.setWorkingLocation({
+        calendarId: 'work-calendar',
+        summary: 'Working from NYC Office',
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        type: 'officeLocation',
+        officeLocation: {
+          buildingId: 'NYC-1',
+          label: 'New York Office',
+        },
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'work-calendar',
+        requestBody: {
+          summary: 'Working from NYC Office',
+          start: { date: '2024-01-15' },
+          end: { date: '2024-01-16' },
+          eventType: 'workingLocation',
+          visibility: 'public',
+          transparency: 'transparent',
+          workingLocationProperties: {
+            type: 'officeLocation',
+            officeLocation: {
+              buildingId: 'NYC-1',
+              label: 'New York Office',
+            },
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should create a custom location working location event', async () => {
+      const mockCreatedEvent = {
+        id: 'wl123',
+        summary: 'Working from Coffee Shop',
+        eventType: 'workingLocation',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.setWorkingLocation({
+        summary: 'Working from Coffee Shop',
+        start: { dateTime: '2024-01-15T09:00:00Z' },
+        end: { dateTime: '2024-01-15T17:00:00Z' },
+        type: 'customLocation',
+        customLocation: { label: 'Downtown Coffee' },
+      });
+
+      expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith({
+        calendarId: 'primary-calendar-id',
+        requestBody: {
+          summary: 'Working from Coffee Shop',
+          start: { dateTime: '2024-01-15T09:00:00Z' },
+          end: { dateTime: '2024-01-15T17:00:00Z' },
+          eventType: 'workingLocation',
+          visibility: 'public',
+          transparency: 'transparent',
+          workingLocationProperties: {
+            type: 'customLocation',
+            customLocation: { label: 'Downtown Coffee' },
+          },
+        },
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should reject invalid datetime formats for timed events', async () => {
+      const result = await calendarService.setWorkingLocation({
+        start: { dateTime: 'not-valid' },
+        end: { dateTime: '2024-01-15T17:00:00Z' },
+        type: 'homeOffice',
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should not validate datetime for all-day events', async () => {
+      const mockCreatedEvent = {
+        id: 'wl123',
+        eventType: 'workingLocation',
+      };
+
+      mockCalendarAPI.events.insert.mockResolvedValue({
+        data: mockCreatedEvent,
+      });
+
+      const result = await calendarService.setWorkingLocation({
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        type: 'homeOffice',
+      });
+
+      // Should succeed — no datetime validation for date-only events
+      expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('should handle API errors gracefully', async () => {
+      const apiError = new Error('Calendar API failed');
+      mockCalendarAPI.events.insert.mockRejectedValue(apiError);
+
+      const result = await calendarService.setWorkingLocation({
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        type: 'homeOffice',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        error: 'Calendar API failed',
       });
     });
   });
