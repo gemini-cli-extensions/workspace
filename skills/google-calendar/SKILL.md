@@ -98,8 +98,11 @@ Should I create this event?
 
 - **`calendarId`** — **Always pass `"primary"`**. Use `calendar.list` to
   discover other calendars when needed.
-- **`start` / `end`** — Must include timezone offset in ISO 8601 format (e.g.,
-  `2025-01-15T10:00:00-05:00`)
+- **`start` / `end`** — Two formats:
+  - **Timed events**: `{ dateTime: "2025-01-15T10:00:00-05:00" }` — ISO 8601
+    with timezone offset
+  - **All-day events**: `{ date: "2025-01-15" }` — YYYY-MM-DD format. The end
+    date is exclusive (use the next day).
 - **`attendees`** — Array of email addresses
 - **`addGoogleMeet`** — Set to `true` to automatically generate a Google Meet
   link (available in response's `hangoutLink` field)
@@ -110,8 +113,14 @@ Should I create this event?
   - `"all"` — Notify all attendees (default when attendees are provided)
   - `"externalOnly"` — Only notify non-organization attendees
   - `"none"` — No notifications
+- **`eventType`** — The type of event (see
+  [Calendar Status Events](#calendar-status-events) below):
+  - `"default"` — Regular event (default if omitted)
+  - `"focusTime"` — Focus time block
+  - `"outOfOffice"` — Out-of-office event
+  - `"workingLocation"` — Working location indicator
 
-### Example
+### Example — Regular Timed Event
 
 ```
 calendar.createEvent({
@@ -130,6 +139,124 @@ calendar.createEvent({
   sendUpdates: "all"
 })
 ```
+
+### Example — All-Day Event
+
+```
+calendar.createEvent({
+  calendarId: "primary",
+  summary: "Team Offsite",
+  start: { date: "2025-01-15" },
+  end: { date: "2025-01-17" },
+  description: "Two-day team offsite"
+})
+```
+
+## Calendar Status Events
+
+`calendar.createEvent` supports creating focus time, out-of-office, and working
+location events via the `eventType` parameter. These are all created through the
+same tool — there are no separate tools for each type.
+
+### Focus Time
+
+Blocks concentrated work periods. Can auto-decline conflicting meetings.
+
+> **Constraint:** Focus time events **cannot be all-day events** — they must use
+> `dateTime`, not `date`.
+
+```
+calendar.createEvent({
+  calendarId: "primary",
+  eventType: "focusTime",
+  start: { dateTime: "2025-01-15T09:00:00-05:00" },
+  end: { dateTime: "2025-01-15T12:00:00-05:00" },
+  focusTimeProperties: {
+    chatStatus: "doNotDisturb",
+    autoDeclineMode: "declineOnlyNewConflictingInvitations",
+    declineMessage: "In focus mode, will respond later"
+  }
+})
+```
+
+- **`summary`** defaults to `"Focus Time"` if omitted
+- **`focusTimeProperties.chatStatus`** — `"doNotDisturb"` (default) or
+  `"available"`
+- **`focusTimeProperties.autoDeclineMode`** —
+  `"declineOnlyNewConflictingInvitations"` (default),
+  `"declineAllConflictingInvitations"`, or `"declineNone"`
+- **`focusTimeProperties.declineMessage`** — optional message sent when
+  declining
+
+### Out of Office
+
+Signals unavailability and auto-declines conflicting meetings.
+
+> **Constraint:** Out-of-office events **cannot be all-day events** — they must
+> use `dateTime`, not `date`.
+
+```
+calendar.createEvent({
+  calendarId: "primary",
+  eventType: "outOfOffice",
+  summary: "Vacation",
+  start: { dateTime: "2025-01-15T00:00:00-05:00" },
+  end: { dateTime: "2025-01-19T00:00:00-05:00" },
+  outOfOfficeProperties: {
+    autoDeclineMode: "declineAllConflictingInvitations",
+    declineMessage: "I am on vacation until Jan 19"
+  }
+})
+```
+
+- **`summary`** defaults to `"Out of Office"` if omitted
+- **`outOfOfficeProperties.autoDeclineMode`** —
+  `"declineOnlyNewConflictingInvitations"` (default),
+  `"declineAllConflictingInvitations"`, or `"declineNone"`
+- **`outOfOfficeProperties.declineMessage`** — optional message sent when
+  declining
+
+### Working Location
+
+Indicates where the user is working from. Supports both timed and all-day
+events.
+
+```
+calendar.createEvent({
+  calendarId: "primary",
+  eventType: "workingLocation",
+  start: { date: "2025-01-15" },
+  end: { date: "2025-01-16" },
+  workingLocationProperties: {
+    type: "homeOffice"
+  }
+})
+```
+
+- **`summary`** defaults to `"Working Location"` if omitted
+- **`workingLocationProperties`** is **required** when `eventType` is
+  `"workingLocation"`
+- **`workingLocationProperties.type`** — `"homeOffice"`, `"officeLocation"`, or
+  `"customLocation"`
+- **`officeLocation`** — `{ buildingId?: string, label?: string }` (when type is
+  `"officeLocation"`)
+- **`customLocation`** — `{ label: string }` (when type is `"customLocation"`)
+
+### Listing Events by Type
+
+Use the `eventTypes` parameter on `calendar.listEvents` to filter by event type:
+
+```
+calendar.listEvents({
+  calendarId: "primary",
+  timeMin: "2025-01-15T00:00:00-05:00",
+  timeMax: "2025-01-17T23:59:59-05:00",
+  eventTypes: ["focusTime", "outOfOffice", "workingLocation"]
+})
+```
+
+Available types: `"default"`, `"focusTime"`, `"outOfOffice"`,
+`"workingLocation"`, `"birthday"`, `"fromGmail"`.
 
 ## Updating Events
 
@@ -252,13 +379,13 @@ Users may have multiple calendars (personal, work, shared team calendars).
 
 ## Tool Quick Reference
 
-| Tool                      | Action                      | Key Parameters                                                                    |
-| :------------------------ | :-------------------------- | :-------------------------------------------------------------------------------- |
-| `calendar.list`           | List all calendars          | _(none)_                                                                          |
-| `calendar.listEvents`     | List events                 | `calendarId`, `timeMin`, `timeMax`                                                |
-| `calendar.getEvent`       | Get event details           | `eventId`, `calendarId`                                                           |
-| `calendar.createEvent`    | Create a new event          | `calendarId`, `summary`, `start`, `end`, `addGoogleMeet`, `attachments`           |
-| `calendar.updateEvent`    | Modify an existing event    | `eventId`, `summary`, `start`, `end`, `attendees`, `addGoogleMeet`, `attachments` |
-| `calendar.deleteEvent`    | Delete an event             | `eventId`, `calendarId`                                                           |
-| `calendar.respondToEvent` | Accept/decline an invite    | `eventId`, `responseStatus`                                                       |
-| `calendar.findFreeTime`   | Find available meeting time | `attendees`, `timeMin`, `timeMax`, `duration`                                     |
+| Tool                      | Action                            | Key Parameters                                                                                  |
+| :------------------------ | :-------------------------------- | :---------------------------------------------------------------------------------------------- |
+| `calendar.list`           | List all calendars                | _(none)_                                                                                        |
+| `calendar.listEvents`     | List events (filterable by type)  | `calendarId`, `timeMin`, `timeMax`, `eventTypes`                                                |
+| `calendar.getEvent`       | Get event details                 | `eventId`, `calendarId`                                                                         |
+| `calendar.createEvent`    | Create event (all types)          | `calendarId`, `summary`, `start`, `end`, `eventType`, `addGoogleMeet`, `attachments`            |
+| `calendar.updateEvent`    | Modify an existing event          | `eventId`, `summary`, `start`, `end`, `attendees`, `addGoogleMeet`, `attachments`               |
+| `calendar.deleteEvent`    | Delete an event                   | `eventId`, `calendarId`                                                                         |
+| `calendar.respondToEvent` | Accept/decline an invite          | `eventId`, `responseStatus`                                                                     |
+| `calendar.findFreeTime`   | Find available meeting time       | `attendees`, `timeMin`, `timeMax`, `duration`                                                   |
