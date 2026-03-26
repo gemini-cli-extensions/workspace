@@ -40,22 +40,22 @@ interface CredentialsJson {
   token_type?: string;
 }
 
+const TTY_PATH = os.platform() === 'win32' ? '\\\\.\\CON' : '/dev/tty';
+
 /**
  * Opens a readable stream from /dev/tty (Unix) or CON (Windows).
  * This bypasses process stdin entirely so credentials can't be intercepted
  * by a parent process.
  */
 function openTtyRead(): fs.ReadStream {
-  const ttyPath = os.platform() === 'win32' ? 'CON' : '/dev/tty';
-  return fs.createReadStream(ttyPath, { encoding: 'utf8' });
+  return fs.createReadStream(TTY_PATH, { encoding: 'utf8' });
 }
 
 /**
  * Opens a writable stream to /dev/tty (Unix) or CON (Windows).
  */
 function openTtyWrite(): fs.WriteStream {
-  const ttyPath = os.platform() === 'win32' ? 'CON' : '/dev/tty';
-  return fs.createWriteStream(ttyPath);
+  return fs.createWriteStream(TTY_PATH);
 }
 
 /**
