@@ -158,7 +158,7 @@ async function main() {
   ) => {
     if (!enabledTools.has(name) && !name.startsWith('auth.')) {
       logToFile(`[features] Skipping disabled tool: ${name}`);
-      return undefined as never;
+      return server;
     }
     return originalRegisterTool(name, config as never, handler as never);
   }) as typeof server.registerTool;

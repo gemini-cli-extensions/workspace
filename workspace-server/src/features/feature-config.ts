@@ -55,7 +55,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     service: 'docs',
     group: 'write',
-    scopes: scopes('documents', 'drive'),
+    scopes: scopes('documents'),
     tools: [
       'docs.create',
       'docs.writeText',
