@@ -9,6 +9,11 @@ const path = require('node:path');
 
 function runCommand(command, args, options) {
   return new Promise((resolve, reject) => {
+    // On Windows, npm is a batch file and needs a shell
+    if (process.platform === 'win32' && command === 'npm') {
+      command = `${command}.cmd`;
+      options = { ...options, shell: true };
+    }
     const child = spawn(command, args, options);
 
     // Pipe stderr to the parent process's stderr if it's available.
