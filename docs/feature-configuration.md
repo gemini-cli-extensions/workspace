@@ -10,7 +10,7 @@ what the extension can access.
 | Service    | Group | Scopes                                                                        | Default |
 | ---------- | ----- | ----------------------------------------------------------------------------- | ------- |
 | `docs`     | read  | `documents`                                                                   | ON      |
-| `docs`     | write | `documents`, `drive`                                                          | ON      |
+| `docs`     | write | `documents`                                                                   | ON      |
 | `drive`    | read  | `drive.readonly`                                                              | ON      |
 | `drive`    | write | `drive`                                                                       | ON      |
 | `calendar` | read  | `calendar.readonly`                                                           | ON      |
