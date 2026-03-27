@@ -9,6 +9,11 @@ updates:
       npm-root:
         patterns:
           - '*'
+        exclude-patterns:
+          - 'typescript'
+      typescript:
+        patterns:
+          - 'typescript'
     labels:
       - 'dependencies'
       - 'npm'
@@ -25,6 +30,11 @@ updates:
       npm-workspace-server:
         patterns:
           - '*'
+        exclude-patterns:
+          - 'typescript'
+      typescript:
+        patterns:
+          - 'typescript'
     labels:
       - 'dependencies'
       - 'npm'
