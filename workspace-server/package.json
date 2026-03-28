@@ -9,7 +9,6 @@
     "test:coverage": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --coverage",
     "test:ci": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --ci --coverage --maxWorkers=2",
     "start": "ts-node src/index.ts",
-    "clean": "rm -rf dist node_modules",
     "build": "node esbuild.config.js && node esbuild.headless-login.js",
     "build:auth-utils": "node esbuild.auth-utils.js",
     "build:headless-login": "node esbuild.headless-login.js"
