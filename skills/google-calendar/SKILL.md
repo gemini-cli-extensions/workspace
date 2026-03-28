@@ -379,13 +379,13 @@ Users may have multiple calendars (personal, work, shared team calendars).
 
 ## Tool Quick Reference
 
-| Tool                      | Action                            | Key Parameters                                                                                  |
-| :------------------------ | :-------------------------------- | :---------------------------------------------------------------------------------------------- |
-| `calendar.list`           | List all calendars                | _(none)_                                                                                        |
-| `calendar.listEvents`     | List events (filterable by type)  | `calendarId`, `timeMin`, `timeMax`, `eventTypes`                                                |
-| `calendar.getEvent`       | Get event details                 | `eventId`, `calendarId`                                                                         |
-| `calendar.createEvent`    | Create event (all types)          | `calendarId`, `summary`, `start`, `end`, `eventType`, `addGoogleMeet`, `attachments`            |
-| `calendar.updateEvent`    | Modify an existing event          | `eventId`, `summary`, `start`, `end`, `attendees`, `addGoogleMeet`, `attachments`               |
-| `calendar.deleteEvent`    | Delete an event                   | `eventId`, `calendarId`                                                                         |
-| `calendar.respondToEvent` | Accept/decline an invite          | `eventId`, `responseStatus`                                                                     |
-| `calendar.findFreeTime`   | Find available meeting time       | `attendees`, `timeMin`, `timeMax`, `duration`                                                   |
+| Tool                      | Action                           | Key Parameters                                                                       |
+| :------------------------ | :------------------------------- | :----------------------------------------------------------------------------------- |
+| `calendar.list`           | List all calendars               | _(none)_                                                                             |
+| `calendar.listEvents`     | List events (filterable by type) | `calendarId`, `timeMin`, `timeMax`, `eventTypes`                                     |
+| `calendar.getEvent`       | Get event details                | `eventId`, `calendarId`                                                              |
+| `calendar.createEvent`    | Create event (all types)         | `calendarId`, `summary`, `start`, `end`, `eventType`, `addGoogleMeet`, `attachments` |
+| `calendar.updateEvent`    | Modify an existing event         | `eventId`, `summary`, `start`, `end`, `attendees`, `addGoogleMeet`, `attachments`    |
+| `calendar.deleteEvent`    | Delete an event                  | `eventId`, `calendarId`                                                              |
+| `calendar.respondToEvent` | Accept/decline an invite         | `eventId`, `responseStatus`                                                          |
+| `calendar.findFreeTime`   | Find available meeting time      | `attendees`, `timeMin`, `timeMax`, `duration`                                        |

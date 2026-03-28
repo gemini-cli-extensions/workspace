@@ -21,6 +21,14 @@ interface EventAttachment {
   mimeType?: string;
 }
 
+export type CalendarEventType =
+  | 'default'
+  | 'focusTime'
+  | 'outOfOffice'
+  | 'workingLocation';
+
+export type ListEventsEventType = CalendarEventType | 'birthday' | 'fromGmail';
+
 export interface CreateEventInput {
   calendarId?: string;
   summary?: string;
@@ -31,7 +39,7 @@ export interface CreateEventInput {
   sendUpdates?: 'all' | 'externalOnly' | 'none';
   addGoogleMeet?: boolean;
   attachments?: EventAttachment[];
-  eventType?: 'default' | 'focusTime' | 'outOfOffice' | 'workingLocation';
+  eventType?: CalendarEventType;
   focusTimeProperties?: {
     chatStatus?: 'available' | 'doNotDisturb';
     autoDeclineMode?:
@@ -59,7 +67,7 @@ export interface ListEventsInput {
   timeMin?: string;
   timeMax?: string;
   attendeeResponseStatus?: string[];
-  eventTypes?: string[];
+  eventTypes?: ListEventsEventType[];
 }
 
 export interface GetEventInput {
@@ -250,8 +258,7 @@ export class CalendarService {
       workingLocation: 'Working Location',
     };
     const summary =
-      input.summary ??
-      (eventType ? summaryDefaults[eventType] : undefined);
+      input.summary ?? (eventType ? summaryDefaults[eventType] : undefined);
 
     // Validate start/end: at least one of dateTime or date must be provided
     if ((!start.dateTime && !start.date) || (!end.dateTime && !end.date)) {
@@ -354,16 +361,22 @@ export class CalendarService {
           autoDeclineMode:
             focusTimeProperties?.autoDeclineMode ??
             'declineOnlyNewConflictingInvitations',
-          declineMessage: focusTimeProperties?.declineMessage,
         };
+        if (focusTimeProperties?.declineMessage !== undefined) {
+          event.focusTimeProperties.declineMessage =
+            focusTimeProperties.declineMessage;
+        }
       } else if (eventType === 'outOfOffice') {
         event.transparency = 'opaque';
         event.outOfOfficeProperties = {
           autoDeclineMode:
             outOfOfficeProperties?.autoDeclineMode ??
             'declineOnlyNewConflictingInvitations',
-          declineMessage: outOfOfficeProperties?.declineMessage,
         };
+        if (outOfOfficeProperties?.declineMessage !== undefined) {
+          event.outOfOfficeProperties.declineMessage =
+            outOfOfficeProperties.declineMessage;
+        }
       } else if (eventType === 'workingLocation') {
         // workingLocationProperties is guaranteed non-null by validation above
         const wlInput = workingLocationProperties!;
@@ -468,7 +481,8 @@ export class CalendarService {
         ?.filter(
           (event) =>
             event.status !== 'cancelled' &&
-            (!!event.summary || (event.eventType && event.eventType !== 'default')),
+            (!!event.summary ||
+              (event.eventType && event.eventType !== 'default')),
         )
         .filter((event) => {
           if (!event.attendees || event.attendees.length === 0) {
@@ -961,5 +975,4 @@ export class CalendarService {
       };
     }
   };
-
 }

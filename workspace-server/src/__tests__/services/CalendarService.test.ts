@@ -1682,6 +1682,8 @@ describe('CalendarService', () => {
         eventType: 'focusTime',
       });
 
+      const insertArgs = mockCalendarAPI.events.insert.mock.calls[0][0];
+
       expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           calendarId: 'primary-calendar-id',
@@ -1691,14 +1693,13 @@ describe('CalendarService', () => {
             end: { dateTime: '2024-01-15T12:00:00Z' },
             eventType: 'focusTime',
             transparency: 'opaque',
-            focusTimeProperties: {
-              chatStatus: 'doNotDisturb',
-              autoDeclineMode: 'declineOnlyNewConflictingInvitations',
-              declineMessage: undefined,
-            },
           }),
         }),
       );
+      expect(insertArgs.requestBody?.focusTimeProperties).toEqual({
+        chatStatus: 'doNotDisturb',
+        autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+      });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
     });
@@ -1768,6 +1769,8 @@ describe('CalendarService', () => {
         eventType: 'outOfOffice',
       });
 
+      const insertArgs = mockCalendarAPI.events.insert.mock.calls[0][0];
+
       expect(mockCalendarAPI.events.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           calendarId: 'primary-calendar-id',
@@ -1777,13 +1780,12 @@ describe('CalendarService', () => {
             end: { dateTime: '2024-01-19T00:00:00Z' },
             eventType: 'outOfOffice',
             transparency: 'opaque',
-            outOfOfficeProperties: {
-              autoDeclineMode: 'declineOnlyNewConflictingInvitations',
-              declineMessage: undefined,
-            },
           }),
         }),
       );
+      expect(insertArgs.requestBody?.outOfOfficeProperties).toEqual({
+        autoDeclineMode: 'declineOnlyNewConflictingInvitations',
+      });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
     });

@@ -731,9 +731,7 @@ async function main() {
               ),
             customLocation: z
               .object({
-                label: z
-                  .string()
-                  .describe('Label for the custom location.'),
+                label: z.string().describe('Label for the custom location.'),
               })
               .optional()
               .describe(
@@ -929,7 +927,6 @@ async function main() {
     },
     calendarService.deleteEvent,
   );
-
 
   server.registerTool(
     'chat.listSpaces',
