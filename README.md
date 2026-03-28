@@ -60,7 +60,7 @@ If you're using the extension over SSH, WSL, Cloud Shell, or another environment
 without a local browser, you can authenticate using the headless login tool:
 
 ```bash
-node scripts/auth-utils.js login
+npm run auth-utils -- login
 ```
 
 This prints an OAuth URL you can open in any browser (local machine, phone,

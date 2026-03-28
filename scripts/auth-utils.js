@@ -90,7 +90,7 @@ function showHelp() {
   console.log(`
 Auth Management CLI
 
-Usage: node scripts/auth-utils.js <command>
+Usage: npm run auth-utils -- <command>
 
 Commands:
   login     Authenticate via headless OAuth flow (for SSH/WSL/Cloud Shell)
@@ -100,10 +100,10 @@ Commands:
   help      Show this help message
 
 Examples:
-  node scripts/auth-utils.js login
-  node scripts/auth-utils.js clear
-  node scripts/auth-utils.js expire
-  node scripts/auth-utils.js status
+  npm run auth-utils -- login
+  npm run auth-utils -- clear
+  npm run auth-utils -- expire
+  npm run auth-utils -- status
 `);
 }
 

@@ -172,7 +172,7 @@ authentication credentials.
 To use the script, run the following command:
 
 ```bash
-node scripts/auth-utils.js <command>
+npm run auth-utils -- <command>
 ```
 
 ### Commands
@@ -191,7 +191,7 @@ Cloud Shell, VMs), authentication requires manual steps:
 
 1. Run the login tool:
    ```bash
-   node scripts/auth-utils.js login
+   npm run auth-utils -- login
    ```
    Or, from the `workspace-server` directory:
    ```bash
