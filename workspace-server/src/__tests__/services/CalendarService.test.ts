@@ -2088,5 +2088,72 @@ describe('CalendarService', () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult.error).toBe('Invalid input format');
     });
+
+    it('should reject start with both dateTime and date', async () => {
+      const result = await calendarService.createEvent({
+        summary: 'Ambiguous Event',
+        start: { dateTime: '2024-01-15T10:00:00Z', date: '2024-01-15' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should reject end with both dateTime and date', async () => {
+      const result = await calendarService.createEvent({
+        summary: 'Ambiguous Event',
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z', date: '2024-01-15' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should require summary for regular events', async () => {
+      const result = await calendarService.createEvent({
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should require summary for explicit default eventType', async () => {
+      const result = await calendarService.createEvent({
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+        eventType: 'default',
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should reject officeLocation type without officeLocation details', async () => {
+      const result = await calendarService.createEvent({
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        eventType: 'workingLocation',
+        workingLocationProperties: { type: 'officeLocation' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should reject customLocation type without customLocation details', async () => {
+      const result = await calendarService.createEvent({
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        eventType: 'workingLocation',
+        workingLocationProperties: { type: 'customLocation' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
   });
 });

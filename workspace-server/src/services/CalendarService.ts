@@ -260,15 +260,33 @@ export class CalendarService {
     const summary =
       input.summary ?? (eventType ? summaryDefaults[eventType] : undefined);
 
-    // Validate start/end: at least one of dateTime or date must be provided
-    if ((!start.dateTime && !start.date) || (!end.dateTime && !end.date)) {
+    // Validate start/end: exactly one of dateTime or date must be provided
+    if (
+      (!start.dateTime && !start.date) ||
+      (!end.dateTime && !end.date) ||
+      (start.dateTime && start.date) ||
+      (end.dateTime && end.date)
+    ) {
       return this.createValidationErrorResponse(
         new z.ZodError([
           {
             code: 'custom',
             message:
-              'start and end must each have either "dateTime" (for timed events) or "date" (for all-day events)',
+              'start and end must each have exactly one of "dateTime" (for timed events) or "date" (for all-day events), not both',
             path: ['start/end'],
+          },
+        ]),
+      );
+    }
+
+    // Require summary for regular events
+    if ((!eventType || eventType === 'default') && !input.summary) {
+      return this.createValidationErrorResponse(
+        new z.ZodError([
+          {
+            code: 'custom',
+            message: 'summary is required for regular events',
+            path: ['summary'],
           },
         ]),
       );
@@ -388,18 +406,36 @@ export class CalendarService {
         };
         if (wlInput.type === 'homeOffice') {
           wlProps.homeOffice = {};
-        } else if (
-          wlInput.type === 'officeLocation' &&
-          wlInput.officeLocation
-        ) {
+        } else if (wlInput.type === 'officeLocation') {
+          if (!wlInput.officeLocation) {
+            return this.createValidationErrorResponse(
+              new z.ZodError([
+                {
+                  code: 'custom',
+                  message:
+                    'officeLocation is required when workingLocationProperties.type is "officeLocation"',
+                  path: ['workingLocationProperties', 'officeLocation'],
+                },
+              ]),
+            );
+          }
           wlProps.officeLocation = {
             buildingId: wlInput.officeLocation.buildingId,
             label: wlInput.officeLocation.label,
           };
-        } else if (
-          wlInput.type === 'customLocation' &&
-          wlInput.customLocation
-        ) {
+        } else if (wlInput.type === 'customLocation') {
+          if (!wlInput.customLocation) {
+            return this.createValidationErrorResponse(
+              new z.ZodError([
+                {
+                  code: 'custom',
+                  message:
+                    'customLocation is required when workingLocationProperties.type is "customLocation"',
+                  path: ['workingLocationProperties', 'customLocation'],
+                },
+              ]),
+            );
+          }
           wlProps.customLocation = {
             label: wlInput.customLocation.label,
           };
@@ -613,10 +649,10 @@ export class CalendarService {
 
     // Validate datetime formats if provided
     try {
-      if (start) {
+      if (start?.dateTime) {
         iso8601DateTimeSchema.parse(start.dateTime);
       }
-      if (end) {
+      if (end?.dateTime) {
         iso8601DateTimeSchema.parse(end.dateTime);
       }
       if (attendees) {
