@@ -1567,6 +1567,38 @@ describe('CalendarService', () => {
     });
   });
 
+  describe('updateEvent start/end validation', () => {
+    it('should reject start with both dateTime and date', async () => {
+      const result = await calendarService.updateEvent({
+        eventId: 'event1',
+        start: { dateTime: '2024-01-15T10:00:00Z', date: '2024-01-15' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should reject end with both dateTime and date', async () => {
+      const result = await calendarService.updateEvent({
+        eventId: 'event1',
+        end: { dateTime: '2024-01-15T12:00:00Z', date: '2024-01-15' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+
+    it('should reject start with neither dateTime nor date', async () => {
+      const result = await calendarService.updateEvent({
+        eventId: 'event1',
+        start: {},
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe('Invalid input format');
+    });
+  });
+
   describe('listEvents with eventTypes', () => {
     beforeEach(async () => {
       mockCalendarAPI.calendarList.list.mockResolvedValue({

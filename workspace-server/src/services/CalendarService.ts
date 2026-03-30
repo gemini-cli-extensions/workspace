@@ -672,6 +672,34 @@ export class CalendarService {
       attachments,
     } = input;
 
+    // Validate start/end: if provided, exactly one of dateTime or date
+    if (start) {
+      if ((start.dateTime && start.date) || (!start.dateTime && !start.date)) {
+        return this.createValidationErrorResponse(
+          new z.ZodError([
+            {
+              code: 'custom',
+              message: 'start must have exactly one of "dateTime" or "date"',
+              path: ['start'],
+            },
+          ]),
+        );
+      }
+    }
+    if (end) {
+      if ((end.dateTime && end.date) || (!end.dateTime && !end.date)) {
+        return this.createValidationErrorResponse(
+          new z.ZodError([
+            {
+              code: 'custom',
+              message: 'end must have exactly one of "dateTime" or "date"',
+              path: ['end'],
+            },
+          ]),
+        );
+      }
+    }
+
     // Validate datetime formats if provided
     try {
       if (start?.dateTime !== undefined) {
