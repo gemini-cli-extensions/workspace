@@ -6,14 +6,12 @@ updates:
       interval: 'weekly'
     open-pull-requests-limit: 5
     groups:
-      npm-root:
-        patterns:
-          - '*'
-        exclude-patterns:
-          - 'typescript'
       typescript:
         patterns:
           - 'typescript'
+      npm-root:
+        patterns:
+          - '*'
     labels:
       - 'dependencies'
       - 'npm'
