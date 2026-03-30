@@ -79,30 +79,18 @@ export function parseOverrides(raw: string): Override[] {
   return overrides;
 }
 
-/**
- * Build a lookup from feature group key ("docs.read") to FeatureGroup.
- */
-function buildGroupIndex(): Map<string, FeatureGroup> {
-  const index = new Map<string, FeatureGroup>();
-  for (const fg of FEATURE_GROUPS) {
-    index.set(featureGroupKey(fg), fg);
-  }
-  return index;
-}
+/** Lookup from feature group key ("docs.read") to FeatureGroup. */
+const GROUP_INDEX: ReadonlyMap<string, FeatureGroup> = new Map(
+  FEATURE_GROUPS.map((fg) => [featureGroupKey(fg), fg]),
+);
 
-/**
- * Build a lookup from tool name to its feature group key.
- */
-function buildToolIndex(): Map<string, string> {
-  const index = new Map<string, string>();
-  for (const fg of FEATURE_GROUPS) {
+/** Lookup from tool name to its feature group key. */
+const TOOL_INDEX: ReadonlyMap<string, string> = new Map(
+  FEATURE_GROUPS.flatMap((fg) => {
     const key = featureGroupKey(fg);
-    for (const tool of fg.tools) {
-      index.set(tool, key);
-    }
-  }
-  return index;
-}
+    return fg.tools.map((tool) => [tool, key] as const);
+  }),
+);
 
 /**
  * Resolves which features are enabled and computes the required scopes.
@@ -114,8 +102,8 @@ export function resolveFeatures(
   settingsOverrides?: Record<string, boolean>,
   envOverrides?: string,
 ): ResolvedFeatures {
-  const groupIndex = buildGroupIndex();
-  const toolIndex = buildToolIndex();
+  const groupIndex = GROUP_INDEX;
+  const toolIndex = TOOL_INDEX;
 
   // Layer 1: Start with defaults
   const groupEnabled = new Map<string, boolean>();

@@ -83,9 +83,11 @@ export WORKSPACE_FEATURE_OVERRIDES="gmail.send:off,gmail.sendDraft:off"
 export WORKSPACE_FEATURE_OVERRIDES="gmail.write:off,calendar.deleteEvent:off,slides.write:on"
 ```
 
-::: warning Tool-level overrides are **subtractive only**. You cannot use
+::: warning
+Tool-level overrides are **subtractive only**. You cannot use
 `tool:on` to enable a tool whose feature group is disabled. To enable tools,
-enable their parent feature group. :::
+enable their parent feature group.
+:::
 
 ### Precedence
 

@@ -23,17 +23,29 @@ function scopes(...names: string[]): string[] {
   return names.map((name) => `${SCOPE_PREFIX}${name}`);
 }
 
+export type ServiceName =
+  | 'docs'
+  | 'drive'
+  | 'calendar'
+  | 'chat'
+  | 'gmail'
+  | 'people'
+  | 'slides'
+  | 'sheets'
+  | 'time'
+  | 'tasks';
+
 export interface FeatureGroup {
   /** Service name (e.g., 'docs', 'gmail') */
-  service: string;
+  readonly service: ServiceName;
   /** Group type: read (no side effects) or write (mutations) */
-  group: 'read' | 'write';
+  readonly group: 'read' | 'write';
   /** OAuth scopes required by this feature group */
-  scopes: string[];
+  readonly scopes: readonly string[];
   /** Tool names belonging to this feature group */
-  tools: string[];
+  readonly tools: readonly string[];
   /** Whether this feature group is enabled by default */
-  defaultEnabled: boolean;
+  readonly defaultEnabled: boolean;
 }
 
 /**
@@ -43,7 +55,7 @@ export function featureGroupKey(fg: FeatureGroup): string {
   return `${fg.service}.${fg.group}`;
 }
 
-export const FEATURE_GROUPS: FeatureGroup[] = [
+export const FEATURE_GROUPS: readonly FeatureGroup[] = [
   // Docs
   {
     service: 'docs',
@@ -242,4 +254,4 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     tools: [],
     defaultEnabled: false,
   },
-];
+] as const satisfies readonly FeatureGroup[];

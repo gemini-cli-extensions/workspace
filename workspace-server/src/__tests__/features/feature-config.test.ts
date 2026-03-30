@@ -18,7 +18,10 @@ describe('feature-config', () => {
     for (const fg of FEATURE_GROUPS) {
       allTools.push(...fg.tools);
     }
-    expect(allTools.length).toBe(new Set(allTools).size);
+    const duplicates = allTools.filter(
+      (tool, i) => allTools.indexOf(tool) !== i,
+    );
+    expect(duplicates).toEqual([]);
   });
 
   it('should have slides.write, sheets.write, tasks.read, and tasks.write defaulted to OFF', () => {
