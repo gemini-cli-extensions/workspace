@@ -75,7 +75,7 @@ export class DocsService {
       const res = await docs.documents.get({
         documentId: id,
         suggestionsViewMode: 'SUGGESTIONS_INLINE',
-        fields: 'body',
+        fields: 'title,body',
       });
 
       const suggestions: DocsSuggestion[] = this._extractSuggestions(
@@ -90,7 +90,11 @@ export class DocsService {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(suggestions, null, 2),
+            text: JSON.stringify(
+              { title: res.data.title, suggestions },
+              null,
+              2,
+            ),
           },
         ],
       };
@@ -539,10 +543,11 @@ export class DocsService {
       const docs = await this.getDocsClient();
       const res = await docs.documents.get({
         documentId: id,
-        fields: 'tabs', // Request tabs only (body is legacy and mutually exclusive with tabs in mask)
+        fields: 'title,tabs', // Request title and tabs (body is legacy and mutually exclusive with tabs in mask)
         includeTabsContent: true,
       });
 
+      const docTitle = res.data.title;
       const tabs = this._flattenTabs(res.data.tabs || []);
 
       // If tabId is provided, try to find it
@@ -565,6 +570,9 @@ export class DocsService {
         }
 
         let text = '';
+        if (docTitle) {
+          text += `Document Title: ${docTitle}\n\n`;
+        }
         content.forEach((element) => {
           text += this._readStructuralElement(element);
         });
@@ -595,6 +603,9 @@ export class DocsService {
       if (tabs.length === 1) {
         const tab = tabs[0];
         let text = '';
+        if (docTitle) {
+          text += `Document Title: ${docTitle}\n\n`;
+        }
         if (tab.documentTab?.body?.content) {
           tab.documentTab.body.content.forEach((element) => {
             text += this._readStructuralElement(element);
@@ -630,7 +641,7 @@ export class DocsService {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(tabsData, null, 2),
+            text: JSON.stringify({ title: docTitle, tabs: tabsData }, null, 2),
           },
         ],
       };

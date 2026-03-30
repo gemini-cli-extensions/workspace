@@ -550,14 +550,14 @@ describe('DocsService', () => {
       const result = await docsService.getText({ documentId: 'test-doc-id' });
       const parsed = JSON.parse(result.content[0].text);
 
-      expect(parsed).toHaveLength(2);
-      expect(parsed[0]).toEqual({
+      expect(parsed.tabs).toHaveLength(2);
+      expect(parsed.tabs[0]).toEqual({
         tabId: 'tab-1',
         title: 'Tab 1',
         content: 'Tab 1 Content',
         index: 0,
       });
-      expect(parsed[1]).toEqual({
+      expect(parsed.tabs[1]).toEqual({
         tabId: 'tab-2',
         title: 'Tab 2',
         content: 'Tab 2 Content',
@@ -736,14 +736,14 @@ describe('DocsService', () => {
       const result = await docsService.getText({ documentId: 'test-doc-id' });
       const parsed = JSON.parse(result.content[0].text);
 
-      expect(parsed).toHaveLength(2);
-      expect(parsed[0]).toEqual({
+      expect(parsed.tabs).toHaveLength(2);
+      expect(parsed.tabs[0]).toEqual({
         tabId: 'parent-tab',
         title: 'Parent',
         content: 'Parent Content',
         index: 0,
       });
-      expect(parsed[1]).toEqual({
+      expect(parsed.tabs[1]).toEqual({
         tabId: 'child-tab',
         title: 'Child',
         content: 'Child Content',
