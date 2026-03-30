@@ -58,6 +58,7 @@ describe('DocsService Comments and Suggestions', () => {
     it('should return suggestions as type text with JSON-stringified array', async () => {
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
+          title: 'Test Document',
           body: {
             content: [
               {
@@ -84,7 +85,9 @@ describe('DocsService Comments and Suggestions', () => {
       });
 
       expect(result.content[0].type).toBe('text');
-      const { suggestions } = JSON.parse(result.content[0].text);
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.title).toBe('Test Document');
+      const { suggestions } = parsed;
       expect(suggestions).toHaveLength(1);
       expect(suggestions[0]).toEqual({
         type: 'insertion',
