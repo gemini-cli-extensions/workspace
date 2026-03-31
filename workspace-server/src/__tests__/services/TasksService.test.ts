@@ -71,7 +71,7 @@ describe('TasksService', () => {
         maxResults: undefined,
         pageToken: undefined,
       });
-      expect(JSON.parse(result.content[0].text)).toEqual(mockItems);
+      expect(JSON.parse(result.content[0].text)).toEqual({ items: mockItems });
     });
 
     it('should pass pagination parameters', async () => {
@@ -94,7 +94,7 @@ describe('TasksService', () => {
 
       const result = await tasksService.listTaskLists();
 
-      expect(JSON.parse(result.content[0].text)).toEqual([]);
+      expect(JSON.parse(result.content[0].text)).toEqual({});
     });
 
     it('should handle API errors gracefully', async () => {
@@ -133,7 +133,7 @@ describe('TasksService', () => {
         dueMin: undefined,
         dueMax: undefined,
       });
-      expect(JSON.parse(result.content[0].text)).toEqual(mockItems);
+      expect(JSON.parse(result.content[0].text)).toEqual({ items: mockItems });
     });
 
     it('should handle API errors gracefully', async () => {
@@ -291,9 +291,9 @@ describe('TasksService', () => {
         tasklist: 'list1',
         task: 'task1',
       });
-      expect(result.content[0].text).toBe(
-        'Task task1 deleted successfully from list list1.',
-      );
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        message: 'Task task1 deleted successfully from list list1.',
+      });
     });
 
     it('should handle API errors gracefully', async () => {
