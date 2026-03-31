@@ -67,10 +67,7 @@ describe('TasksService', () => {
 
       const result = await tasksService.listTaskLists();
 
-      expect(mockTasksAPI.tasklists.list).toHaveBeenCalledWith({
-        maxResults: undefined,
-        pageToken: undefined,
-      });
+      expect(mockTasksAPI.tasklists.list).toHaveBeenCalledWith({});
       expect(JSON.parse(result.content[0].text)).toEqual({ items: mockItems });
     });
 
@@ -124,14 +121,7 @@ describe('TasksService', () => {
 
       expect(mockTasksAPI.tasks.list).toHaveBeenCalledWith({
         tasklist: 'list1',
-        showCompleted: undefined,
-        showDeleted: undefined,
-        showHidden: undefined,
         showAssigned: true,
-        maxResults: undefined,
-        pageToken: undefined,
-        dueMin: undefined,
-        dueMax: undefined,
       });
       expect(JSON.parse(result.content[0].text)).toEqual({ items: mockItems });
     });

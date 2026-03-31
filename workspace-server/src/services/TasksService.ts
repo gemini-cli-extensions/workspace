@@ -28,8 +28,12 @@ export class TasksService {
     try {
       const tasks = await this.getTasksClient();
       const response = await tasks.tasklists.list({
-        maxResults: params.maxResults,
-        pageToken: params.pageToken,
+        ...(params.maxResults !== undefined && {
+          maxResults: params.maxResults,
+        }),
+        ...(params.pageToken !== undefined && {
+          pageToken: params.pageToken,
+        }),
       });
 
       return {
@@ -74,14 +78,26 @@ export class TasksService {
       const tasks = await this.getTasksClient();
       const response = await tasks.tasks.list({
         tasklist: params.taskListId,
-        showCompleted: params.showCompleted,
-        showDeleted: params.showDeleted,
-        showHidden: params.showHidden,
-        showAssigned: params.showAssigned,
-        maxResults: params.maxResults,
-        pageToken: params.pageToken,
-        dueMin: params.dueMin,
-        dueMax: params.dueMax,
+        ...(params.showCompleted !== undefined && {
+          showCompleted: params.showCompleted,
+        }),
+        ...(params.showDeleted !== undefined && {
+          showDeleted: params.showDeleted,
+        }),
+        ...(params.showHidden !== undefined && {
+          showHidden: params.showHidden,
+        }),
+        ...(params.showAssigned !== undefined && {
+          showAssigned: params.showAssigned,
+        }),
+        ...(params.maxResults !== undefined && {
+          maxResults: params.maxResults,
+        }),
+        ...(params.pageToken !== undefined && {
+          pageToken: params.pageToken,
+        }),
+        ...(params.dueMin !== undefined && { dueMin: params.dueMin }),
+        ...(params.dueMax !== undefined && { dueMax: params.dueMax }),
       });
 
       return {
