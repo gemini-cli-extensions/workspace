@@ -234,6 +234,8 @@ calendar.createEvent({
 ```
 
 - **`summary`** defaults to `"Working Location"` if omitted
+- **All-day working location events** must span **exactly one day**. Use the
+  next day as the exclusive `end` date.
 - **`workingLocationProperties`** is **required** when `eventType` is
   `"workingLocation"`
 - **`workingLocationProperties.type`** — `"homeOffice"`, `"officeLocation"`, or
@@ -268,7 +270,7 @@ be changed — everything else is preserved.
 - **Changing title/description**: Update `summary` or `description`
 - **Adding Google Meet**: Set `addGoogleMeet: true` to generate a Meet link
 - **Managing attachments**: Provide the full attachment list (replaces all
-  existing)
+  existing). Pass `attachments: []` to clear all attachments.
 
 > **Important:** The `attendees` field is a full replacement, not an append. To
 > add a new attendee, include all existing attendees plus the new one. The same
