@@ -157,7 +157,7 @@ used to maintain dot notation and avoid breaking existing configurations.
     - `auth/`: Handles authentication.
     - `cli/`: CLI tools (e.g., headless OAuth login).
     - `features/`: Feature configuration registry and resolver. See the
-      [Feature Configuration](../feature-configuration) docs.
+      [Feature Configuration](feature-configuration.md) docs.
     - `services/`: Contains the business logic for each service.
     - `utils/`: Contains utility functions.
   - `config/`: Contains configuration files.
