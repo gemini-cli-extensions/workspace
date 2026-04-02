@@ -724,7 +724,7 @@ export class CalendarService {
     try {
       const calendar = await this.getCalendar();
 
-      // Build request body with only the fields to update (patch semantics)
+      // Build request body with only the fields to update (true patch semantics)
       const requestBody: calendar_v3.Schema$Event = {};
       if (summary !== undefined) requestBody.summary = summary;
       if (description !== undefined) requestBody.description = description;
@@ -733,19 +733,24 @@ export class CalendarService {
       if (attendees)
         requestBody.attendees = attendees.map((email) => ({ email }));
 
-      const updateParams: calendar_v3.Params$Resource$Events$Update = {
+      const patchParams: calendar_v3.Params$Resource$Events$Patch = {
         calendarId: finalCalendarId,
         eventId,
         requestBody,
       };
       this.applyMeetAndAttachments(
         requestBody,
-        updateParams,
+        patchParams as calendar_v3.Params$Resource$Events$Update,
         addGoogleMeet,
         attachments,
       );
 
-      const res = await calendar.events.update(updateParams);
+      // Use events.patch (not events.update) so only specified fields are modified.
+      // events.update (PUT) replaces the entire event, which wipes unspecified fields
+      // like summary, description, reminders, colorId, visibility, and — critically —
+      // rejects non-default eventTypes (Focus Time, Out of Office, Working Location)
+      // with "Event type cannot be changed."
+      const res = await calendar.events.patch(patchParams);
 
       logToFile(`Successfully updated event: ${res.data.id}`);
       return {
