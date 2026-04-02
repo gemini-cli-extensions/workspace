@@ -740,7 +740,7 @@ export class CalendarService {
       };
       this.applyMeetAndAttachments(
         requestBody,
-        patchParams as calendar_v3.Params$Resource$Events$Update,
+        patchParams,
         addGoogleMeet,
         attachments,
       );

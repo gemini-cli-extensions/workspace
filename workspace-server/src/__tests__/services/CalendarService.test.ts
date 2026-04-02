@@ -857,7 +857,7 @@ describe('CalendarService', () => {
         attendees: [{ email: 'new@example.com' }],
       };
 
-      mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+      mockCalendarAPI.events.patch.mockResolvedValue({ data: updatedEvent });
 
       const result = await calendarService.updateEvent({
         eventId: 'event123',
@@ -867,7 +867,7 @@ describe('CalendarService', () => {
         attendees: ['new@example.com'],
       });
 
-      expect(mockCalendarAPI.events.update).toHaveBeenCalledWith({
+      expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith({
         calendarId: 'primary',
         eventId: 'event123',
         requestBody: {
@@ -889,14 +889,14 @@ describe('CalendarService', () => {
         description: 'New updated description',
       };
 
-      mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+      mockCalendarAPI.events.patch.mockResolvedValue({ data: updatedEvent });
 
       const result = await calendarService.updateEvent({
         eventId: 'event123',
         description: 'New updated description',
       });
 
-      expect(mockCalendarAPI.events.update).toHaveBeenCalledWith({
+      expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith({
         calendarId: 'primary',
         eventId: 'event123',
         requestBody: {
@@ -910,7 +910,7 @@ describe('CalendarService', () => {
 
     it('should handle update errors', async () => {
       const apiError = new Error('Update failed');
-      mockCalendarAPI.events.update.mockRejectedValue(apiError);
+      mockCalendarAPI.events.patch.mockRejectedValue(apiError);
 
       const result = await calendarService.updateEvent({
         eventId: 'event123',
@@ -927,20 +927,57 @@ describe('CalendarService', () => {
         summary: 'Updated Meeting Only',
       };
 
-      mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+      mockCalendarAPI.events.patch.mockResolvedValue({ data: updatedEvent });
 
       await calendarService.updateEvent({
         eventId: 'event123',
         summary: 'Updated Meeting Only',
       });
 
-      expect(mockCalendarAPI.events.update).toHaveBeenCalledWith({
+      expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith({
         calendarId: 'primary',
         eventId: 'event123',
         requestBody: {
           summary: 'Updated Meeting Only',
         },
       });
+    });
+
+    it('should preserve Focus Time eventType on partial update', async () => {
+      const focusTimeEvent = {
+        id: 'focus123',
+        summary: 'Deep Work',
+        eventType: 'focusTime',
+        focusTimeProperties: { autoDeclineMode: 'declineNone' },
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+        end: { dateTime: '2024-01-15T12:00:00Z' },
+      };
+
+      mockCalendarAPI.events.patch.mockResolvedValue({ data: focusTimeEvent });
+
+      const result = await calendarService.updateEvent({
+        eventId: 'focus123',
+        start: { dateTime: '2024-01-16T10:00:00Z' },
+        end: { dateTime: '2024-01-16T12:00:00Z' },
+      });
+
+      // Verify patch was called (not update) — patch preserves unspecified fields
+      expect(mockCalendarAPI.events.patch).toHaveBeenCalled();
+      expect(mockCalendarAPI.events.update).not.toHaveBeenCalled();
+
+      // Verify only the requested fields were sent (eventType is NOT in the body —
+      // it is preserved server-side by PATCH semantics)
+      expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestBody: {
+            start: { dateTime: '2024-01-16T10:00:00Z' },
+            end: { dateTime: '2024-01-16T12:00:00Z' },
+          },
+        }),
+      );
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.eventType).toBe('focusTime');
     });
   });
 
@@ -1495,14 +1532,14 @@ describe('CalendarService', () => {
           },
         };
 
-        mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+        mockCalendarAPI.events.patch.mockResolvedValue({ data: updatedEvent });
 
         const result = await calendarService.updateEvent({
           eventId: 'event123',
           addGoogleMeet: true,
         });
 
-        const callArgs = mockCalendarAPI.events.update.mock.calls[0][0];
+        const callArgs = mockCalendarAPI.events.patch.mock.calls[0][0];
         expect(callArgs.conferenceDataVersion).toBe(1);
         expect(callArgs.requestBody.conferenceData).toBeDefined();
         expect(
@@ -1515,7 +1552,7 @@ describe('CalendarService', () => {
 
       it('should not include conferenceData when addGoogleMeet is false', async () => {
         const updatedEvent = { id: 'event123', summary: 'No Meet' };
-        mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+        mockCalendarAPI.events.patch.mockResolvedValue({ data: updatedEvent });
 
         await calendarService.updateEvent({
           eventId: 'event123',
@@ -1523,7 +1560,7 @@ describe('CalendarService', () => {
           addGoogleMeet: false,
         });
 
-        const callArgs = mockCalendarAPI.events.update.mock.calls[0][0];
+        const callArgs = mockCalendarAPI.events.patch.mock.calls[0][0];
         expect(callArgs.conferenceDataVersion).toBeUndefined();
         expect(callArgs.requestBody.conferenceData).toBeUndefined();
       });
@@ -1541,7 +1578,7 @@ describe('CalendarService', () => {
           ],
         };
 
-        mockCalendarAPI.events.update.mockResolvedValue({ data: updatedEvent });
+        mockCalendarAPI.events.patch.mockResolvedValue({ data: updatedEvent });
 
         const result = await calendarService.updateEvent({
           eventId: 'event123',
@@ -1553,7 +1590,7 @@ describe('CalendarService', () => {
           ],
         });
 
-        const callArgs = mockCalendarAPI.events.update.mock.calls[0][0];
+        const callArgs = mockCalendarAPI.events.patch.mock.calls[0][0];
         expect(callArgs.supportsAttachments).toBe(true);
         expect(callArgs.requestBody.attachments).toEqual([
           expect.objectContaining({
