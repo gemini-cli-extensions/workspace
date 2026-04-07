@@ -234,7 +234,7 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
       'sheets.addSheet',
       'sheets.deleteSheet',
     ],
-    defaultEnabled: true,
+    defaultEnabled: false,
   },
 
   // Time (no scopes needed)

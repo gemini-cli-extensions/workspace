@@ -735,19 +735,19 @@ export class CalendarService {
       if (attendees)
         requestBody.attendees = attendees.map((email) => ({ email }));
 
-      const updateParams: calendar_v3.Params$Resource$Events$Update = {
+      const patchParams: calendar_v3.Params$Resource$Events$Patch = {
         calendarId: finalCalendarId,
         eventId,
         requestBody,
       };
       this.applyMeetAndAttachments(
         requestBody,
-        updateParams,
+        patchParams,
         addGoogleMeet,
         attachments,
       );
 
-      const res = await calendar.events.update(updateParams);
+      const res = await calendar.events.patch(patchParams);
 
       logToFile(`Successfully updated event: ${res.data.id}`);
       return {
