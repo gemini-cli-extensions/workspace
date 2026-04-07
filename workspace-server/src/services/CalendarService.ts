@@ -154,7 +154,13 @@ export class CalendarService {
   private createValidationErrorResponse(error: unknown) {
     const errorMessage =
       error instanceof z.ZodError
-        ? error.issues.map((issue) => issue.message).join('; ')
+        ? error.issues
+            .map((issue) =>
+              issue.path.length
+                ? `${issue.path.join('.')}: ${issue.message}`
+                : issue.message,
+            )
+            .join('; ')
         : error instanceof Error
           ? error.message
           : 'Validation failed';
@@ -183,6 +189,43 @@ export class CalendarService {
         },
       ],
     };
+  }
+
+  private extractErrorMessage(error: unknown): string {
+    const details = (
+      error as {
+        response?: {
+          data?: {
+            error?: {
+              message?: string;
+              code?: number;
+              errors?: Array<{
+                location?: string;
+                reason?: string;
+                message?: string;
+              }>;
+            };
+          };
+        };
+      }
+    )?.response?.data?.error;
+
+    if (details) {
+      let message = `${details.message} (code ${details.code})`;
+      if (details.errors?.length) {
+        const fieldErrors = details.errors
+          .map(
+            (e) =>
+              [e.location, e.reason].filter(Boolean).join(' ') +
+              `: ${e.message}`,
+          )
+          .join('; ');
+        message += `: ${fieldErrors}`;
+      }
+      return message;
+    }
+
+    return error instanceof Error ? error.message : String(error);
   }
 
   private async getCalendar(): Promise<calendar_v3.Calendar> {
@@ -391,8 +434,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.extractErrorMessage(error);
       logToFile(`Error during calendar.createEvent: ${errorMessage}`);
       return {
         content: [
@@ -590,7 +632,7 @@ export class CalendarService {
       if (description !== undefined) requestBody.description = description;
       if (start) requestBody.start = start;
       if (end) requestBody.end = end;
-      if (attendees)
+      if (attendees !== undefined)
         requestBody.attendees = attendees.map((email) => ({ email }));
 
       const updateParams: calendar_v3.Params$Resource$Events$Patch = {
@@ -618,8 +660,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.extractErrorMessage(error);
       logToFile(`Error during calendar.updateEvent: ${errorMessage}`);
       return {
         content: [

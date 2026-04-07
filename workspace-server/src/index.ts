@@ -41,12 +41,9 @@ const eventDateInputSchema = (fieldName: string) =>
         .optional()
         .describe('Date in YYYY-MM-DD format. Use for all-day events.'),
     })
-    .refine(
-      ({ dateTime, date }) => Number(!!dateTime) + Number(!!date) === 1,
-      {
-        message: `${fieldName} must include exactly one of "dateTime" or "date"`,
-      },
-    );
+    .refine(({ dateTime, date }) => Number(!!dateTime) + Number(!!date) === 1, {
+      message: `${fieldName} must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)`,
+    });
 
 const eventMeetAndAttachmentsSchema = {
   addGoogleMeet: z

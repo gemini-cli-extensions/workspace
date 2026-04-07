@@ -63,6 +63,7 @@ describe('CalendarService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    expect(mockCalendarAPI.events.update).not.toHaveBeenCalled();
   });
 
   describe('listCalendars', () => {
@@ -166,6 +167,20 @@ describe('CalendarService', () => {
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockCreatedEvent);
+    });
+
+    it('creates a single-day all-day workingLocation event', async () => {
+      mockCalendarAPI.events.insert.mockResolvedValue({ data: { id: 'wl1' } });
+      await calendarService.createEvent({
+        start: { date: '2024-01-15' },
+        end: { date: '2024-01-16' },
+        eventType: 'workingLocation',
+        workingLocationProperties: { type: 'homeOffice' },
+      });
+      const body = mockCalendarAPI.events.insert.mock.calls[0][0].requestBody;
+      expect(body.start).toEqual({ date: '2024-01-15' });
+      expect(body.end).toEqual({ date: '2024-01-16' });
+      expect(body.eventType).toBe('workingLocation');
     });
 
     it('should create a calendar event', async () => {
@@ -921,6 +936,41 @@ describe('CalendarService', () => {
       expect(parsedResult.error).toBe('Update failed');
     });
 
+    it('should surface structured Google API field errors on update', async () => {
+      mockCalendarAPI.events.patch.mockRejectedValue({
+        response: {
+          data: {
+            error: {
+              message: 'Invalid Value',
+              code: 400,
+              errors: [
+                {
+                  location: 'start.dateTime',
+                  reason: 'invalid',
+                  message: 'Invalid start time',
+                },
+                {
+                  location: 'attendees',
+                  reason: 'invalid',
+                  message: 'Attendee email is invalid',
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      const result = await calendarService.updateEvent({
+        eventId: 'event123',
+        start: { dateTime: '2024-01-15T10:00:00Z' },
+      });
+
+      const parsedResult = JSON.parse(result.content[0].text);
+      expect(parsedResult.error).toBe(
+        'Invalid Value (code 400): start.dateTime invalid: Invalid start time; attendees invalid: Attendee email is invalid',
+      );
+    });
+
     it('should only send fields that are provided', async () => {
       const updatedEvent = {
         id: 'event123',
@@ -943,24 +993,56 @@ describe('CalendarService', () => {
       });
     });
 
-    it('should patch only changed fields for status events', async () => {
+    it.each([
+      ['summary', { summary: 'X' }],
+      ['description', { description: 'X' }],
+      ['start', { start: { dateTime: '2024-01-15T10:00:00Z' } }],
+      ['end', { end: { dateTime: '2024-01-15T11:00:00Z' } }],
+      ['attendees', { attendees: ['a@b.com'] }],
+    ])(
+      '#313: patch body for %s update contains only that field',
+      async (field, patch) => {
+        mockCalendarAPI.events.patch.mockResolvedValue({ data: { id: 'e' } });
+        await calendarService.updateEvent({ eventId: 'e', ...patch });
+        const body = mockCalendarAPI.events.patch.mock.calls[0][0].requestBody;
+        expect(Object.keys(body)).toEqual([field]);
+      },
+    );
+
+    it('should clear description when passed an empty string', async () => {
       mockCalendarAPI.events.patch.mockResolvedValue({
-        data: {
-          id: 'focus123',
-          summary: 'Deep Work',
-        },
+        data: { id: 'event123', description: '' },
       });
 
       await calendarService.updateEvent({
-        eventId: 'focus123',
-        summary: 'Deep Work',
+        eventId: 'event123',
+        description: '',
       });
 
       expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith({
         calendarId: 'primary',
-        eventId: 'focus123',
+        eventId: 'event123',
         requestBody: {
-          summary: 'Deep Work',
+          description: '',
+        },
+      });
+    });
+
+    it('should clear attendees when passed an empty array', async () => {
+      mockCalendarAPI.events.patch.mockResolvedValue({
+        data: { id: 'event123', attendees: [] },
+      });
+
+      await calendarService.updateEvent({
+        eventId: 'event123',
+        attendees: [],
+      });
+
+      expect(mockCalendarAPI.events.patch).toHaveBeenCalledWith({
+        calendarId: 'primary',
+        eventId: 'event123',
+        requestBody: {
+          attendees: [],
         },
       });
     });

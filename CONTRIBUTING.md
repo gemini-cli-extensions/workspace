@@ -83,8 +83,13 @@ ready for a formal review but is open for discussion and initial feedback.
 #### 4. Ensure All Checks Pass
 
 Before submitting your PR, ensure that all automated checks are passing by
-running `npm run test && npm run lint`. This command runs all tests, linting,
-and other style checks.
+running:
+
+```bash
+npm run test && npm run lint && npm run format:check && npx tsc --noEmit --project workspace-server
+```
+
+This command runs all tests, linting, formatting, and type checks.
 
 #### 5. Write Clear Commit Messages and a Good PR Description
 

@@ -62,12 +62,10 @@ function validateExclusiveDateField(
   const hasDate = !!fieldValue.date;
 
   if ((!hasDateTime && !hasDate) || (hasDateTime && hasDate)) {
-    const label =
-      fieldName === 'start'
-        ? 'start must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)'
-        : 'end must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)';
-
-    throw createIssue([fieldName], label);
+    throw createIssue(
+      [fieldName],
+      `${fieldName} must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)`,
+    );
   }
 }
 
@@ -85,12 +83,15 @@ function validateOptionalExclusiveDateField(
   if ((!hasDateTime && !hasDate) || (hasDateTime && hasDate)) {
     throw createIssue(
       [fieldName],
-      `${fieldName} must have exactly one of "dateTime" or "date"`,
+      `${fieldName} must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)`,
     );
   }
 }
 
-function validateDateFieldFormats(fieldName: 'start' | 'end', field: EventDateInput) {
+function validateDateFieldFormats(
+  fieldName: 'start' | 'end',
+  field: EventDateInput,
+) {
   if (field.dateTime) {
     iso8601DateTimeSchema.parse(field.dateTime);
   }
@@ -136,17 +137,26 @@ function addDays(date: string, days: number): string {
   return parsed.toISOString().slice(0, 10);
 }
 
-function validateWorkingLocationDuration(input: CompleteEventValidationInput): void {
+function validateWorkingLocationDuration(
+  input: CompleteEventValidationInput,
+): void {
   if (
     input.eventType === 'workingLocation' &&
     input.start.date &&
-    input.end.date &&
-    addDays(input.start.date, 1) !== input.end.date
+    input.end.date
   ) {
-    throw createIssue(
-      ['start', 'end'],
-      'all-day workingLocation events must span exactly one day',
-    );
+    if (input.end.date < input.start.date) {
+      throw createIssue(
+        ['start', 'end'],
+        'end.date must be on or after start.date',
+      );
+    }
+    if (addDays(input.start.date, 1) !== input.end.date) {
+      throw createIssue(
+        ['start', 'end'],
+        'all-day workingLocation events must span exactly one day',
+      );
+    }
   }
 }
 

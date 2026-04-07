@@ -44,9 +44,7 @@ describe('CalendarValidation', () => {
           eventType: 'workingLocation',
           workingLocationProperties: { type: 'homeOffice' },
         }),
-      ).toThrow(
-        'all-day workingLocation events must span exactly one day',
-      );
+      ).toThrow('all-day workingLocation events must span exactly one day');
     });
 
     it('accepts a leap-day working location event that spans one day', () => {
@@ -58,6 +56,61 @@ describe('CalendarValidation', () => {
           workingLocationProperties: { type: 'homeOffice' },
         }),
       ).not.toThrow();
+    });
+
+    it('accepts a year-boundary working location event', () => {
+      expect(() =>
+        validateCreateEventInput({
+          start: { date: '2024-12-31' },
+          end: { date: '2025-01-01' },
+          eventType: 'workingLocation',
+          workingLocationProperties: { type: 'homeOffice' },
+        }),
+      ).not.toThrow();
+    });
+
+    it('accepts a month-boundary working location event', () => {
+      expect(() =>
+        validateCreateEventInput({
+          start: { date: '2024-01-31' },
+          end: { date: '2024-02-01' },
+          eventType: 'workingLocation',
+          workingLocationProperties: { type: 'homeOffice' },
+        }),
+      ).not.toThrow();
+    });
+
+    it('accepts a non-leap Feb working location event', () => {
+      expect(() =>
+        validateCreateEventInput({
+          start: { date: '2023-02-28' },
+          end: { date: '2023-03-01' },
+          eventType: 'workingLocation',
+          workingLocationProperties: { type: 'homeOffice' },
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects a same-day working location event', () => {
+      expect(() =>
+        validateCreateEventInput({
+          start: { date: '2024-01-15' },
+          end: { date: '2024-01-15' },
+          eventType: 'workingLocation',
+          workingLocationProperties: { type: 'homeOffice' },
+        }),
+      ).toThrow('all-day workingLocation events must span exactly one day');
+    });
+
+    it('rejects a reversed-date working location event', () => {
+      expect(() =>
+        validateCreateEventInput({
+          start: { date: '2024-01-16' },
+          end: { date: '2024-01-15' },
+          eventType: 'workingLocation',
+          workingLocationProperties: { type: 'homeOffice' },
+        }),
+      ).toThrow('end.date must be on or after start.date');
     });
 
     it('rejects a regular event without a summary', () => {
@@ -126,7 +179,7 @@ describe('CalendarValidation', () => {
       );
 
       expect(messages).toContain(
-        'start must have exactly one of "dateTime" or "date"',
+        'start must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)',
       );
     });
 
