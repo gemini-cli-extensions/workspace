@@ -2,9 +2,15 @@
   "name": "oauth-handler",
   "version": "1.0.0",
   "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.0.0",
     "@google-cloud/secret-manager": "^5.0.0",
     "axios": "^1.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
   }
 }
