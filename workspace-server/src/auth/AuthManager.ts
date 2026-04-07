@@ -353,8 +353,37 @@ export class AuthManager {
             .searchParams;
 
           // SECURITY: Validate the state parameter to prevent CSRF attacks.
+          //
+          // The cloud function may return state in two formats depending on version:
+          //
+          //   v0.0.9+ cloud function: returns the original base64 JSON state unchanged.
+          //     The caller must decode it and extract `csrf`:
+          //       JSON.parse(Buffer.from(returnedState, 'base64').toString('utf8')).csrf
+          //
+          //   ≤v0.0.7 cloud function: returned only the raw hex `payload.csrf` string.
+          //     In that case the value is compared directly against csrfToken.
+          //
+          // We try the base64 JSON path first; if it fails (parse error or missing
+          // csrf field) we fall back to treating the value as a raw hex token.
           const returnedState = qs.get('state');
-          if (returnedState !== csrfToken) {
+          let csrfFromState: string | null = null;
+          if (returnedState) {
+            try {
+              const decoded = JSON.parse(
+                Buffer.from(returnedState, 'base64').toString('utf8'),
+              );
+              if (typeof decoded?.csrf === 'string') {
+                csrfFromState = decoded.csrf;
+              }
+            } catch {
+              // Not base64 JSON — fall through to raw hex comparison below
+            }
+            if (!csrfFromState) {
+              // Fallback: treat the returned value as the raw hex token (≤v0.0.7 cloud function)
+              csrfFromState = returnedState;
+            }
+          }
+          if (!csrfFromState || csrfFromState !== csrfToken) {
             res.end('State mismatch. Possible CSRF attack.');
             reject(new Error('OAuth state mismatch. Possible CSRF attack.'));
             return;
