@@ -14,6 +14,31 @@ jest.mock('googleapis');
 jest.mock('../../utils/logger');
 jest.mock('../../utils/secure-browser-launcher');
 
+/**
+ * Helper that mirrors the CSRF extraction logic in AuthManager.authWithWeb,
+ * so we can unit-test all state-format permutations without spinning up an
+ * HTTP server or touching the private method directly.
+ *
+ * Supports two formats returned by the cloud function:
+ *  - v0.0.9+: full base64-encoded JSON  {"uri":…,"manual":…,"csrf":"<hex>"}
+ *  - ≤v0.0.7: raw hex CSRF string
+ */
+function extractCsrfFromState(returnedState: string | null): string | null {
+  if (!returnedState) return null;
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(returnedState, 'base64').toString('utf8'),
+    );
+    if (typeof decoded?.csrf === 'string') {
+      return decoded.csrf;
+    }
+  } catch {
+    // Not base64 JSON — fall through
+  }
+  // Fallback: treat as raw hex token (≤v0.0.7 cloud function)
+  return returnedState;
+}
+
 // Mock fetch globally for refreshToken tests
 global.fetch = jest.fn();
 
@@ -259,5 +284,39 @@ describe('AuthManager', () => {
         body: expect.stringContaining('valid_refresh'),
       }),
     );
+  });
+});
+
+describe('OAuth state CSRF extraction', () => {
+  const RAW_CSRF = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
+
+  it('extracts csrf from base64 JSON state (v0.0.9+ cloud function format)', () => {
+    const payload = { uri: 'http://localhost:54321/oauth2callback', manual: false, csrf: RAW_CSRF };
+    const state = Buffer.from(JSON.stringify(payload)).toString('base64');
+    expect(extractCsrfFromState(state)).toBe(RAW_CSRF);
+  });
+
+  it('returns raw hex as-is when state is not base64 JSON (≤v0.0.7 cloud function format)', () => {
+    expect(extractCsrfFromState(RAW_CSRF)).toBe(RAW_CSRF);
+  });
+
+  it('returns null when state is null', () => {
+    expect(extractCsrfFromState(null)).toBeNull();
+  });
+
+  it('returns null when state is empty string', () => {
+    expect(extractCsrfFromState('')).toBeNull();
+  });
+
+  it('falls back to raw value when base64 decodes to JSON without csrf field', () => {
+    const payload = { uri: 'http://localhost:54321/oauth2callback', manual: false };
+    const state = Buffer.from(JSON.stringify(payload)).toString('base64');
+    // No csrf field → falls back to treating the whole base64 string as the token
+    expect(extractCsrfFromState(state)).toBe(state);
+  });
+
+  it('falls back to raw value when base64 decodes to non-JSON', () => {
+    const garbage = Buffer.from('not-json-at-all').toString('base64');
+    expect(extractCsrfFromState(garbage)).toBe(garbage);
   });
 });
