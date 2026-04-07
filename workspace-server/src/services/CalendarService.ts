@@ -200,9 +200,11 @@ export class CalendarService {
               message?: string;
               code?: number;
               errors?: Array<{
-                location?: string;
+                domain?: string;
                 reason?: string;
                 message?: string;
+                location?: string;
+                locationType?: string;
               }>;
             };
           };
@@ -211,18 +213,34 @@ export class CalendarService {
     )?.response?.data?.error;
 
     if (details) {
-      let message = `${details.message} (code ${details.code})`;
+      const topLevelMessage = details.message ?? 'Unknown Error';
+      const code = details.code ? ` (code ${details.code})` : '';
+
       if (details.errors?.length) {
         const fieldErrors = details.errors
-          .map(
-            (e) =>
-              [e.location, e.reason].filter(Boolean).join(' ') +
-              `: ${e.message}`,
-          )
+          .map((e) => {
+            const context = [e.domain, e.locationType, e.location]
+              .filter(Boolean)
+              .join('.');
+            const identity = [context, e.reason].filter(Boolean).join(' ');
+            return identity ? `${identity}: ${e.message}` : e.message;
+          })
           .join('; ');
-        message += `: ${fieldErrors}`;
+
+        // If the top-level message is just a generic summary of the first field error,
+        // or if they are identical, just show the field errors to avoid stutter.
+        if (
+          details.errors.length === 1 &&
+          (topLevelMessage === details.errors[0].message ||
+            topLevelMessage.includes(details.errors[0].message ?? ''))
+        ) {
+          return `${fieldErrors}${code}`;
+        }
+
+        return `${topLevelMessage}${code}: ${fieldErrors}`;
       }
-      return message;
+
+      return `${topLevelMessage}${code}`;
     }
 
     return error instanceof Error ? error.message : String(error);
