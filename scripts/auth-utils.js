@@ -74,22 +74,36 @@ async function showStatus() {
   }
 }
 
+async function login() {
+  try {
+    require('../workspace-server/dist/headless-login.js');
+  } catch (error) {
+    console.error(
+      '❌ Failed to load headless-login module. Run "npm run build:headless-login" first.',
+    );
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
 function showHelp() {
   console.log(`
 Auth Management CLI
 
-Usage: node scripts/auth-utils.js <command>
+Usage: npm run auth-utils -- <command>
 
 Commands:
+  login     Authenticate via headless OAuth flow (for SSH/WSL/Cloud Shell)
   clear     Clear all authentication credentials
   expire    Force the access token to expire (for testing refresh)
   status    Show current authentication status
   help      Show this help message
 
 Examples:
-  node scripts/auth-utils.js clear
-  node scripts/auth-utils.js expire
-  node scripts/auth-utils.js status
+  npm run auth-utils -- login
+  npm run auth-utils -- clear
+  npm run auth-utils -- expire
+  npm run auth-utils -- status
 `);
 }
 
@@ -97,6 +111,9 @@ async function main() {
   const command = process.argv[2];
 
   switch (command) {
+    case 'login':
+      await login();
+      break;
     case 'clear':
       await clearAuth();
       break;

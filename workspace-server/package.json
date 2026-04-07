@@ -1,6 +1,6 @@
 {
   "name": "workspace-server",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
@@ -9,15 +9,15 @@
     "test:coverage": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --coverage",
     "test:ci": "cd .. && node --max-old-space-size=4096 node_modules/jest/bin/jest.js --ci --coverage --maxWorkers=2",
     "start": "ts-node src/index.ts",
-    "clean": "rm -rf dist node_modules",
-    "build": "node esbuild.config.js",
-    "build:auth-utils": "node esbuild.auth-utils.js"
+    "build": "node esbuild.config.js && node esbuild.headless-login.js",
+    "build:auth-utils": "node esbuild.auth-utils.js",
+    "build:headless-login": "node esbuild.headless-login.js"
   },
   "keywords": [],
   "author": "Allen Hutchison",
   "license": "Apache-2.0",
   "type": "commonjs",
   "devDependencies": {
-    "esbuild": "^0.27.2"
+    "esbuild": "^0.27.5"
   }
 }

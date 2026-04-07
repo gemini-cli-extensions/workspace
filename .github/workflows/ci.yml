@@ -61,7 +61,7 @@ jobs:
         run: npm run test:ci
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           directory: ./workspace-server/coverage
           flags: unittests
@@ -89,7 +89,7 @@ jobs:
         run: npm run build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: workspace-server/dist/

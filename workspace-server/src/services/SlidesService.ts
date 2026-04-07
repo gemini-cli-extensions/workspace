@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { google, slides_v1, drive_v3 } from 'googleapis';
+import { google, slides_v1 } from 'googleapis';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { request } from 'gaxios';
@@ -12,7 +12,6 @@ import { AuthManager } from '../auth/AuthManager';
 import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
-import { buildDriveSearchQuery, MIME_TYPES } from '../utils/DriveQueryBuilder';
 
 export class SlidesService {
   constructor(private authManager: AuthManager) {}
@@ -21,12 +20,6 @@ export class SlidesService {
     const auth = await this.authManager.getAuthenticatedClient();
     const options = { ...gaxiosOptions, auth };
     return google.slides({ version: 'v1', ...options });
-  }
-
-  private async getDriveClient(): Promise<drive_v3.Drive> {
-    const auth = await this.authManager.getAuthenticatedClient();
-    const options = { ...gaxiosOptions, auth };
-    return google.drive({ version: 'v3', ...options });
   }
 
   public getText = async ({ presentationId }: { presentationId: string }) => {
@@ -131,63 +124,6 @@ export class SlidesService {
     }
     return text;
   }
-
-  public find = async ({
-    query,
-    pageToken,
-    pageSize = 10,
-  }: {
-    query: string;
-    pageToken?: string;
-    pageSize?: number;
-  }) => {
-    logToFile(
-      `[SlidesService] Searching for presentations with query: ${query}`,
-    );
-    try {
-      const q = buildDriveSearchQuery(MIME_TYPES.PRESENTATION, query);
-      logToFile(`[SlidesService] Executing Drive API query: ${q}`);
-
-      const drive = await this.getDriveClient();
-      const res = await drive.files.list({
-        pageSize: pageSize,
-        fields: 'nextPageToken, files(id, name)',
-        q: q,
-        pageToken: pageToken,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      });
-
-      const files = res.data.files || [];
-      const nextPageToken = res.data.nextPageToken;
-
-      logToFile(`[SlidesService] Found ${files.length} presentations.`);
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({
-              files: files,
-              nextPageToken: nextPageToken,
-            }),
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(`[SlidesService] Error during slides.find: ${errorMessage}`);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
-    }
-  };
 
   public getMetadata = async ({
     presentationId,

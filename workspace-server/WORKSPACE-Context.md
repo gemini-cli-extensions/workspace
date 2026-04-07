@@ -78,99 +78,19 @@ Should I create this event?
 
 When creating documents in specific folders:
 
-1. Create the document first
-2. Then move it to the folder (if specified)
+1. Create the document with `docs.create` (blank)
+2. Move it to the target folder with `drive.moveFile`
 3. Confirm successful completion
 
-### Calendar Scheduling Workflow
+To find Google Docs, Sheets, or Slides, use `drive.search` with a MIME type
+filter rather than searching by name alone. Example MIME type queries:
 
-1. Get user's timezone with `time.getTimeZone()`
-2. Check availability with `calendar.listEvents()`
-3. Create event with proper timezone handling
-4. Always show times in user's local timezone
-
-### Event Deletion
-
-When using `calendar.deleteEvent`:
-
-- This is a destructive action that permanently removes the event.
-- For organizers, this cancels the event for all attendees.
-- For attendees, this only removes it from their own calendar.
-- Always confirm with the user before executing a deletion.
-
-## 📅 Calendar Best Practices
-
-### Understanding "Next Meeting"
-
-When asked about "next meeting" or "today's schedule":
-
-1. **Fetch the full day's context** - Use start of day (00:00:00) to end of day
-   (23:59:59)
-2. **Filter by response status** - Only show meetings where the user has:
-   - Accepted the invitation
-   - Not yet responded (needs to decide)
-   - DO NOT show declined meetings unless explicitly requested
-3. **Compare with current time** - Identify meetings relative to now
-4. **Handle edge cases**:
-   - If a meeting is in progress, mention it first
-   - "Next" means the first meeting after current time
-   - Keep full day context for follow-up questions
-
-### Meeting Response Filtering
-
-- **Default behavior**: Show only accepted and pending meetings
-- **Declined meetings**: Exclude unless user asks "show me all meetings" or
-  "including declined"
-- **Use `attendeeResponseStatus`** parameter to filter appropriately
-- This respects the user's time by not cluttering their schedule with irrelevant
-  meetings
-
-### Timezone Management
-
-- Always display times in the user's timezone
-- Convert all times appropriately before display
-- Include timezone abbreviation (EST, PST, etc.) for clarity
-
-## 💬 Chat Guidelines
-
-Google Chat uses a specific subset of Markdown. Ensure messages sent to Chat use
-the syntax supported by Chat, and convert any unsupported syntax to a supported
-syntax.
-
-### Supported Formatting
-
-- _bold_ (single asterisks)
-- _italic_ (single underscores)
-- ~strikethrough~
-- `inline code`
-- `code blocks`
-- Bulleted lists ("\* " or "- " at line start)
-- Links: <url|text>
-- User mentions: <users/{user}>
-
-### Unsupported (convert these)
-
-- **double asterisks** for bold (convert to _single asterisks_)
-- [text](url) markdown links (convert to <url|text>)
-- Nested lists (flatten with dashes: "- parent", "- -- child")
-- # headings (convert to _bold_ text)
-- > blockquotes (preserve the `>` characters, do not remove them)
-
-## 📄 Docs, Sheets, and Slides
-
-### Format Selection (Sheets)
-
-Choose output format based on use case:
-
-- **text**: Human-readable, good for quick review
-- **csv**: Data export, analysis in other tools
-- **json**: Programmatic processing, structured data
-
-### Content Handling
-
-- Docs/Sheets/Slides tools accept URLs directly - no ID extraction needed
-- Use markdown for initial document creation when appropriate
-- Preserve formatting when reading/modifying content
+- Docs:
+  `mimeType='application/vnd.google-apps.document' and name contains 'query'`
+- Sheets:
+  `mimeType='application/vnd.google-apps.spreadsheet' and name contains 'query'`
+- Slides:
+  `mimeType='application/vnd.google-apps.presentation' and name contains 'query'`
 
 ## 🚫 Common Pitfalls to Avoid
 
@@ -252,21 +172,23 @@ Choose output format based on use case:
 
 ### Google Docs
 
-- Support for markdown content creation
-- Automatic HTML conversion from markdown
-- Position-based text insertion (index 1 for beginning)
+- See the **Google Docs skill** for detailed guidance on document content
+  formatting, creation, editing, tab management, and document organization.
 
 ### Google Sheets
 
-- Multiple output formats available
-- Range-based operations with A1 notation
-- Metadata includes sheet structure information
+- See the **Google Sheets skill** for detailed guidance on finding spreadsheets,
+  output format selection, and range-based operations.
+
+### Google Slides
+
+- See the **Google Slides skill** for detailed guidance on finding
+  presentations, text extraction, image downloads, and slide thumbnails.
 
 ### Google Calendar
 
-- Event creation requires both start and end times
-- Support for attendee management
-- Response status filtering available
+- See the **Google Calendar skill** for detailed guidance on timezone handling,
+  meeting queries, event management, responding to invitations, and scheduling.
 
 ### Gmail
 
@@ -275,9 +197,8 @@ Choose output format based on use case:
 
 ### Google Chat
 
-- Space vs. DM distinction
-- Thread-aware messaging
-- Unread message filtering
+- See the **Google Chat skill** for detailed guidance on formatting messages,
+  spaces vs. DMs, threading, unread filtering, and space management.
 
 Remember: This guide focuses on **how to think** about using these tools
 effectively. For specific parameter details, refer to the tool descriptions

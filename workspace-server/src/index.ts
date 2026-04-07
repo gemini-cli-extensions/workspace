@@ -20,21 +20,29 @@ import { PeopleService } from './services/PeopleService';
 import { SlidesService } from './services/SlidesService';
 import { SheetsService } from './services/SheetsService';
 import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
-import { extractDocId } from './utils/IdUtils';
 
-import { setLoggingEnabled } from './utils/logger';
+import { setLoggingEnabled, logToFile } from './utils/logger';
 import { applyToolNameNormalization } from './utils/tool-normalization';
+import { SCOPES } from './auth/scopes';
+import { resolveFeatures } from './features/index';
 
 // Shared schemas for calendar event tools
 const eventMeetAndAttachmentsSchema = {
   addGoogleMeet: z
     .boolean()
     .optional()
-    .describe('Whether to create a Google Meet link for the event.'),
+    .describe(
+      "Whether to create a Google Meet link for the event. The Meet URL will be available in the response's hangoutLink field.",
+    ),
   attachments: z
     .array(
       z.object({
-        fileUrl: z.string().describe('Google Drive file URL.'),
+        fileUrl: z
+          .string()
+          .url()
+          .describe(
+            'Google Drive file URL (e.g., https://drive.google.com/file/d/...)',
+          ),
         title: z
           .string()
           .optional()
@@ -46,7 +54,9 @@ const eventMeetAndAttachmentsSchema = {
       }),
     )
     .optional()
-    .describe('Google Drive file attachments.'),
+    .describe(
+      'Google Drive file attachments. IMPORTANT: Providing attachments fully REPLACES any existing attachments on the event (not appended).',
+    ),
 };
 
 // Shared schemas for Gmail tools
@@ -70,24 +80,17 @@ const emailComposeSchema = {
     .describe('Whether the body is HTML (default: false).'),
 };
 
-const SCOPES = [
-  'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/chat.spaces',
-  'https://www.googleapis.com/auth/chat.messages',
-  'https://www.googleapis.com/auth/chat.memberships',
-  'https://www.googleapis.com/auth/userinfo.profile',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/directory.readonly',
-  'https://www.googleapis.com/auth/presentations.readonly',
-  'https://www.googleapis.com/auth/spreadsheets',
-];
 
 // Dynamically import version from package.json
 import { version } from '../package.json';
 
 async function main() {
+  // Handle 'login' subcommand for headless OAuth flow
+  if (process.argv.includes('login')) {
+    await import('./cli/headless-login');
+    return;
+  }
+
   // 1. Initialize services
   if (process.argv.includes('--debug')) {
     setLoggingEnabled(true);
@@ -98,6 +101,18 @@ async function main() {
       readOnlyHint: true,
     },
   };
+
+  // Resolve enabled features from defaults + env overrides
+  const { enabledTools } = resolveFeatures(
+    undefined,
+    process.env['WORKSPACE_FEATURE_OVERRIDES'],
+  );
+
+  logToFile(
+    `[features] ${enabledTools.size} tools enabled. Disabled: ${
+      process.env['WORKSPACE_FEATURE_OVERRIDES'] || '(none)'
+    }`,
+  );
 
   const authManager = new AuthManager(SCOPES);
 
@@ -119,7 +134,7 @@ async function main() {
   });
 
   const driveService = new DriveService(authManager);
-  const docsService = new DocsService(authManager, driveService);
+  const docsService = new DocsService(authManager);
   const peopleService = new PeopleService(authManager);
   const calendarService = new CalendarService(authManager);
   const chatService = new ChatService(authManager);
@@ -134,7 +149,22 @@ async function main() {
   const separator = useDotNames ? '.' : '_';
   applyToolNameNormalization(server, useDotNames);
 
-  server.registerTool(
+  // Wrap registerTool to skip tools disabled by feature config.
+  // Auth tools are always registered (not gated by features).
+  const originalRegisterTool = server.registerTool.bind(server);
+  const registerTool: typeof server.registerTool = ((
+    name: string,
+    config: unknown,
+    handler: unknown,
+  ) => {
+    if (!enabledTools.has(name) && !name.startsWith('auth.')) {
+      logToFile(`[features] Skipping disabled tool: ${name}`);
+      return server;
+    }
+    return originalRegisterTool(name, config as never, handler as never);
+  }) as typeof server.registerTool;
+
+  registerTool(
     'auth.clear',
     {
       description:
@@ -154,7 +184,7 @@ async function main() {
     },
   );
 
-  server.registerTool(
+  registerTool(
     'auth.refreshToken',
     {
       description: 'Manually triggers the token refresh process.',
@@ -173,35 +203,62 @@ async function main() {
     },
   );
 
-  server.registerTool(
+  registerTool(
+    'docs.getSuggestions',
+    {
+      description: 'Retrieves suggested edits from a Google Doc.',
+      inputSchema: {
+        documentId: z
+          .string()
+          .describe('The ID of the document to retrieve suggestions from.'),
+      },
+    },
+    docsService.getSuggestions,
+  );
+
+  registerTool(
+    'drive.getComments',
+    {
+      description:
+        'Retrieves comments from a Google Drive file (Docs, Sheets, Slides, etc.).',
+      inputSchema: {
+        fileId: z
+          .string()
+          .describe('The ID of the file to retrieve comments from.'),
+      },
+    },
+    driveService.getComments,
+  );
+
+  registerTool(
     'docs.create',
     {
       description:
-        'Creates a new Google Doc. Can be blank or with Markdown content.',
+        'Creates a new Google Doc. Can be blank or with initial text content.',
       inputSchema: {
         title: z.string().describe('The title for the new Google Doc.'),
-        folderName: z
+        content: z
           .string()
           .optional()
-          .describe('The name of the folder to create the document in.'),
-        markdown: z
-          .string()
-          .optional()
-          .describe('The Markdown content to create the document from.'),
+          .describe('The text content to create the document with.'),
       },
     },
     docsService.create,
   );
 
-  server.registerTool(
-    'docs.insertText',
+  registerTool(
+    'docs.writeText',
     {
-      description: 'Inserts text at the beginning of a Google Doc.',
+      description: 'Writes text to a Google Doc at a specified position.',
       inputSchema: {
         documentId: z.string().describe('The ID of the document to modify.'),
-        text: z
+        text: z.string().describe('The text to write to the document.'),
+        position: z
           .string()
-          .describe('The text to insert at the beginning of the document.'),
+          .optional()
+          .describe(
+            'Where to insert the text. Use "beginning" for the start, "end" for the end (default), or a numeric index for a specific position.',
+          ),
         tabId: z
           .string()
           .optional()
@@ -210,33 +267,10 @@ async function main() {
           ),
       },
     },
-    docsService.insertText,
+    docsService.writeText,
   );
 
-  server.registerTool(
-    'docs.find',
-    {
-      description:
-        'Finds Google Docs by searching for a query in their title. Supports pagination.',
-      inputSchema: {
-        query: z
-          .string()
-          .describe('The text to search for in the document titles.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    docsService.find,
-  );
-
-  server.registerTool(
+  registerTool(
     'drive.findFolder',
     {
       description: 'Finds a folder by name in Google Drive.',
@@ -248,7 +282,7 @@ async function main() {
     driveService.findFolder,
   );
 
-  server.registerTool(
+  registerTool(
     'drive.createFolder',
     {
       description: 'Creates a new folder in Google Drive.',
@@ -267,19 +301,7 @@ async function main() {
     driveService.createFolder,
   );
 
-  server.registerTool(
-    'docs.move',
-    {
-      description: 'Moves a document to a specified folder.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to move.'),
-        folderName: z.string().describe('The name of the destination folder.'),
-      },
-    },
-    docsService.move,
-  );
-
-  server.registerTool(
+  registerTool(
     'docs.getText',
     {
       description: 'Retrieves the text content of a Google Doc.',
@@ -297,25 +319,7 @@ async function main() {
     docsService.getText,
   );
 
-  server.registerTool(
-    'docs.appendText',
-    {
-      description: 'Appends text to the end of a Google Doc.',
-      inputSchema: {
-        documentId: z.string().describe('The ID of the document to modify.'),
-        text: z.string().describe('The text to append to the document.'),
-        tabId: z
-          .string()
-          .optional()
-          .describe(
-            'The ID of the tab to modify. If not provided, modifies the first tab.',
-          ),
-      },
-    },
-    docsService.appendText,
-  );
-
-  server.registerTool(
+  registerTool(
     'docs.replaceText',
     {
       description:
@@ -337,30 +341,51 @@ async function main() {
     docsService.replaceText,
   );
 
-  server.registerTool(
-    'docs.extractIdFromUrl',
+  registerTool(
+    'docs.formatText',
     {
-      description: 'Extracts the document ID from a Google Workspace URL.',
+      description:
+        'Applies formatting (bold, italic, headings, etc.) to text ranges in a Google Doc. Use after inserting text to apply rich formatting.',
       inputSchema: {
-        url: z.string().describe('The URL of the Google Workspace document.'),
+        documentId: z.string().describe('The ID of the document to format.'),
+        formats: z
+          .array(
+            z.object({
+              startIndex: z
+                .number()
+                .describe('The start index of the text range (1-based).'),
+              endIndex: z
+                .number()
+                .describe(
+                  'The end index of the text range (exclusive, 1-based).',
+                ),
+              style: z
+                .string()
+                .describe(
+                  'The formatting style to apply. Supported: bold, italic, underline, strikethrough, code, link, heading1, heading2, heading3, heading4, heading5, heading6, normalText.',
+                ),
+              url: z
+                .string()
+                .optional()
+                .describe(
+                  'The URL for link formatting. Required when style is "link".',
+                ),
+            }),
+          )
+          .describe('The formatting instructions to apply.'),
+        tabId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the tab to format. If not provided, formats the first tab.',
+          ),
       },
-      ...readOnlyToolProps,
     },
-    async (input: { url: string }) => {
-      const result = extractDocId(input.url);
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: result || '',
-          },
-        ],
-      };
-    },
+    docsService.formatText,
   );
 
   // Slides tools
-  server.registerTool(
+  registerTool(
     'slides.getText',
     {
       description:
@@ -375,28 +400,7 @@ async function main() {
     slidesService.getText,
   );
 
-  server.registerTool(
-    'slides.find',
-    {
-      description:
-        'Finds Google Slides presentations by searching for a query. Supports pagination.',
-      inputSchema: {
-        query: z.string().describe('The text to search for in presentations.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    slidesService.find,
-  );
-
-  server.registerTool(
+  registerTool(
     'slides.getMetadata',
     {
       description: 'Gets metadata about a Google Slides presentation.',
@@ -410,7 +414,7 @@ async function main() {
     slidesService.getMetadata,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.getImages',
     {
       description:
@@ -431,7 +435,7 @@ async function main() {
     slidesService.getImages,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.getSlideThumbnail',
     {
       description:
@@ -456,7 +460,7 @@ async function main() {
   );
 
   // Sheets tools
-  server.registerTool(
+  registerTool(
     'sheets.getText',
     {
       description: 'Retrieves the content of a Google Sheets spreadsheet.',
@@ -474,7 +478,7 @@ async function main() {
     sheetsService.getText,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.getRange',
     {
       description:
@@ -490,28 +494,7 @@ async function main() {
     sheetsService.getRange,
   );
 
-  server.registerTool(
-    'sheets.find',
-    {
-      description:
-        'Finds Google Sheets spreadsheets by searching for a query. Supports pagination.',
-      inputSchema: {
-        query: z.string().describe('The text to search for in spreadsheets.'),
-        pageToken: z
-          .string()
-          .optional()
-          .describe('The token for the next page of results.'),
-        pageSize: z
-          .number()
-          .optional()
-          .describe('The maximum number of results to return.'),
-      },
-      ...readOnlyToolProps,
-    },
-    sheetsService.find,
-  );
-
-  server.registerTool(
+  registerTool(
     'sheets.getMetadata',
     {
       description: 'Gets metadata about a Google Sheets spreadsheet.',
@@ -523,7 +506,7 @@ async function main() {
     sheetsService.getMetadata,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.updateRange',
     {
       description:
@@ -555,7 +538,7 @@ async function main() {
     sheetsService.updateRange,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.appendRange',
     {
       description:
@@ -587,7 +570,7 @@ async function main() {
     sheetsService.appendRange,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.clearRange',
     {
       description:
@@ -604,7 +587,7 @@ async function main() {
     sheetsService.clearRange,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.createSpreadsheet',
     {
       description: 'Creates a new Google Sheets spreadsheet.',
@@ -621,7 +604,7 @@ async function main() {
     sheetsService.createSpreadsheet,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.addSheet',
     {
       description:
@@ -634,7 +617,7 @@ async function main() {
     sheetsService.addSheet,
   );
 
-  server.registerTool(
+  registerTool(
     'sheets.deleteSheet',
     {
       description:
@@ -651,7 +634,7 @@ async function main() {
     sheetsService.deleteSheet,
   );
 
-  server.registerTool(
+  registerTool(
     'drive.search',
     {
       description:
@@ -689,7 +672,7 @@ async function main() {
     driveService.search,
   );
 
-  server.registerTool(
+  registerTool(
     'drive.downloadFile',
     {
       description:
@@ -706,7 +689,59 @@ async function main() {
     driveService.downloadFile,
   );
 
-  server.registerTool(
+  registerTool(
+    'drive.moveFile',
+    {
+      description:
+        'Moves a file or folder to a different folder in Google Drive.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to move.'),
+        folderId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the destination folder. Either folderId or folderName must be provided.',
+          ),
+        folderName: z
+          .string()
+          .optional()
+          .describe(
+            'The name of the destination folder. Either folderId or folderName must be provided.',
+          ),
+      },
+    },
+    driveService.moveFile,
+  );
+
+  registerTool(
+    'drive.trashFile',
+    {
+      description:
+        'Moves a file or folder to the trash in Google Drive. This is a safe, reversible operation.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to trash.'),
+      },
+    },
+    driveService.trashFile,
+  );
+
+  registerTool(
+    'drive.renameFile',
+    {
+      description: 'Renames a file or folder in Google Drive.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to rename.'),
+        newName: z
+          .string()
+          .trim()
+          .min(1)
+          .describe('The new name for the file.'),
+      },
+    },
+    driveService.renameFile,
+  );
+
+  registerTool(
     'calendar.list',
     {
       description: "Lists all of the user's calendars.",
@@ -716,15 +751,24 @@ async function main() {
     calendarService.listCalendars,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.createEvent',
     {
-      description: 'Creates a new event in a calendar.',
+      description:
+        "Creates a new event in a calendar. Supports regular events, focus time, out-of-office, and working location event types. Use 'date' for all-day events or 'dateTime' for timed events. Supports optional Google Meet link generation and Google Drive file attachments. When addGoogleMeet is true, the Meet URL will be in the response's hangoutLink field. Attachments fully replace any existing attachments.",
       inputSchema: {
         calendarId: z
           .string()
-          .describe('The ID of the calendar to create the event in.'),
-        summary: z.string().describe('The summary or title of the event.'),
+          .optional()
+          .describe(
+            'The ID of the calendar to create the event in. Defaults to the primary calendar.',
+          ),
+        summary: z
+          .string()
+          .optional()
+          .describe(
+            'The summary or title of the event. Defaults based on eventType: "Focus Time", "Out of Office", "Working Location".',
+          ),
         description: z
           .string()
           .optional()
@@ -732,15 +776,29 @@ async function main() {
         start: z.object({
           dateTime: z
             .string()
+            .optional()
             .describe(
-              'The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).',
+              'The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00). Use for timed events.',
+            ),
+          date: z
+            .string()
+            .optional()
+            .describe(
+              'The start date in YYYY-MM-DD format. Use for all-day events.',
             ),
         }),
         end: z.object({
           dateTime: z
             .string()
+            .optional()
             .describe(
-              'The end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00).',
+              'The end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00). Use for timed events.',
+            ),
+          date: z
+            .string()
+            .optional()
+            .describe(
+              'The end date in YYYY-MM-DD format. Use for all-day events (exclusive, so use next day).',
             ),
         }),
         attendees: z
@@ -754,12 +812,99 @@ async function main() {
             'Whether to send notifications to attendees. Defaults to "all" if attendees are provided, otherwise "none".',
           ),
         ...eventMeetAndAttachmentsSchema,
+        eventType: z
+          .enum(['default', 'focusTime', 'outOfOffice', 'workingLocation'])
+          .optional()
+          .describe(
+            'The type of event to create. Defaults to "default" (regular event).',
+          ),
+        focusTimeProperties: z
+          .object({
+            chatStatus: z
+              .enum(['available', 'doNotDisturb'])
+              .optional()
+              .describe(
+                'Chat status during focus time. Defaults to "doNotDisturb".',
+              ),
+            autoDeclineMode: z
+              .enum([
+                'declineNone',
+                'declineAllConflictingInvitations',
+                'declineOnlyNewConflictingInvitations',
+              ])
+              .optional()
+              .describe(
+                'How to handle conflicting meeting invitations. Defaults to "declineOnlyNewConflictingInvitations".',
+              ),
+            declineMessage: z
+              .string()
+              .optional()
+              .describe('Message to send when auto-declining meetings.'),
+          })
+          .optional()
+          .describe(
+            'Focus time properties. Only used when eventType is "focusTime".',
+          ),
+        outOfOfficeProperties: z
+          .object({
+            autoDeclineMode: z
+              .enum([
+                'declineNone',
+                'declineAllConflictingInvitations',
+                'declineOnlyNewConflictingInvitations',
+              ])
+              .optional()
+              .describe(
+                'How to handle conflicting meeting invitations. Defaults to "declineOnlyNewConflictingInvitations".',
+              ),
+            declineMessage: z
+              .string()
+              .optional()
+              .describe('Message to send when auto-declining meetings.'),
+          })
+          .optional()
+          .describe(
+            'Out-of-office properties. Only used when eventType is "outOfOffice".',
+          ),
+        workingLocationProperties: z
+          .object({
+            type: z
+              .enum(['homeOffice', 'officeLocation', 'customLocation'])
+              .describe('The type of working location.'),
+            officeLocation: z
+              .object({
+                buildingId: z
+                  .string()
+                  .optional()
+                  .describe('The building ID from the directory.'),
+                label: z
+                  .string()
+                  .optional()
+                  .describe('Label for the office location.'),
+              })
+              .optional()
+              .describe(
+                'Office location details. Required when type is "officeLocation".',
+              ),
+            customLocation: z
+              .object({
+                label: z.string().describe('Label for the custom location.'),
+              })
+              .optional()
+              .describe(
+                'Custom location details. Required when type is "customLocation".',
+              ),
+          })
+          .optional()
+          .describe(
+            'Working location properties. Only used when eventType is "workingLocation".',
+          ),
       },
     },
     calendarService.createEvent,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.listEvents',
     {
       description: 'Lists events from a calendar. Defaults to upcoming events.',
@@ -781,13 +926,28 @@ async function main() {
           .array(z.string())
           .optional()
           .describe('The response status of the attendee.'),
+        eventTypes: z
+          .array(
+            z.enum([
+              'default',
+              'focusTime',
+              'outOfOffice',
+              'workingLocation',
+              'birthday',
+              'fromGmail',
+            ]),
+          )
+          .optional()
+          .describe(
+            'Filter by event types. Possible values: default, focusTime, outOfOffice, workingLocation, birthday, fromGmail.',
+          ),
       },
       ...readOnlyToolProps,
     },
     calendarService.listEvents,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.getEvent',
     {
       description: 'Gets the details of a specific calendar event.',
@@ -805,7 +965,7 @@ async function main() {
     calendarService.getEvent,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.findFreeTime',
     {
       description: 'Finds a free time slot for multiple people to meet.',
@@ -832,10 +992,11 @@ async function main() {
     calendarService.findFreeTime,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.updateEvent',
     {
-      description: 'Updates an existing event in a calendar.',
+      description:
+        "Updates an existing event in a calendar. Supports adding Google Meet links and Google Drive file attachments. When addGoogleMeet is true, the Meet URL will be in the response's hangoutLink field. Attachments fully replace any existing attachments (not appended).",
       inputSchema: {
         eventId: z.string().describe('The ID of the event to update.'),
         calendarId: z
@@ -878,7 +1039,7 @@ async function main() {
     calendarService.updateEvent,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.respondToEvent',
     {
       description:
@@ -907,7 +1068,7 @@ async function main() {
     calendarService.respondToEvent,
   );
 
-  server.registerTool(
+  registerTool(
     'calendar.deleteEvent',
     {
       description: 'Deletes an event from a calendar.',
@@ -924,7 +1085,7 @@ async function main() {
     calendarService.deleteEvent,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.listSpaces',
     {
       description: 'Lists the spaces the user is a member of.',
@@ -934,7 +1095,7 @@ async function main() {
     chatService.listSpaces,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.findSpaceByName',
     {
       description: 'Finds a Google Chat space by its display name.',
@@ -948,7 +1109,7 @@ async function main() {
     chatService.findSpaceByName,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.sendMessage',
     {
       description: 'Sends a message to a Google Chat space.',
@@ -970,7 +1131,7 @@ async function main() {
     chatService.sendMessage,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.getMessages',
     {
       description: 'Gets messages from a Google Chat space.',
@@ -1008,7 +1169,7 @@ async function main() {
     chatService.getMessages,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.sendDm',
     {
       description: 'Sends a direct message to a user.',
@@ -1029,7 +1190,7 @@ async function main() {
     chatService.sendDm,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.findDmByEmail',
     {
       description: "Finds a Google Chat DM space by a user's email address.",
@@ -1044,7 +1205,7 @@ async function main() {
     chatService.findDmByEmail,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.listThreads',
     {
       description:
@@ -1069,7 +1230,7 @@ async function main() {
     chatService.listThreads,
   );
 
-  server.registerTool(
+  registerTool(
     'chat.setUpSpace',
     {
       description:
@@ -1087,7 +1248,7 @@ async function main() {
   );
 
   // Gmail tools
-  server.registerTool(
+  registerTool(
     'gmail.search',
     {
       description: 'Search for emails in Gmail using query parameters.',
@@ -1122,7 +1283,7 @@ async function main() {
     gmailService.search,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.get',
     {
       description: 'Get the full content of a specific email message.',
@@ -1138,7 +1299,7 @@ async function main() {
     gmailService.get,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.downloadAttachment',
     {
       description:
@@ -1160,7 +1321,7 @@ async function main() {
     gmailService.downloadAttachment,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.modify',
     {
       description: `Modify a Gmail message. Supported modifications include:
@@ -1198,7 +1359,7 @@ There are a list of system labels that can be modified on a message:
     gmailService.modify,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.batchModify',
     {
       description: `Bulk modify up to 1,000 Gmail messages at once. Applies the same label changes to all specified messages in a single API call. This is much more efficient than modifying messages individually.
@@ -1238,7 +1399,7 @@ System labels that can be modified:
     gmailService.batchModify,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.modifyThread',
     {
       description: `Modify labels on all messages in a Gmail thread. This applies label changes to every message in the thread at once, which is useful for operations like marking an entire conversation as read.
@@ -1270,7 +1431,7 @@ System labels that can be modified:
     gmailService.modifyThread,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.send',
     {
       description: 'Send an email message.',
@@ -1279,7 +1440,7 @@ System labels that can be modified:
     gmailService.send,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.createDraft',
     {
       description: 'Create a draft email message.',
@@ -1296,7 +1457,7 @@ System labels that can be modified:
     gmailService.createDraft,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.sendDraft',
     {
       description: 'Send a previously created draft email.',
@@ -1307,7 +1468,7 @@ System labels that can be modified:
     gmailService.sendDraft,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.listLabels',
     {
       description: "List all Gmail labels in the user's mailbox.",
@@ -1317,7 +1478,7 @@ System labels that can be modified:
     gmailService.listLabels,
   );
 
-  server.registerTool(
+  registerTool(
     'gmail.createLabel',
     {
       description:
@@ -1342,7 +1503,7 @@ System labels that can be modified:
   );
 
   // Time tools
-  server.registerTool(
+  registerTool(
     'time.getCurrentDate',
     {
       description:
@@ -1353,7 +1514,7 @@ System labels that can be modified:
     timeService.getCurrentDate,
   );
 
-  server.registerTool(
+  registerTool(
     'time.getCurrentTime',
     {
       description:
@@ -1364,7 +1525,7 @@ System labels that can be modified:
     timeService.getCurrentTime,
   );
 
-  server.registerTool(
+  registerTool(
     'time.getTimeZone',
     {
       description:
@@ -1376,7 +1537,7 @@ System labels that can be modified:
   );
 
   // People tools
-  server.registerTool(
+  registerTool(
     'people.getUserProfile',
     {
       description: "Gets a user's profile information.",
@@ -1401,7 +1562,7 @@ System labels that can be modified:
     peopleService.getUserProfile,
   );
 
-  server.registerTool(
+  registerTool(
     'people.getMe',
     {
       description: 'Gets the profile information of the authenticated user.',
@@ -1411,7 +1572,7 @@ System labels that can be modified:
     peopleService.getMe,
   );
 
-  server.registerTool(
+  registerTool(
     'people.getUserRelations',
     {
       description:
