@@ -111,9 +111,25 @@ async function handleCallback(req, res) {
           finalUrl.searchParams.append('token_type', token_type);
           finalUrl.searchParams.append('expiry_date', expiry_date.toString());
 
-          // SECURITY: Pass the CSRF token back to the client for validation.
-          if (payload.csrf) {
-            finalUrl.searchParams.append('state', payload.csrf);
+          // SECURITY: Pass the original base64-encoded state back to the client
+          // for validation. The client decodes it and extracts the `csrf` field itself.
+          //
+          // Previously, this code extracted only `payload.csrf` (a raw hex string) and
+          // returned it as `state`. That worked for workspace-server ≤ v0.0.7, which
+          // compared the returned value directly against the local csrf token.
+          //
+          // Starting with v0.0.9, the local server expects to receive the full base64
+          // JSON state back, then decodes it to extract the `csrf` field:
+          //
+          //   const decoded = JSON.parse(Buffer.from(returnedState, 'base64').toString('utf8'));
+          //   if (decoded.csrf !== localCsrfToken) → "State mismatch. Possible CSRF attack."
+          //
+          // Returning the raw hex here causes `JSON.parse` to fail, setting csrf to null
+          // and triggering a state mismatch on every auth attempt in v0.0.9+.
+          //
+          // Fix: return the original state parameter unchanged so the client can decode it.
+          if (state) {
+            finalUrl.searchParams.append('state', state);
           }
 
           return res.redirect(302, finalUrl.toString());
