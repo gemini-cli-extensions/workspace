@@ -5,6 +5,6 @@
   "dependencies": {
     "@google-cloud/functions-framework": "^3.0.0",
     "@google-cloud/secret-manager": "^5.0.0",
-    "axios": "^1.0.0"
+    "axios": "^1.15.0"
   }
 }
