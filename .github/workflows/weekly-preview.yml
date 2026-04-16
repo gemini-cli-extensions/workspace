@@ -23,7 +23,7 @@ jobs:
       contents: write
     steps:
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
           name: Weekly Preview ${{ needs.prepare.outputs.tag_name }}
@@ -69,7 +69,7 @@ jobs:
         run: npm run release -- --platform=${{ matrix.platform }}
 
       - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag_name }}
           files: release/${{ matrix.platform }}.google-workspace-extension.tar.gz
