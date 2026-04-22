@@ -506,6 +506,28 @@ async function main() {
   );
 
   registerTool(
+    'sheets.appendRow',
+    {
+      description:
+        'Appends rows to a Google Sheets spreadsheet after the last row with data in the given range.',
+      inputSchema: {
+        spreadsheetId: z.string().describe('The ID or URL of the spreadsheet.'),
+        range: z
+          .string()
+          .describe(
+            'The A1 notation range to append to (e.g., "Sheet1!A1"). Data is appended after the last row with data in this range.',
+          ),
+        values: z
+          .array(z.array(z.string()))
+          .describe(
+            'A 2D array of values to append. Each inner array is a row (e.g., [["col1", "col2"], ["val1", "val2"]]).',
+          ),
+      },
+    },
+    sheetsService.appendRow,
+  );
+
+  registerTool(
     'drive.search',
     {
       description:

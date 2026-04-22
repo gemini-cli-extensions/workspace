@@ -226,7 +226,7 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
     service: 'sheets',
     group: 'write',
     scopes: scopes('spreadsheets'),
-    tools: [],
+    tools: ['sheets.appendRow'],
     defaultEnabled: false,
   },
 

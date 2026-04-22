@@ -40,6 +40,7 @@ describe('SheetsService', () => {
         get: jest.fn(),
         values: {
           get: jest.fn(),
+          append: jest.fn(),
         },
       },
     };
@@ -368,6 +369,73 @@ describe('SheetsService', () => {
       const response = JSON.parse(result.content[0].text);
 
       expect(response.error).toBe('Metadata Error');
+    });
+  });
+
+  describe('appendRow', () => {
+    it('should append rows and return update info', async () => {
+      const mockResponse = {
+        data: {
+          updates: {
+            updatedRange: 'Sheet1!A3:B3',
+            updatedRows: 1,
+            updatedColumns: 2,
+            updatedCells: 2,
+          },
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.append.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.appendRow({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1',
+        values: [['foo', 'bar']],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSheetsAPI.spreadsheets.values.append).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['foo', 'bar']] },
+      });
+
+      expect(response.updatedRange).toBe('Sheet1!A3:B3');
+      expect(response.updatedRows).toBe(1);
+      expect(response.updatedColumns).toBe(2);
+      expect(response.updatedCells).toBe(2);
+    });
+
+    it('should extract spreadsheet ID from URL', async () => {
+      mockSheetsAPI.spreadsheets.values.append.mockResolvedValue({
+        data: { updates: { updatedRange: 'Sheet1!A2:A2', updatedRows: 1, updatedColumns: 1, updatedCells: 1 } },
+      });
+
+      await sheetsService.appendRow({
+        spreadsheetId: 'https://docs.google.com/spreadsheets/d/abc123/edit',
+        range: 'Sheet1!A1',
+        values: [['value']],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.append).toHaveBeenCalledWith(
+        expect.objectContaining({ spreadsheetId: 'abc123' }),
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.values.append.mockRejectedValue(
+        new Error('Append Error'),
+      );
+
+      const result = await sheetsService.appendRow({
+        spreadsheetId: 'error-id',
+        range: 'Sheet1!A1',
+        values: [['data']],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toBe('Append Error');
     });
   });
 });
