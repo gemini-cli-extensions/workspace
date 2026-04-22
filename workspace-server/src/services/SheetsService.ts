@@ -194,17 +194,17 @@ export class SheetsService {
     }
   };
 
-  public appendRow = async ({
+  public appendRows = async ({
     spreadsheetId,
     range,
     values,
   }: {
     spreadsheetId: string;
     range: string;
-    values: string[][];
+    values: (string | number | boolean | null)[][];
   }) => {
     logToFile(
-      `[SheetsService] Starting appendRow for spreadsheet: ${spreadsheetId}, range: ${range}`,
+      `[SheetsService] Starting appendRows for spreadsheet: ${spreadsheetId}, range: ${range}`,
     );
     try {
       const id = extractDocId(spreadsheetId) || spreadsheetId;
@@ -219,7 +219,7 @@ export class SheetsService {
         },
       });
 
-      logToFile(`[SheetsService] Finished appendRow for spreadsheet: ${id}`);
+      logToFile(`[SheetsService] Finished appendRows for spreadsheet: ${id}`);
       return {
         content: [
           {
@@ -237,7 +237,7 @@ export class SheetsService {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logToFile(
-        `[SheetsService] Error during sheets.appendRow: ${errorMessage}`,
+        `[SheetsService] Error during sheets.appendRows: ${errorMessage}`,
       );
       return {
         content: [

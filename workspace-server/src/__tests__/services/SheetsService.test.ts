@@ -372,7 +372,7 @@ describe('SheetsService', () => {
     });
   });
 
-  describe('appendRow', () => {
+  describe('appendRows', () => {
     it('should append rows and return update info', async () => {
       const mockResponse = {
         data: {
@@ -387,7 +387,7 @@ describe('SheetsService', () => {
 
       mockSheetsAPI.spreadsheets.values.append.mockResolvedValue(mockResponse);
 
-      const result = await sheetsService.appendRow({
+      const result = await sheetsService.appendRows({
         spreadsheetId: 'test-id',
         range: 'Sheet1!A1',
         values: [['foo', 'bar']],
@@ -412,7 +412,7 @@ describe('SheetsService', () => {
         data: { updates: { updatedRange: 'Sheet1!A2:A2', updatedRows: 1, updatedColumns: 1, updatedCells: 1 } },
       });
 
-      await sheetsService.appendRow({
+      await sheetsService.appendRows({
         spreadsheetId: 'https://docs.google.com/spreadsheets/d/abc123/edit',
         range: 'Sheet1!A1',
         values: [['value']],
@@ -428,7 +428,7 @@ describe('SheetsService', () => {
         new Error('Append Error'),
       );
 
-      const result = await sheetsService.appendRow({
+      const result = await sheetsService.appendRows({
         spreadsheetId: 'error-id',
         range: 'Sheet1!A1',
         values: [['data']],
