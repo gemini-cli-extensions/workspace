@@ -506,7 +506,7 @@ async function main() {
   );
 
   registerTool(
-    'sheets.appendRow',
+    'sheets.appendRows',
     {
       description:
         'Appends rows to a Google Sheets spreadsheet after the last row with data in the given range.',
@@ -518,13 +518,13 @@ async function main() {
             'The A1 notation range to append to (e.g., "Sheet1!A1"). Data is appended after the last row with data in this range.',
           ),
         values: z
-          .array(z.array(z.string()))
+          .array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])))
           .describe(
             'A 2D array of values to append. Each inner array is a row (e.g., [["col1", "col2"], ["val1", "val2"]]).',
           ),
       },
     },
-    sheetsService.appendRow,
+    sheetsService.appendRows,
   );
 
   registerTool(
