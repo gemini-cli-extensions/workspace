@@ -845,7 +845,8 @@ describe('DocsService', () => {
 
       expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
-        fields: 'tabs',
+        fields:
+          'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
         includeTabsContent: true,
       });
 
@@ -922,7 +923,8 @@ describe('DocsService', () => {
 
       expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
-        fields: 'tabs',
+        fields:
+          'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
         includeTabsContent: true,
       });
 

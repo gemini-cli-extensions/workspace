@@ -307,7 +307,8 @@ export class DocsService {
           // Discover the end index by reading the document (required for tabs)
           const res = await docs.documents.get({
             documentId: id,
-            fields: 'tabs',
+            fields:
+              'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
             includeTabsContent: true,
           });
 
@@ -543,9 +544,11 @@ export class DocsService {
       const docs = await this.getDocsClient();
       const res = await docs.documents.get({
         documentId: id,
-        fields: 'title,tabs', // Request title and tabs (body is legacy and mutually exclusive with tabs in mask)
+        fields:
+          'title,tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
         includeTabsContent: true,
-      });
+        suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
+      } as any);
 
       const docTitle = res.data.title;
       const tabs = this._flattenTabs(res.data.tabs || []);
@@ -736,7 +739,8 @@ export class DocsService {
       // Get the document to find where the text will be replaced
       const docBefore = await docs.documents.get({
         documentId: id,
-        fields: 'tabs',
+        fields:
+          'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
         includeTabsContent: true,
       });
 

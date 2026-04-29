@@ -236,7 +236,7 @@ the destination by folder ID or folder name.
 
 ### Reading Comments
 
-Use `docs.getComments` to retrieve all comments on a document:
+Use `drive.getComments` to retrieve all comments on a document:
 
 - Returns comment threads with author, content, timestamp, and resolution status
 - Includes **threaded replies** with author, content, timestamp, and action
@@ -244,7 +244,7 @@ Use `docs.getComments` to retrieve all comments on a document:
 - Includes **quoted file content** showing what text the comment is anchored to
 
 ```
-docs.getComments({ documentId: "doc-id" })
+drive.getComments({ fileId: "doc-id" })
 ```
 
 ### Reading Suggestions
