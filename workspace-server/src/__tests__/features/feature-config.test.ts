@@ -105,7 +105,7 @@ describe('getAllPossibleScopes (issue #323)', () => {
     // execSync (not execFileSync) so Windows can resolve npx.cmd via the
     // shell. Tests run on ubuntu/macos/windows.
     const output = execSync(
-      'npx --no-install ts-node --transpile-only scripts/print-scopes.ts',
+      'npx --no-install ts-node --transpile-only --project scripts/tsconfig.json scripts/print-scopes.ts',
       { cwd: repoRoot, encoding: 'utf8' },
     );
     const printed = output.trim().split(/\r?\n/);

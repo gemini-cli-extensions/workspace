@@ -95,7 +95,7 @@ echo ""
 # workspace-server/src/features/feature-config.ts. See issue #323.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SCOPES_OUTPUT=$(cd "$REPO_ROOT" && npx --no-install ts-node --transpile-only scripts/print-scopes.ts 2>&1)
+SCOPES_OUTPUT=$(cd "$REPO_ROOT" && npx --no-install ts-node --transpile-only --project scripts/tsconfig.json scripts/print-scopes.ts 2>&1)
 if [ $? -ne 0 ]; then
     echo -e "${RED}Error: Failed to compute OAuth scopes from feature-config.ts.${NC}"
     echo -e "${RED}Did you run 'npm install' at the repo root?${NC}"
