@@ -11,6 +11,12 @@ import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { extractDocumentId as validateAndExtractDocId } from '../utils/validation';
 
+// Field mask for documents.get when reading tab content. Selects only the
+// structural fields we use; broader masks like 'tabs' alone trigger
+// "comment-specific fields" errors when combined with includeTabsContent.
+export const TABS_FIELD_MASK =
+  'tabs(tabProperties,documentTab(body,headers,footers,footnotes))';
+
 interface BaseDocsSuggestion {
   text: string;
   startIndex?: number;
@@ -307,8 +313,7 @@ export class DocsService {
           // Discover the end index by reading the document (required for tabs)
           const res = await docs.documents.get({
             documentId: id,
-            fields:
-              'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
+            fields: TABS_FIELD_MASK,
             includeTabsContent: true,
           });
 
@@ -544,11 +549,10 @@ export class DocsService {
       const docs = await this.getDocsClient();
       const res = await docs.documents.get({
         documentId: id,
-        fields:
-          'title,tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
+        fields: `title,${TABS_FIELD_MASK}`,
         includeTabsContent: true,
         suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
-      } as any);
+      });
 
       const docTitle = res.data.title;
       const tabs = this._flattenTabs(res.data.tabs || []);
@@ -739,8 +743,7 @@ export class DocsService {
       // Get the document to find where the text will be replaced
       const docBefore = await docs.documents.get({
         documentId: id,
-        fields:
-          'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
+        fields: TABS_FIELD_MASK,
         includeTabsContent: true,
       });
 

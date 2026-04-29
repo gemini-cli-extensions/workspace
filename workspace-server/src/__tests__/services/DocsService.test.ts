@@ -12,7 +12,7 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
-import { DocsService } from '../../services/DocsService';
+import { DocsService, TABS_FIELD_MASK } from '../../services/DocsService';
 import { AuthManager } from '../../auth/AuthManager';
 import { google } from 'googleapis';
 
@@ -845,8 +845,7 @@ describe('DocsService', () => {
 
       expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
-        fields:
-          'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
+        fields: TABS_FIELD_MASK,
         includeTabsContent: true,
       });
 
@@ -923,8 +922,7 @@ describe('DocsService', () => {
 
       expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
-        fields:
-          'tabs(tabProperties,documentTab(body,headers,footers,footnotes))',
+        fields: TABS_FIELD_MASK,
         includeTabsContent: true,
       });
 
