@@ -465,6 +465,12 @@ describe('DocsService', () => {
 
       const result = await docsService.getText({ documentId: 'test-doc-id' });
 
+      expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        fields: `title,${TABS_FIELD_MASK}`,
+        includeTabsContent: true,
+        suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
+      });
       expect(result.content[0].text).toBe('Hello World\n');
     });
 
