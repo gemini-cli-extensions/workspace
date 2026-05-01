@@ -21,7 +21,7 @@
 ### Fixes
 
 - **Google Docs**: Resolved API errors in `docs.getText`.
-- **Windows Support**: Fixed issues with `npm run clean` and handled `npm.cmd` 
+- **Windows Support**: Fixed issues with `npm run clean` and handled `npm.cmd`
   correctly on Windows.
 - **Documentation**: Fixed various documentation links and improved clarity of
   API usage.
