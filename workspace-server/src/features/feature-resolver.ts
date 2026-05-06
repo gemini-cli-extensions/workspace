@@ -145,7 +145,13 @@ export function resolveFeatures(
     }
   }
 
-  // Collect enabled tools and scopes
+  // Collect enabled tools and scopes.
+  //
+  // Scope dedup: when a service's `.write` group is enabled alongside its
+  // `.read` group, the write scope already grants read access at the API
+  // level, so we skip the read group's scopes. Avoids prompting the user
+  // for both `drive` and `drive.readonly` (and equivalents) on consent.
+  // Tools are unaffected — read tools still get registered.
   const enabledTools = new Set<string>();
   const scopeSet = new Set<string>();
 
@@ -153,9 +159,17 @@ export function resolveFeatures(
     const key = featureGroupKey(fg);
     if (!groupEnabled.get(key)) continue;
 
-    // Add scopes for this enabled group
-    for (const scope of fg.scopes) {
-      scopeSet.add(scope);
+    const writeKey = `${fg.service}.write`;
+    const subsumedByWrite =
+      fg.group === 'read' &&
+      writeKey !== key &&
+      groupIndex.has(writeKey) &&
+      groupEnabled.get(writeKey) === true;
+
+    if (!subsumedByWrite) {
+      for (const scope of fg.scopes) {
+        scopeSet.add(scope);
+      }
     }
 
     // Add tools (minus individually disabled ones)

@@ -6,7 +6,7 @@
 
 // Test setup file for Jest
 // This file runs before all tests
-import { jest } from '@jest/globals';
+import { afterAll, jest } from '@jest/globals';
 
 // Mock console methods to reduce noise in test output
 global.console = {

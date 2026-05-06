@@ -8,7 +8,11 @@ import crypto from 'node:crypto';
 import { calendar_v3, google } from 'googleapis';
 import { logToFile } from '../utils/logger';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
-import { iso8601DateTimeSchema, emailArraySchema } from '../utils/validation';
+import { iso8601DateTimeSchema } from '../utils/validation';
+import {
+  validateCreateEventInput,
+  validateUpdateEventInput,
+} from './CalendarValidation';
 import { z } from 'zod';
 
 /**
@@ -124,6 +128,7 @@ export class CalendarService {
     params: { conferenceDataVersion?: number; supportsAttachments?: boolean },
     addGoogleMeet?: boolean,
     attachments?: EventAttachment[],
+    options?: { allowEmptyAttachments?: boolean },
   ): void {
     if (addGoogleMeet) {
       event.conferenceData = {
@@ -134,7 +139,10 @@ export class CalendarService {
       };
       params.conferenceDataVersion = 1;
     }
-    if (attachments && attachments.length > 0) {
+    if (
+      attachments &&
+      (attachments.length > 0 || options?.allowEmptyAttachments)
+    ) {
       event.attachments = attachments.map((a) => ({
         fileUrl: a.fileUrl,
         title: a.title,
@@ -146,7 +154,17 @@ export class CalendarService {
 
   private createValidationErrorResponse(error: unknown) {
     const errorMessage =
-      error instanceof Error ? error.message : 'Validation failed';
+      error instanceof z.ZodError
+        ? error.issues
+            .map((issue) =>
+              issue.path.length
+                ? `${issue.path.join('.')}: ${issue.message}`
+                : issue.message,
+            )
+            .join('; ')
+        : error instanceof Error
+          ? error.message
+          : 'Validation failed';
     let helpMessage =
       'Please use strict ISO 8601 format with seconds and timezone. Examples: 2024-01-15T10:30:00Z (UTC) or 2024-01-15T10:30:00-05:00 (EST)';
 
@@ -172,6 +190,61 @@ export class CalendarService {
         },
       ],
     };
+  }
+
+  private extractErrorMessage(error: unknown): string {
+    const details = (
+      error as {
+        response?: {
+          data?: {
+            error?: {
+              message?: string;
+              code?: number;
+              errors?: Array<{
+                domain?: string;
+                reason?: string;
+                message?: string;
+                location?: string;
+                locationType?: string;
+              }>;
+            };
+          };
+        };
+      }
+    )?.response?.data?.error;
+
+    if (details) {
+      const topLevelMessage = details.message ?? 'Unknown Error';
+      const code = details.code ? ` (code ${details.code})` : '';
+
+      if (details.errors?.length) {
+        const fieldErrors = details.errors
+          .map((e) => {
+            const context = [e.domain, e.locationType, e.location]
+              .filter(Boolean)
+              .join('.');
+            const identity = [context, e.reason].filter(Boolean).join(' ');
+            return identity ? `${identity}: ${e.message}` : e.message;
+          })
+          .join('; ');
+
+        // If the top-level message is just a generic summary of the first field error,
+        // or if they are identical, just show the field errors to avoid stutter.
+        if (
+          details.errors.length === 1 &&
+          (topLevelMessage === details.errors[0].message ||
+            topLevelMessage.includes(details.errors[0].message ?? ''))
+        ) {
+          return `${fieldErrors}${code}`;
+        }
+
+        return `${topLevelMessage}${code}: ${fieldErrors}`;
+      }
+
+      return `${topLevelMessage}${code}`;
+    }
+
+    return error instanceof Error ? error.message : String(error);
   }
 
   private async getCalendar(): Promise<calendar_v3.Calendar> {
@@ -261,122 +334,8 @@ export class CalendarService {
     const summary =
       input.summary ?? (eventType ? summaryDefaults[eventType] : undefined);
 
-    // Validate start: exactly one of dateTime or date must be provided
-    if ((!start.dateTime && !start.date) || (start.dateTime && start.date)) {
-      return this.createValidationErrorResponse(
-        new z.ZodError([
-          {
-            code: 'custom',
-            message:
-              'start must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)',
-            path: ['start'],
-          },
-        ]),
-      );
-    }
-
-    // Validate end: exactly one of dateTime or date must be provided
-    if ((!end.dateTime && !end.date) || (end.dateTime && end.date)) {
-      return this.createValidationErrorResponse(
-        new z.ZodError([
-          {
-            code: 'custom',
-            message:
-              'end must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)',
-            path: ['end'],
-          },
-        ]),
-      );
-    }
-
-    // Require summary for regular events
-    if ((!eventType || eventType === 'default') && !input.summary) {
-      return this.createValidationErrorResponse(
-        new z.ZodError([
-          {
-            code: 'custom',
-            message: 'summary is required for regular events',
-            path: ['summary'],
-          },
-        ]),
-      );
-    }
-
-    // Focus time and out-of-office cannot be all-day events (Google Calendar API constraint)
-    if (
-      (eventType === 'focusTime' || eventType === 'outOfOffice') &&
-      (start.date || end.date)
-    ) {
-      return this.createValidationErrorResponse(
-        new z.ZodError([
-          {
-            code: 'custom',
-            message: `${eventType} events cannot be all-day events; use dateTime instead of date`,
-            path: ['start/end'],
-          },
-        ]),
-      );
-    }
-
-    // workingLocationProperties is required when eventType is workingLocation
-    if (eventType === 'workingLocation' && !workingLocationProperties) {
-      return this.createValidationErrorResponse(
-        new z.ZodError([
-          {
-            code: 'custom',
-            message:
-              'workingLocationProperties is required when eventType is "workingLocation"',
-            path: ['workingLocationProperties'],
-          },
-        ]),
-      );
-    }
-
-    // Validate working location sub-properties match the declared type
-    if (eventType === 'workingLocation' && workingLocationProperties) {
-      if (
-        workingLocationProperties.type === 'officeLocation' &&
-        !workingLocationProperties.officeLocation
-      ) {
-        return this.createValidationErrorResponse(
-          new z.ZodError([
-            {
-              code: 'custom',
-              message:
-                'officeLocation is required when workingLocationProperties.type is "officeLocation"',
-              path: ['workingLocationProperties', 'officeLocation'],
-            },
-          ]),
-        );
-      }
-      if (
-        workingLocationProperties.type === 'customLocation' &&
-        !workingLocationProperties.customLocation
-      ) {
-        return this.createValidationErrorResponse(
-          new z.ZodError([
-            {
-              code: 'custom',
-              message:
-                'customLocation is required when workingLocationProperties.type is "customLocation"',
-              path: ['workingLocationProperties', 'customLocation'],
-            },
-          ]),
-        );
-      }
-    }
-
-    // Validate datetime formats (skip for date-only / all-day events)
     try {
-      if (start.dateTime) {
-        iso8601DateTimeSchema.parse(start.dateTime);
-      }
-      if (end.dateTime) {
-        iso8601DateTimeSchema.parse(end.dateTime);
-      }
-      if (attendees) {
-        emailArraySchema.parse(attendees);
-      }
+      validateCreateEventInput(input);
     } catch (error) {
       return this.createValidationErrorResponse(error);
     }
@@ -481,6 +440,7 @@ export class CalendarService {
         insertParams,
         addGoogleMeet,
         attachments,
+        { allowEmptyAttachments: false },
       );
 
       const res = await calendar.events.insert(insertParams);
@@ -494,8 +454,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.extractErrorMessage(error);
       logToFile(`Error during calendar.createEvent: ${errorMessage}`);
       return {
         content: [
@@ -674,45 +633,8 @@ export class CalendarService {
       attachments,
     } = input;
 
-    // Validate start/end: if provided, exactly one of dateTime or date
-    if (start) {
-      if ((start.dateTime && start.date) || (!start.dateTime && !start.date)) {
-        return this.createValidationErrorResponse(
-          new z.ZodError([
-            {
-              code: 'custom',
-              message: 'start must have exactly one of "dateTime" or "date"',
-              path: ['start'],
-            },
-          ]),
-        );
-      }
-    }
-    if (end) {
-      if ((end.dateTime && end.date) || (!end.dateTime && !end.date)) {
-        return this.createValidationErrorResponse(
-          new z.ZodError([
-            {
-              code: 'custom',
-              message: 'end must have exactly one of "dateTime" or "date"',
-              path: ['end'],
-            },
-          ]),
-        );
-      }
-    }
-
-    // Validate datetime formats if provided
     try {
-      if (start?.dateTime !== undefined) {
-        iso8601DateTimeSchema.parse(start.dateTime);
-      }
-      if (end?.dateTime !== undefined) {
-        iso8601DateTimeSchema.parse(end.dateTime);
-      }
-      if (attendees) {
-        emailArraySchema.parse(attendees);
-      }
+      validateUpdateEventInput(input);
     } catch (error) {
       return this.createValidationErrorResponse(error);
     }
@@ -725,14 +647,12 @@ export class CalendarService {
 
     try {
       const calendar = await this.getCalendar();
-
-      // Build request body with only the fields to update (patch semantics)
       const requestBody: calendar_v3.Schema$Event = {};
       if (summary !== undefined) requestBody.summary = summary;
       if (description !== undefined) requestBody.description = description;
       if (start) requestBody.start = start;
       if (end) requestBody.end = end;
-      if (attendees)
+      if (attendees !== undefined)
         requestBody.attendees = attendees.map((email) => ({ email }));
 
       const patchParams: calendar_v3.Params$Resource$Events$Patch = {
@@ -745,6 +665,7 @@ export class CalendarService {
         patchParams,
         addGoogleMeet,
         attachments,
+        { allowEmptyAttachments: true },
       );
 
       const res = await calendar.events.patch(patchParams);
@@ -759,8 +680,7 @@ export class CalendarService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = this.extractErrorMessage(error);
       logToFile(`Error during calendar.updateEvent: ${errorMessage}`);
       return {
         content: [

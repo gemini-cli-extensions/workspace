@@ -91,19 +91,31 @@ echo -e "  4. Under ${GREEN}Test users${NC}, add the email addresses of anyone"
 echo -e "     who will use this extension (required while in Testing mode)"
 echo ""
 
-SCOPES=(
-    "https://www.googleapis.com/auth/documents"
-    "https://www.googleapis.com/auth/drive"
-    "https://www.googleapis.com/auth/calendar"
-    "https://www.googleapis.com/auth/chat.spaces"
-    "https://www.googleapis.com/auth/chat.messages"
-    "https://www.googleapis.com/auth/chat.memberships"
-    "https://www.googleapis.com/auth/userinfo.profile"
-    "https://www.googleapis.com/auth/gmail.modify"
-    "https://www.googleapis.com/auth/directory.readonly"
-    "https://www.googleapis.com/auth/presentations.readonly"
-    "https://www.googleapis.com/auth/spreadsheets.readonly"
-)
+# Single source of truth: scopes are computed from FEATURE_GROUPS in
+# workspace-server/src/features/feature-config.ts. See issue #323.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCOPES_OUTPUT=$(cd "$REPO_ROOT" && npx --no-install ts-node --transpile-only --project scripts/tsconfig.json scripts/print-scopes.ts 2>&1)
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Error: Failed to compute OAuth scopes from feature-config.ts.${NC}"
+    echo -e "${RED}Did you run 'npm install' at the repo root?${NC}"
+    echo "$SCOPES_OUTPUT"
+    exit 1
+fi
+
+SCOPES=()
+# Filter to https:// lines so any Node/ts-node warnings written to stderr
+# (captured via 2>&1 above so we can surface them on failure) don't end up
+# in the user-visible scope list.
+while IFS= read -r line; do
+    [[ "$line" == https://* ]] && SCOPES+=("$line")
+done <<< "$SCOPES_OUTPUT"
+
+if [ ${#SCOPES[@]} -eq 0 ]; then
+    echo -e "${RED}Error: print-scopes.ts produced no scope output.${NC}"
+    echo "$SCOPES_OUTPUT"
+    exit 1
+fi
 
 for scope in "${SCOPES[@]}"; do
     echo -e "     ${GREEN}$scope${NC}"

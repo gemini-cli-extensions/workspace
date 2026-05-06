@@ -1,5 +1,36 @@
 # Release Notes
 
+## 0.0.8 (2026-05-01)
+
+### New Features
+
+- **Google Calendar**: Added support for `eventType` (Out of Office, Focus Time,
+  Working Location) in Calendar Service.
+- **Feature Configuration**: Introduced a new feature configuration service for
+  scope-based toggles, allowing more granular control over available tools.
+
+### Improvements
+
+- **Authentication**: Refactored OAuth scope management to use a single source
+  of truth and deduplicate read scopes, improving security and consistency.
+- **Google Calendar**: Refactored validation logic to be independent of the
+  service layer.
+- **Google Docs**: Improved `getText` and `getSuggestions` tools to include the
+  document title in their output.
+
+### Fixes
+
+- **Google Docs**: Resolved API errors in `docs.getText`.
+- **Windows Support**: Fixed issues with `npm run clean` and handled `npm.cmd`
+  correctly on Windows.
+- **Documentation**: Fixed various documentation links and improved clarity of
+  API usage.
+
+### Chores
+
+- **Dependencies**: Major update to TypeScript 6.0.3 and various other
+  dependency bumps (Vite 8, Hono 4.12, etc.).
+
 ## 0.0.7 (2026-03-11)
 
 ### Breaking Changes

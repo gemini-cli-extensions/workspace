@@ -27,6 +27,24 @@ import { SCOPES } from './auth/scopes';
 import { resolveFeatures } from './features/index';
 
 // Shared schemas for calendar event tools
+const eventDateInputSchema = (fieldName: string) =>
+  z
+    .object({
+      dateTime: z
+        .string()
+        .optional()
+        .describe(
+          'Time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).',
+        ),
+      date: z
+        .string()
+        .optional()
+        .describe('Date in YYYY-MM-DD format. Use for all-day events.'),
+    })
+    .refine(({ dateTime, date }) => Number(!!dateTime) + Number(!!date) === 1, {
+      message: `${fieldName} must have exactly one of "dateTime" (for timed events) or "date" (for all-day events)`,
+    });
+
 const eventMeetAndAttachmentsSchema = {
   addGoogleMeet: z
     .boolean()
@@ -55,7 +73,7 @@ const eventMeetAndAttachmentsSchema = {
     )
     .optional()
     .describe(
-      'Google Drive file attachments. IMPORTANT: Providing attachments fully REPLACES any existing attachments on the event (not appended).',
+      'Google Drive file attachments. IMPORTANT: Providing attachments fully REPLACES any existing attachments on the event (not appended). On updates, pass an empty array to clear all attachments.',
     ),
 };
 
@@ -773,34 +791,8 @@ async function main() {
           .string()
           .optional()
           .describe('The description of the event.'),
-        start: z.object({
-          dateTime: z
-            .string()
-            .optional()
-            .describe(
-              'The start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00). Use for timed events.',
-            ),
-          date: z
-            .string()
-            .optional()
-            .describe(
-              'The start date in YYYY-MM-DD format. Use for all-day events.',
-            ),
-        }),
-        end: z.object({
-          dateTime: z
-            .string()
-            .optional()
-            .describe(
-              'The end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00). Use for timed events.',
-            ),
-          date: z
-            .string()
-            .optional()
-            .describe(
-              'The end date in YYYY-MM-DD format. Use for all-day events (exclusive, so use next day).',
-            ),
-        }),
+        start: eventDateInputSchema('start'),
+        end: eventDateInputSchema('end'),
         attendees: z
           .array(z.string())
           .optional()
@@ -996,7 +988,7 @@ async function main() {
     'calendar.updateEvent',
     {
       description:
-        "Updates an existing event in a calendar. Supports adding Google Meet links and Google Drive file attachments. When addGoogleMeet is true, the Meet URL will be in the response's hangoutLink field. Attachments fully replace any existing attachments (not appended).",
+        "Updates an existing event in a calendar while preserving unspecified fields. Supports both timed events (`dateTime`) and all-day events (`date`), along with Google Meet links and Google Drive file attachments. When addGoogleMeet is true, the Meet URL will be in the response's hangoutLink field. Attachments fully replace any existing attachments (not appended), and an empty attachments array clears them.",
       inputSchema: {
         eventId: z.string().describe('The ID of the event to update.'),
         calendarId: z
@@ -1011,24 +1003,8 @@ async function main() {
           .string()
           .optional()
           .describe('The new description of the event.'),
-        start: z
-          .object({
-            dateTime: z
-              .string()
-              .describe(
-                'The new start time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T10:30:00Z or 2024-01-15T10:30:00-05:00).',
-              ),
-          })
-          .optional(),
-        end: z
-          .object({
-            dateTime: z
-              .string()
-              .describe(
-                'The new end time in strict ISO 8601 format with seconds and timezone (e.g., 2024-01-15T11:30:00Z or 2024-01-15T11:30:00-05:00).',
-              ),
-          })
-          .optional(),
+        start: eventDateInputSchema('start').optional(),
+        end: eventDateInputSchema('end').optional(),
         attendees: z
           .array(z.string())
           .optional()

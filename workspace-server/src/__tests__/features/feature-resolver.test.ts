@@ -196,4 +196,58 @@ describe('resolveFeatures', () => {
     const unique = new Set(requiredScopes);
     expect(requiredScopes.length).toBe(unique.size);
   });
+
+  describe('read/write scope dedup (issue #323)', () => {
+    const READONLY_PAIRS: Array<[string, string]> = [
+      ['drive.readonly', 'drive'],
+      ['calendar.readonly', 'calendar'],
+      ['chat.spaces.readonly', 'chat.spaces'],
+      ['chat.messages.readonly', 'chat.messages'],
+      ['chat.memberships.readonly', 'chat.memberships'],
+      ['gmail.readonly', 'gmail.modify'],
+    ];
+    const fullUrl = (s: string) => `https://www.googleapis.com/auth/${s}`;
+
+    it.each(READONLY_PAIRS)(
+      'should not request %s when paired write scope is enabled (defaults)',
+      (readonlyScope, writeScope) => {
+        const { requiredScopes } = resolveFeatures();
+        expect(requiredScopes).not.toContain(fullUrl(readonlyScope));
+        expect(requiredScopes).toContain(fullUrl(writeScope));
+      },
+    );
+
+    it.each([
+      ['drive.write:off', 'drive.readonly'],
+      ['calendar.write:off', 'calendar.readonly'],
+      ['gmail.write:off', 'gmail.readonly'],
+      ['chat.write:off', 'chat.spaces.readonly'],
+    ])(
+      'should request readonly scope when write group disabled (%s)',
+      (override, readonlyScope) => {
+        const { requiredScopes } = resolveFeatures(undefined, override);
+        expect(requiredScopes).toContain(fullUrl(readonlyScope));
+      },
+    );
+
+    it('should not affect tool registration — read tools stay enabled when write is on', () => {
+      const { enabledTools } = resolveFeatures();
+      expect(enabledTools.has('drive.search')).toBe(true);
+      expect(enabledTools.has('gmail.search')).toBe(true);
+      expect(enabledTools.has('calendar.list')).toBe(true);
+      expect(enabledTools.has('chat.listSpaces')).toBe(true);
+    });
+
+    it('should still include read scopes for services without a write group (people)', () => {
+      const { requiredScopes } = resolveFeatures();
+      expect(requiredScopes).toContain(fullUrl('directory.readonly'));
+      expect(requiredScopes).toContain(fullUrl('userinfo.profile'));
+    });
+
+    it('should still include readonly scopes for default-OFF write groups (slides, sheets)', () => {
+      const { requiredScopes } = resolveFeatures();
+      expect(requiredScopes).toContain(fullUrl('presentations.readonly'));
+      expect(requiredScopes).toContain(fullUrl('spreadsheets.readonly'));
+    });
+  });
 });

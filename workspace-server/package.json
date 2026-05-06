@@ -1,6 +1,6 @@
 {
   "name": "workspace-server",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
@@ -18,6 +18,6 @@
   "license": "Apache-2.0",
   "type": "commonjs",
   "devDependencies": {
-    "esbuild": "^0.27.5"
+    "esbuild": "^0.28.0"
   }
 }

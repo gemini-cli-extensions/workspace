@@ -15,6 +15,7 @@ module.exports = {
           {
             tsconfig: {
               strict: false,
+              types: ['jest', 'node'],
             },
           },
         ],

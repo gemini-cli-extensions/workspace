@@ -262,3 +262,23 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
     defaultEnabled: false,
   },
 ] as const satisfies readonly FeatureGroup[];
+
+/**
+ * Every scope that any default-enabled feature group could request.
+ *
+ * This is the registration list for the OAuth consent screen — broader than
+ * the runtime request set, because users can disable individual write groups
+ * via WORKSPACE_FEATURE_OVERRIDES, which causes the paired read group's
+ * `.readonly` scope to be requested. Both must already be registered, or
+ * unverified apps hit "This app is blocked."
+ *
+ * Returned sorted for stable diffs in `setup-gcp.sh`.
+ */
+export function getAllPossibleScopes(): string[] {
+  const set = new Set<string>();
+  for (const fg of FEATURE_GROUPS) {
+    if (!fg.defaultEnabled) continue;
+    for (const scope of fg.scopes) set.add(scope);
+  }
+  return [...set].sort();
+}
