@@ -32,7 +32,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
-    "@google-apps/chat": "^0.23.0",
+    "@google-apps/chat": "^0.23.1",
     "@google-cloud/local-auth": "^3.0.1",
     "@googleapis/docs": "^9.2.1",
     "@googleapis/drive": "^20.1.0",
@@ -45,7 +45,7 @@
     "@jest/globals": "^30.3.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.6.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.2",
     "@typescript-eslint/parser": "^8.55.0",
     "@vercel/ncc": "^0.38.3",
     "archiver": "^7.0.1",
@@ -62,7 +62,7 @@
     "typescript": "^6.0.3",
     "vite": "^8.0.10",
     "vitepress": "^1.6.4",
-    "vue": "^3.5.33"
+    "vue": "^3.5.34"
   },
   "repository": {
     "type": "git",
