@@ -64,6 +64,25 @@ describe('feature-config', () => {
     expect(timeRead).toBeDefined();
     expect(timeRead!.scopes).toEqual([]);
   });
+
+  it('every tool registered in index.ts must appear in FEATURE_GROUPS', () => {
+    const repoRoot = join(__dirname, '..', '..', '..', '..');
+    const indexSrc = readFileSync(
+      join(repoRoot, 'workspace-server', 'src', 'index.ts'),
+      'utf8',
+    );
+    const registered = new Set<string>();
+    const registerCallRegex = /\bregisterTool\(\s*'([^']+)'/g;
+    let match: RegExpExecArray | null;
+    while ((match = registerCallRegex.exec(indexSrc)) !== null) {
+      registered.add(match[1]);
+    }
+    const known = new Set<string>(FEATURE_GROUPS.flatMap((fg) => fg.tools));
+    const orphans = [...registered].filter(
+      (name) => !name.startsWith('auth.') && !known.has(name),
+    );
+    expect(orphans).toEqual([]);
+  });
 });
 
 describe('getAllPossibleScopes (issue #323)', () => {

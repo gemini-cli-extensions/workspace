@@ -513,7 +513,7 @@ async function main() {
     slidesService.getSlideThumbnail,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.create',
     {
       description:
@@ -527,7 +527,7 @@ async function main() {
     slidesService.create,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.addSlide',
     {
       description:
@@ -563,7 +563,7 @@ async function main() {
     slidesService.addSlide,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.deleteSlide',
     {
       description:
@@ -582,7 +582,7 @@ async function main() {
     slidesService.deleteSlide,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.duplicateSlide',
     {
       description:
@@ -601,7 +601,7 @@ async function main() {
     slidesService.duplicateSlide,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.reorderSlides',
     {
       description:
@@ -623,7 +623,7 @@ async function main() {
     slidesService.reorderSlides,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.getSpeakerNotes',
     {
       description:
@@ -638,7 +638,7 @@ async function main() {
     slidesService.getSpeakerNotes,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.updateSpeakerNotes',
     {
       description:
@@ -662,7 +662,7 @@ async function main() {
     slidesService.updateSpeakerNotes,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.replaceAllText',
     {
       description:
@@ -688,7 +688,7 @@ async function main() {
     slidesService.replaceAllText,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.insertText',
     {
       description:
@@ -714,7 +714,7 @@ async function main() {
     slidesService.insertText,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.deleteText',
     {
       description:
@@ -736,7 +736,7 @@ async function main() {
     slidesService.deleteText,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.addShape',
     {
       description:
@@ -772,7 +772,7 @@ async function main() {
     slidesService.addShape,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.addImage',
     {
       description:
@@ -808,7 +808,7 @@ async function main() {
     slidesService.addImage,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.addTable',
     {
       description:
@@ -841,7 +841,7 @@ async function main() {
     slidesService.addTable,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.updateTextStyle',
     {
       description:
@@ -873,7 +873,7 @@ async function main() {
     slidesService.updateTextStyle,
   );
 
-  server.registerTool(
+  registerTool(
     'slides.updateShapeProperties',
     {
       description:
