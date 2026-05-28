@@ -98,7 +98,6 @@ const emailComposeSchema = {
     .describe('Whether the body is HTML (default: false).'),
 };
 
-
 // Dynamically import version from package.json
 import { version } from '../package.json';
 
@@ -538,9 +537,7 @@ async function main() {
           ),
         values: z
           .array(
-            z.array(
-              z.union([z.string(), z.number(), z.boolean(), z.null()]),
-            ),
+            z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])),
           )
           .describe(
             'The values to write, as a 2D array (rows x columns). Supports strings, numbers, booleans, and null.',
@@ -570,9 +567,7 @@ async function main() {
           ),
         values: z
           .array(
-            z.array(
-              z.union([z.string(), z.number(), z.boolean(), z.null()]),
-            ),
+            z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])),
           )
           .describe(
             'The rows to append, as a 2D array. Supports strings, numbers, booleans, and null.',
@@ -597,9 +592,7 @@ async function main() {
         spreadsheetId: z.string().describe('The ID or URL of the spreadsheet.'),
         range: z
           .string()
-          .describe(
-            'The A1 notation range to clear (e.g., "Sheet1!A1:B2").',
-          ),
+          .describe('The A1 notation range to clear (e.g., "Sheet1!A1:B2").'),
       },
     },
     sheetsService.clearRange,

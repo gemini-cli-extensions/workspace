@@ -561,11 +561,10 @@ describe('SheetsService', () => {
       const mockResponse = {
         data: {
           spreadsheetId: 'new-spreadsheet-id',
-          spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/new-spreadsheet-id',
+          spreadsheetUrl:
+            'https://docs.google.com/spreadsheets/d/new-spreadsheet-id',
           properties: { title: 'My New Sheet' },
-          sheets: [
-            { properties: { sheetId: 0, title: 'Sheet1' } },
-          ],
+          sheets: [{ properties: { sheetId: 0, title: 'Sheet1' } }],
         },
       };
 

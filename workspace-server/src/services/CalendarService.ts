@@ -33,7 +33,6 @@ export type CalendarEventType =
 
 export type ListEventsEventType = CalendarEventType | 'birthday' | 'fromGmail';
 
-
 export interface CreateEventInput {
   calendarId?: string;
   summary?: string;
@@ -427,7 +426,6 @@ export class CalendarService {
         }
         event.workingLocationProperties = wlProps;
       }
-
 
       const calendar = await this.getCalendar();
       const insertParams: calendar_v3.Params$Resource$Events$Insert = {

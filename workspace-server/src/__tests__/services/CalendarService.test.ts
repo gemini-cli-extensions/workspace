@@ -1915,7 +1915,6 @@ describe('CalendarService', () => {
         },
       };
 
-
       mockCalendarAPI.events.insert.mockResolvedValue({
         data: mockCreatedEvent,
       });
