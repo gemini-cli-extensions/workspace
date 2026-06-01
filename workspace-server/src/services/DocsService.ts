@@ -300,10 +300,13 @@ export class DocsService {
         if (position === 'beginning') {
           index = 1;
         } else if (position === 'end') {
-          // Discover the end index by reading the document (required for tabs)
+          // Discover the end index by reading the document (required for tabs).
+          // No explicit fields mask: when the doc contains smart chips the
+          // server rejects a `tabs` mask as implicitly comment-anchored.
+          // Letting the API return its default field set works on both
+          // smart-chip and plain docs.
           const res = await docs.documents.get({
             documentId: id,
-            fields: 'tabs',
             includeTabsContent: true,
           });
 
@@ -537,9 +540,9 @@ export class DocsService {
       // Validate and extract document ID
       const id = validateAndExtractDocId(documentId);
       const docs = await this.getDocsClient();
+      // No explicit fields mask — see writeText for the reasoning.
       const res = await docs.documents.get({
         documentId: id,
-        fields: 'tabs', // Request tabs only (body is legacy and mutually exclusive with tabs in mask)
         includeTabsContent: true,
       });
 
@@ -722,10 +725,10 @@ export class DocsService {
       const id = extractDocId(documentId) || documentId;
       const docs = await this.getDocsClient();
 
-      // Get the document to find where the text will be replaced
+      // Get the document to find where the text will be replaced.
+      // No explicit fields mask — see writeText for the reasoning.
       const docBefore = await docs.documents.get({
         documentId: id,
-        fields: 'tabs',
         includeTabsContent: true,
       });
 
