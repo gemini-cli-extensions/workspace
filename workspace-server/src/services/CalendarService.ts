@@ -490,7 +490,7 @@ export class CalendarService {
         timeMax,
         singleEvents: true,
         fields:
-          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties)',
+          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties,attachments(fileId,fileUrl,title,mimeType,iconLink))',
       };
       if (eventTypes && eventTypes.length > 0) {
         listParams.eventTypes = eventTypes;

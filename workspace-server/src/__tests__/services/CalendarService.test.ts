@@ -429,7 +429,7 @@ describe('CalendarService', () => {
         timeMax: '2024-01-16T00:00:00Z',
         singleEvents: true,
         fields:
-          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties)',
+          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties,attachments(fileId,fileUrl,title,mimeType,iconLink))',
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvents);
@@ -471,10 +471,51 @@ describe('CalendarService', () => {
         timeMax: '2024-01-16T00:00:00Z',
         singleEvents: true,
         fields:
-          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties)',
+          'items(id,summary,start,end,description,htmlLink,attendees,status,eventType,focusTimeProperties,outOfOfficeProperties,workingLocationProperties,attachments(fileId,fileUrl,title,mimeType,iconLink))',
       });
 
       expect(JSON.parse(result.content[0].text)).toEqual(mockEvents);
+    });
+
+    it('should request native attachments and pass them through', async () => {
+      // listEvents previously dropped attachments even though getEvent returns
+      // them (no field mask) and createEvent/updateEvent fully support them.
+      // The events.list field mask must include attachments(...) so callers can
+      // see files attached to invites, and the payload must survive.
+      const mockEvents = [
+        {
+          id: 'event1',
+          summary: 'Team Sync',
+          start: { dateTime: '2024-01-15T09:00:00Z' },
+          end: { dateTime: '2024-01-15T10:00:00Z' },
+          status: 'confirmed',
+          attachments: [
+            {
+              fileId: 'example-attachment-file-id',
+              fileUrl:
+                'https://docs.google.com/presentation/d/example-attachment-file-id/edit',
+              title: 'Agenda Slides',
+              mimeType: 'application/vnd.google-apps.presentation',
+            },
+          ],
+        },
+      ];
+
+      mockCalendarAPI.events.list.mockResolvedValue({
+        data: { items: mockEvents },
+      });
+
+      const result = await calendarService.listEvents({
+        calendarId: 'primary',
+        timeMin: '2024-01-15T00:00:00Z',
+        timeMax: '2024-01-16T00:00:00Z',
+      });
+
+      const callArgs = mockCalendarAPI.events.list.mock.calls[0][0];
+      expect(callArgs.fields).toContain('attachments(');
+
+      const returned = JSON.parse(result.content[0].text);
+      expect(returned[0].attachments[0].fileId).toBe('example-attachment-file-id');
     });
 
     it('should list events with a default timeMax', async () => {
