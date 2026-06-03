@@ -16,6 +16,13 @@ module.exports = {
             tsconfig: {
               strict: false,
               types: ['jest', 'node'],
+              // Match the production build (module: commonjs, node10) so the
+              // exports-map "import" condition is ignored. Without this,
+              // ts-jest >= 29.4.10 resolves gaxios's ESM type declarations for
+              // bare imports while googleapis-common resolves the CJS ones,
+              // producing spurious GaxiosOptions/GaxiosError type clashes.
+              module: 'commonjs',
+              moduleResolution: 'node10',
             },
           },
         ],
