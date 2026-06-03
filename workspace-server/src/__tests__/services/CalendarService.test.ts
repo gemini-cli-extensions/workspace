@@ -515,7 +515,9 @@ describe('CalendarService', () => {
       expect(callArgs.fields).toContain('attachments(');
 
       const returned = JSON.parse(result.content[0].text);
-      expect(returned[0].attachments[0].fileId).toBe('example-attachment-file-id');
+      expect(returned[0].attachments[0].fileId).toBe(
+        'example-attachment-file-id',
+      );
     });
 
     it('should list events with a default timeMax', async () => {
