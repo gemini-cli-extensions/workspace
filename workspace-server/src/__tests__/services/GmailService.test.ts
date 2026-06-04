@@ -1113,7 +1113,9 @@ describe('GmailService', () => {
         to: 'recipient@example.com',
         subject: 'Draft with Attachment',
         body: 'See attached.',
-        attachments: [{ filePath: '/tmp/report.pdf', mimeType: 'application/pdf' }],
+        attachments: [
+          { filePath: '/tmp/report.pdf', mimeType: 'application/pdf' },
+        ],
       });
 
       expect((fs.readFile as any).mock.calls[0][0]).toBe('/tmp/report.pdf');
@@ -1136,7 +1138,9 @@ describe('GmailService', () => {
 
       expect(mockGmailAPI.users.drafts.create).toHaveBeenCalledWith({
         userId: 'me',
-        requestBody: { message: { raw: 'base64encodedmessage-with-attachments' } },
+        requestBody: {
+          message: { raw: 'base64encodedmessage-with-attachments' },
+        },
       });
 
       const response = JSON.parse(result.content[0].text);
@@ -1146,7 +1150,10 @@ describe('GmailService', () => {
 
     it('should use filename override when provided', async () => {
       mockGmailAPI.users.drafts.create.mockResolvedValue({
-        data: { id: 'draft2', message: { id: 'msg2', threadId: null, labelIds: [] } },
+        data: {
+          id: 'draft2',
+          message: { id: 'msg2', threadId: null, labelIds: [] },
+        },
       });
       (fs.readFile as any).mockResolvedValue(Buffer.from('data'));
 
@@ -1154,7 +1161,9 @@ describe('GmailService', () => {
         to: 'a@example.com',
         subject: 'S',
         body: 'B',
-        attachments: [{ filePath: '/tmp/123abc.tmp', filename: 'custom-name.pdf' }],
+        attachments: [
+          { filePath: '/tmp/123abc.tmp', filename: 'custom-name.pdf' },
+        ],
       });
 
       expect(
@@ -1163,6 +1172,38 @@ describe('GmailService', () => {
         expect.objectContaining({
           attachments: expect.arrayContaining([
             expect.objectContaining({ filename: 'custom-name.pdf' }),
+          ]),
+        }),
+      );
+    });
+
+    it('should fall back to defaults when filename or mimeType are empty strings', async () => {
+      mockGmailAPI.users.drafts.create.mockResolvedValue({
+        data: {
+          id: 'draft-empty',
+          message: { id: 'msg-empty', threadId: null, labelIds: [] },
+        },
+      });
+      (fs.readFile as any).mockResolvedValue(Buffer.from('data'));
+
+      await gmailService.createDraft({
+        to: 'a@example.com',
+        subject: 'S',
+        body: 'B',
+        attachments: [
+          { filePath: '/tmp/report.pdf', filename: '', mimeType: '' },
+        ],
+      });
+
+      expect(
+        MimeHelper.createMimeMessageWithAttachments as jest.Mock,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: expect.arrayContaining([
+            expect.objectContaining({
+              filename: 'report.pdf',
+              contentType: 'application/pdf',
+            }),
           ]),
         }),
       );
@@ -1213,7 +1254,9 @@ describe('GmailService', () => {
       ).toHaveBeenCalledWith(
         expect.objectContaining({
           attachments: expect.arrayContaining([
-            expect.objectContaining({ contentType: 'application/octet-stream' }),
+            expect.objectContaining({
+              contentType: 'application/octet-stream',
+            }),
           ]),
         }),
       );
@@ -1286,9 +1329,7 @@ describe('GmailService', () => {
     });
 
     it('should handle readFile failure (file not found) gracefully', async () => {
-      (fs.readFile as any).mockRejectedValue(
-        new Error('ENOENT: no such file'),
-      );
+      (fs.readFile as any).mockRejectedValue(new Error('ENOENT: no such file'));
 
       const result = await gmailService.createDraft({
         to: 'a@example.com',

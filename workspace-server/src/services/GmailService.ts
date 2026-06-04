@@ -665,10 +665,12 @@ export class GmailService {
           attachments.map(async (att) => {
             const content = await fs.readFile(att.filePath);
             return {
-              filename: att.filename ?? path.basename(att.filePath),
+              // `||` (not `??`) so empty strings also fall back to defaults —
+              // an empty filename or MIME type is invalid in MIME headers.
+              filename: att.filename || path.basename(att.filePath),
               content,
               contentType:
-                att.mimeType ?? getMimeTypeFromExtension(att.filePath),
+                att.mimeType || getMimeTypeFromExtension(att.filePath),
             };
           }),
         );
