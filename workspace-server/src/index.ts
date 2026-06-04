@@ -17,10 +17,7 @@ import { ChatService } from './services/ChatService';
 import { GmailService } from './services/GmailService';
 import { TimeService } from './services/TimeService';
 import { PeopleService } from './services/PeopleService';
-import {
-  SlidesService,
-  PREDEFINED_LAYOUTS,
-} from './services/SlidesService';
+import { SlidesService, PREDEFINED_LAYOUTS } from './services/SlidesService';
 import { SheetsService } from './services/SheetsService';
 import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
 
@@ -106,7 +103,9 @@ const slidesTextRangeSchema = z
         type: z.literal('FROM_START_INDEX'),
         startIndex: z
           .number()
-          .describe('Inclusive 0-based start index; the range extends to the end of the text.'),
+          .describe(
+            'Inclusive 0-based start index; the range extends to the end of the text.',
+          ),
       })
       .describe('Operate from startIndex to the end of the text.'),
   ])
@@ -519,9 +518,7 @@ async function main() {
       description:
         'Creates a new Google Slides presentation. Returns the presentation ID and URL.',
       inputSchema: {
-        title: z
-          .string()
-          .describe('The title for the new presentation.'),
+        title: z.string().describe('The title for the new presentation.'),
       },
     },
     slidesService.create,
@@ -566,8 +563,7 @@ async function main() {
   registerTool(
     'slides.deleteSlide',
     {
-      description:
-        'Deletes a slide from a Google Slides presentation.',
+      description: 'Deletes a slide from a Google Slides presentation.',
       inputSchema: {
         presentationId: z
           .string()
@@ -615,9 +611,7 @@ async function main() {
           .describe('The object IDs of the slides to move.'),
         insertionIndex: z
           .number()
-          .describe(
-            'The 0-based index where the slides should be moved to.',
-          ),
+          .describe('The 0-based index where the slides should be moved to.'),
       },
     },
     slidesService.reorderSlides,
@@ -671,9 +665,7 @@ async function main() {
         presentationId: z
           .string()
           .describe('The ID or URL of the presentation.'),
-        findText: z
-          .string()
-          .describe('The text to find in the presentation.'),
+        findText: z.string().describe('The text to find in the presentation.'),
         replaceText: z
           .string()
           .describe('The text to replace the found text with.'),
@@ -728,9 +720,7 @@ async function main() {
           .describe(
             'The object ID of the shape or table cell to delete text from.',
           ),
-        range: slidesTextRangeSchema
-          .optional()
-          .default({ type: 'ALL' }),
+        range: slidesTextRangeSchema.optional().default({ type: 'ALL' }),
       },
     },
     slidesService.deleteText,
@@ -865,9 +855,7 @@ async function main() {
           .describe(
             'A comma-separated field mask listing which TextStyle fields to update. Valid values include: bold, italic, underline, strikethrough, smallCaps, backgroundColor, foregroundColor, fontFamily, fontSize, baselineOffset, weightedFontFamily, link. Use "*" to update every field present in `style`. Any field listed here but absent from `style` is reset to its default.',
           ),
-        range: slidesTextRangeSchema
-          .optional()
-          .default({ type: 'ALL' }),
+        range: slidesTextRangeSchema.optional().default({ type: 'ALL' }),
       },
     },
     slidesService.updateTextStyle,
@@ -882,9 +870,7 @@ async function main() {
         presentationId: z
           .string()
           .describe('The ID or URL of the presentation.'),
-        objectId: z
-          .string()
-          .describe('The object ID of the shape to update.'),
+        objectId: z.string().describe('The object ID of the shape to update.'),
         shapeProperties: z
           .string()
           .describe(

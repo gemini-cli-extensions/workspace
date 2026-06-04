@@ -321,13 +321,17 @@ export class SlidesService {
         `Invalid JSON for ${paramName} parameter: ${detail}. Expected a JSON string like '${example}'.`,
       );
     }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       const got =
         parsed === null
           ? 'null'
           : Array.isArray(parsed)
-          ? 'array'
-          : typeof parsed;
+            ? 'array'
+            : typeof parsed;
       throw new Error(
         `Invalid ${paramName} parameter: expected a JSON object, got ${got}.`,
       );
@@ -365,8 +369,7 @@ export class SlidesService {
   }
 
   private formatError(method: string, error: unknown): ToolResult {
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logToFile(`[SlidesService] Error during ${method}: ${errorMessage}`);
     return {
       isError: true,
@@ -527,8 +530,7 @@ export class SlidesService {
         },
       });
 
-      const newObjectId =
-        response.data.replies?.[0]?.duplicateObject?.objectId;
+      const newObjectId = response.data.replies?.[0]?.duplicateObject?.objectId;
       if (!newObjectId) {
         throw new Error(
           'duplicateObject returned no objectId; batchUpdate reply was empty or malformed.',
@@ -671,8 +673,7 @@ export class SlidesService {
       }
 
       const speakerNotesObjectId =
-        slide.slideProperties?.notesPage?.notesProperties
-          ?.speakerNotesObjectId;
+        slide.slideProperties?.notesPage?.notesProperties?.speakerNotesObjectId;
       if (!speakerNotesObjectId) {
         throw new Error(
           `Speaker notes object not found for slide: ${slideObjectId}`,
@@ -681,10 +682,9 @@ export class SlidesService {
 
       const requests: slides_v1.Schema$Request[] = [];
 
-      const notesShape =
-        slide.slideProperties?.notesPage?.pageElements?.find(
-          (el) => el.objectId === speakerNotesObjectId,
-        );
+      const notesShape = slide.slideProperties?.notesPage?.pageElements?.find(
+        (el) => el.objectId === speakerNotesObjectId,
+      );
 
       if (notesShape?.shape?.text?.textElements?.length) {
         requests.push({

@@ -600,9 +600,7 @@ describe('SlidesService', () => {
       expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
         presentationId: 'test-pres-id',
         requestBody: {
-          requests: [
-            { duplicateObject: { objectId: 'original-slide' } },
-          ],
+          requests: [{ duplicateObject: { objectId: 'original-slide' } }],
         },
       });
       expect(response.sourceSlideObjectId).toBe('original-slide');
@@ -700,7 +698,9 @@ describe('SlidesService', () => {
                       shape: {
                         text: {
                           textElements: [
-                            { textRun: { content: 'Speaker note for slide 1' } },
+                            {
+                              textRun: { content: 'Speaker note for slide 1' },
+                            },
                           ],
                         },
                       },
@@ -774,9 +774,7 @@ describe('SlidesService', () => {
                       objectId: 'notes-shape-1',
                       shape: {
                         text: {
-                          textElements: [
-                            { textRun: { content: 'Old notes' } },
-                          ],
+                          textElements: [{ textRun: { content: 'Old notes' } }],
                         },
                       },
                     },
@@ -1659,7 +1657,8 @@ describe('SlidesService', () => {
       expect(result.isError).toBe(true);
       expect(response.error).toContain('Invalid JSON for style parameter:');
       expect(response.error.length).toBeGreaterThan(
-        'Invalid JSON for style parameter: . Expected a JSON string like'.length,
+        'Invalid JSON for style parameter: . Expected a JSON string like'
+          .length,
       );
     });
 
@@ -1746,7 +1745,9 @@ describe('SlidesService', () => {
       });
       const response = JSON.parse(result.content[0].text);
       expect(result.isError).toBe(true);
-      expect(response.error).toContain('Invalid JSON for shapeProperties parameter:');
+      expect(response.error).toContain(
+        'Invalid JSON for shapeProperties parameter:',
+      );
     });
 
     it.each([
