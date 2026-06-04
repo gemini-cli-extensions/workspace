@@ -365,6 +365,74 @@ describe('MimeHelper', () => {
       expect(boundary2Match).toBeTruthy();
       expect(boundary1Match![1]).not.toBe(boundary2Match![1]);
     });
+
+    it('should include In-Reply-To and References headers when provided with attachments', () => {
+      const messageId = '<original@mail.example.com>';
+      const refs = '<earlier@mail.example.com> <original@mail.example.com>';
+      const attachments = [
+        {
+          filename: 'test.txt',
+          content: Buffer.from('hello'),
+          contentType: 'text/plain',
+        },
+      ];
+
+      const encoded = MimeHelper.createMimeMessageWithAttachments({
+        to: 'recipient@example.com',
+        subject: 'Re: Test',
+        body: 'Reply with attachment',
+        inReplyTo: messageId,
+        references: refs,
+        attachments,
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      expect(decoded).toContain(`In-Reply-To: ${messageId}`);
+      expect(decoded).toContain(`References: ${refs}`);
+      // Still multipart
+      expect(decoded).toContain('Content-Type: multipart/mixed; boundary=');
+    });
+
+    it('should include In-Reply-To and References headers when no attachments (fallback path)', () => {
+      const messageId = '<original@mail.example.com>';
+
+      const encoded = MimeHelper.createMimeMessageWithAttachments({
+        to: 'recipient@example.com',
+        subject: 'Re: Test',
+        body: 'Reply without attachment',
+        inReplyTo: messageId,
+        references: messageId,
+        // no attachments — exercises the createMimeMessage fallback
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      expect(decoded).toContain(`In-Reply-To: ${messageId}`);
+      expect(decoded).toContain(`References: ${messageId}`);
+    });
+
+    it('should not include In-Reply-To or References in multipart message when not provided', () => {
+      const attachments = [
+        {
+          filename: 'file.pdf',
+          content: Buffer.from('data'),
+          contentType: 'application/pdf',
+        },
+      ];
+
+      const encoded = MimeHelper.createMimeMessageWithAttachments({
+        to: 'recipient@example.com',
+        subject: 'New Draft',
+        body: 'Body',
+        attachments,
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      expect(decoded).not.toContain('In-Reply-To:');
+      expect(decoded).not.toContain('References:');
+    });
   });
 
   describe('decodeBase64Url', () => {

@@ -92,6 +92,10 @@ const emailComposeSchema = {
     .union([z.string(), z.array(z.string())])
     .optional()
     .describe('BCC recipient email address(es).'),
+  replyTo: z
+    .string()
+    .optional()
+    .describe('The email address to which replies should be sent.'),
   isHtml: z
     .boolean()
     .optional()
@@ -1298,6 +1302,32 @@ System labels that can be modified:
           .optional()
           .describe(
             'The thread ID to create the draft as a reply to. When provided, the draft will be linked to the existing thread with appropriate reply headers.',
+          ),
+        attachments: z
+          .array(
+            z.object({
+              filePath: z
+                .string()
+                .describe(
+                  'Absolute local filesystem path to the file to attach (e.g., "/Users/name/downloads/report.pdf"). Use gmail.downloadAttachment first to save an email attachment locally before referencing it here.',
+                ),
+              filename: z
+                .string()
+                .optional()
+                .describe(
+                  'Display name for the attachment in the email. Defaults to the filename portion of filePath.',
+                ),
+              mimeType: z
+                .string()
+                .optional()
+                .describe(
+                  'MIME type of the attachment (e.g., "application/pdf"). Inferred from the file extension when omitted; falls back to "application/octet-stream".',
+                ),
+            }),
+          )
+          .optional()
+          .describe(
+            'Files to attach to the draft. Each entry must reference an absolute local path. Download attachments first with gmail.downloadAttachment if needed.',
           ),
       },
     },

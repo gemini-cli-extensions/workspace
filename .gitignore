@@ -37,6 +37,10 @@ commit_message.txt
 # Release directory
 release/
 
+# Configuration and Local Settings
+.mcp.json
+.claude/
+
 # VitePress
 docs/.vitepress/dist
 docs/.vitepress/cache

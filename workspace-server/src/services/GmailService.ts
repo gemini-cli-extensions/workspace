@@ -18,6 +18,51 @@ import {
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { emailArraySchema } from '../utils/validation';
 
+// Extension to MIME type map for common file types
+const EXTENSION_MIME_MAP: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx':
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx':
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx':
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.html': 'text/html',
+  '.htm': 'text/html',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.zip': 'application/zip',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+};
+
+// Maximum total size for all attachments. Gmail's 25MB limit applies to the
+// entire MIME message, and base64 encoding inflates binary data by ~33%, so
+// cap raw attachment bytes at 18MB to leave room for encoding overhead and
+// message headers/body.
+const MAX_TOTAL_ATTACHMENT_SIZE_BYTES = 18 * 1024 * 1024;
+
+function getMimeTypeFromExtension(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  return EXTENSION_MIME_MAP[ext] ?? 'application/octet-stream';
+}
+
+type AttachmentInput = {
+  filePath: string;
+  filename?: string;
+  mimeType?: string;
+};
+
 // Type definitions for email parameters
 type SendEmailParams = {
   to: string | string[];
@@ -25,11 +70,13 @@ type SendEmailParams = {
   body: string;
   cc?: string | string[];
   bcc?: string | string[];
+  replyTo?: string;
   isHtml?: boolean;
 };
 
 type CreateDraftParams = SendEmailParams & {
   threadId?: string;
+  attachments?: AttachmentInput[];
 };
 
 interface GmailAttachment {
@@ -416,6 +463,7 @@ export class GmailService {
     body,
     cc,
     bcc,
+    replyTo,
     isHtml = false,
   }: SendEmailParams) => {
     try {
@@ -424,6 +472,7 @@ export class GmailService {
         emailArraySchema.parse(to);
         if (cc) emailArraySchema.parse(cc);
         if (bcc) emailArraySchema.parse(bcc);
+        if (replyTo) emailArraySchema.parse(replyTo);
       } catch (error) {
         return {
           content: [
@@ -448,6 +497,7 @@ export class GmailService {
         body,
         cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
         bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
+        replyTo,
         isHtml,
       });
 
@@ -489,10 +539,33 @@ export class GmailService {
     body,
     cc,
     bcc,
+    replyTo,
     isHtml = false,
     threadId,
+    attachments,
   }: CreateDraftParams) => {
     try {
+      // Validate email addresses
+      try {
+        emailArraySchema.parse(to);
+        if (cc) emailArraySchema.parse(cc);
+        if (bcc) emailArraySchema.parse(bcc);
+        if (replyTo) emailArraySchema.parse(replyTo);
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                error: 'Invalid email address format',
+                details:
+                  error instanceof Error ? error.message : 'Validation failed',
+              }),
+            },
+          ],
+        };
+      }
+
       logToFile(`Creating draft - to: ${to}, subject: ${subject}`);
 
       const gmail = await this.getGmailClient();
@@ -534,16 +607,79 @@ export class GmailService {
       }
 
       // Create MIME message
-      const mimeMessage = MimeHelper.createMimeMessage({
-        to: Array.isArray(to) ? to.join(', ') : to,
-        subject,
-        body,
-        cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
-        bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
-        isHtml,
-        inReplyTo,
-        references,
-      });
+      let mimeMessage: string;
+
+      if (attachments && attachments.length > 0) {
+        // Validate all paths are absolute and check file sizes before reading anything
+        const attachmentSizes = await Promise.all(
+          attachments.map(async (att) => {
+            if (!path.isAbsolute(att.filePath)) {
+              throw new Error(
+                `Attachment filePath must be an absolute path: ${att.filePath}`,
+              );
+            }
+
+            try {
+              const stats = await fs.stat(att.filePath);
+              if (!stats.isFile()) {
+                throw new Error(
+                  `Attachment path is not a file: ${att.filePath}`,
+                );
+              }
+              return stats.size;
+            } catch (statError) {
+              throw new Error(
+                `Could not access attachment file ${att.filePath}: ${statError instanceof Error ? statError.message : String(statError)}`,
+              );
+            }
+          }),
+        );
+        const totalSize = attachmentSizes.reduce((sum, size) => sum + size, 0);
+
+        if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE_BYTES) {
+          throw new Error(
+            `Total attachment size (${(totalSize / 1024 / 1024).toFixed(2)}MB) exceeds the maximum allowed limit of ${MAX_TOTAL_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB.`,
+          );
+        }
+
+        // Read each file from disk
+        const resolvedAttachments = await Promise.all(
+          attachments.map(async (att) => {
+            const content = await fs.readFile(att.filePath);
+            return {
+              filename: att.filename ?? path.basename(att.filePath),
+              content,
+              contentType:
+                att.mimeType ?? getMimeTypeFromExtension(att.filePath),
+            };
+          }),
+        );
+
+        mimeMessage = MimeHelper.createMimeMessageWithAttachments({
+          to: Array.isArray(to) ? to.join(', ') : to,
+          subject,
+          body,
+          cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
+          bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
+          replyTo,
+          inReplyTo,
+          references,
+          isHtml,
+          attachments: resolvedAttachments,
+        });
+      } else {
+        mimeMessage = MimeHelper.createMimeMessage({
+          to: Array.isArray(to) ? to.join(', ') : to,
+          subject,
+          body,
+          cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
+          bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
+          replyTo,
+          isHtml,
+          inReplyTo,
+          references,
+        });
+      }
 
       const response = await gmail.users.drafts.create({
         userId: 'me',
