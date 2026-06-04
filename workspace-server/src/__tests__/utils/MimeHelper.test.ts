@@ -244,6 +244,36 @@ describe('MimeHelper', () => {
       expect(decoded).toContain('Content-Type: application/octet-stream');
     });
 
+    it('should sanitize attachment filenames to prevent MIME header injection', () => {
+      const attachments = [
+        {
+          filename: 'evil"\r\nX-Injected: true\r\n.pdf',
+          content: Buffer.from('content'),
+          contentType: 'application/pdf\r\nX-Also-Injected: true',
+        },
+      ];
+
+      const encoded = MimeHelper.createMimeMessageWithAttachments({
+        to: 'recipient@example.com',
+        subject: 'Injection Attempt',
+        body: 'Message',
+        attachments,
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      // CR/LF stripped, so injected text can never start a new header line
+      expect(decoded).not.toContain('\r\nX-Injected:');
+      expect(decoded).not.toContain('\r\nX-Also-Injected:');
+      // Quotes escaped, so the filename parameter cannot be terminated early
+      expect(decoded).toContain(
+        'Content-Disposition: attachment; filename="evil\\"X-Injected: true.pdf"',
+      );
+      expect(decoded).toContain(
+        'Content-Type: application/pdfX-Also-Injected: true',
+      );
+    });
+
     it('should properly format attachment content in 76-character lines', () => {
       const longContent = 'a'.repeat(200); // Long content that needs to be wrapped
       const attachments = [

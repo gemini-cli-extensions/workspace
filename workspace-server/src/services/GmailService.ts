@@ -25,8 +25,7 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
   '.docx':
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.xls': 'application/vnd.ms-excel',
-  '.xlsx':
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.ppt': 'application/vnd.ms-powerpoint',
   '.pptx':
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -457,6 +456,44 @@ export class GmailService {
     }
   };
 
+  /**
+   * Validates recipient email addresses shared by send and createDraft.
+   * Returns a structured error response when validation fails, or null when
+   * all provided addresses are valid.
+   */
+  private validateEmailAddresses({
+    to,
+    cc,
+    bcc,
+    replyTo,
+  }: {
+    to: string | string[];
+    cc?: string | string[];
+    bcc?: string | string[];
+    replyTo?: string;
+  }) {
+    try {
+      emailArraySchema.parse(to);
+      if (cc) emailArraySchema.parse(cc);
+      if (bcc) emailArraySchema.parse(bcc);
+      if (replyTo) emailArraySchema.parse(replyTo);
+      return null;
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              error: 'Invalid email address format',
+              details:
+                error instanceof Error ? error.message : 'Validation failed',
+            }),
+          },
+        ],
+      };
+    }
+  }
+
   public send = async ({
     to,
     subject,
@@ -468,24 +505,14 @@ export class GmailService {
   }: SendEmailParams) => {
     try {
       // Validate email addresses
-      try {
-        emailArraySchema.parse(to);
-        if (cc) emailArraySchema.parse(cc);
-        if (bcc) emailArraySchema.parse(bcc);
-        if (replyTo) emailArraySchema.parse(replyTo);
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({
-                error: 'Invalid email address format',
-                details:
-                  error instanceof Error ? error.message : 'Validation failed',
-              }),
-            },
-          ],
-        };
+      const validationError = this.validateEmailAddresses({
+        to,
+        cc,
+        bcc,
+        replyTo,
+      });
+      if (validationError) {
+        return validationError;
       }
 
       logToFile(`Sending email to: ${to}, subject: ${subject}`);
@@ -546,24 +573,14 @@ export class GmailService {
   }: CreateDraftParams) => {
     try {
       // Validate email addresses
-      try {
-        emailArraySchema.parse(to);
-        if (cc) emailArraySchema.parse(cc);
-        if (bcc) emailArraySchema.parse(bcc);
-        if (replyTo) emailArraySchema.parse(replyTo);
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: JSON.stringify({
-                error: 'Invalid email address format',
-                details:
-                  error instanceof Error ? error.message : 'Validation failed',
-              }),
-            },
-          ],
-        };
+      const validationError = this.validateEmailAddresses({
+        to,
+        cc,
+        bcc,
+        replyTo,
+      });
+      if (validationError) {
+        return validationError;
       }
 
       logToFile(`Creating draft - to: ${to}, subject: ${subject}`);
@@ -619,19 +636,20 @@ export class GmailService {
               );
             }
 
+            let stats;
             try {
-              const stats = await fs.stat(att.filePath);
-              if (!stats.isFile()) {
-                throw new Error(
-                  `Attachment path is not a file: ${att.filePath}`,
-                );
-              }
-              return stats.size;
+              stats = await fs.stat(att.filePath);
             } catch (statError) {
               throw new Error(
                 `Could not access attachment file ${att.filePath}: ${statError instanceof Error ? statError.message : String(statError)}`,
               );
             }
+
+            if (!stats.isFile()) {
+              throw new Error(`Attachment path is not a file: ${att.filePath}`);
+            }
+
+            return stats.size;
           }),
         );
         const totalSize = attachmentSizes.reduce((sum, size) => sum + size, 0);

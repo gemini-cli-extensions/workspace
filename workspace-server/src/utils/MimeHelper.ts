@@ -93,6 +93,27 @@ export class MimeHelper {
   }
 
   /**
+   * Strips characters that would allow MIME header injection (CR/LF and
+   * other control characters) from a header value.
+   */
+  private static sanitizeHeaderValue(value: string): string {
+    // eslint-disable-next-line no-control-regex
+    return value.replace(/[\r\n\x00-\x1f\x7f]/g, '');
+  }
+
+  /**
+   * Sanitizes a filename for safe use inside a quoted Content-Disposition
+   * filename parameter: removes control characters (preventing header
+   * injection) and escapes backslashes and double quotes (preventing
+   * parameter injection / early quote termination).
+   */
+  private static sanitizeHeaderFilename(filename: string): string {
+    return MimeHelper.sanitizeHeaderValue(filename)
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+  }
+
+  /**
    * Creates a MIME message with attachments
    */
   public static createMimeMessageWithAttachments({
@@ -184,13 +205,17 @@ export class MimeHelper {
 
     // Attachments
     for (const attachment of attachments) {
-      messageParts.push(`--${boundary}`);
-      messageParts.push(
-        `Content-Type: ${attachment.contentType || 'application/octet-stream'}`,
+      const safeContentType = MimeHelper.sanitizeHeaderValue(
+        attachment.contentType || 'application/octet-stream',
       );
+      const safeFilename = MimeHelper.sanitizeHeaderFilename(
+        attachment.filename,
+      );
+      messageParts.push(`--${boundary}`);
+      messageParts.push(`Content-Type: ${safeContentType}`);
       messageParts.push('Content-Transfer-Encoding: base64');
       messageParts.push(
-        `Content-Disposition: attachment; filename="${attachment.filename}"`,
+        `Content-Disposition: attachment; filename="${safeFilename}"`,
       );
       messageParts.push('');
 
