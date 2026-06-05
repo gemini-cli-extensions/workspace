@@ -16,7 +16,8 @@ import {
   GMAIL_NO_LABEL_CHANGES_MESSAGE,
 } from '../utils/constants';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
-import { emailArraySchema } from '../utils/validation';
+import { emailArraySchema, gmailAttachmentSchema } from '../utils/validation';
+import { z, ZodError } from 'zod';
 
 // Extension to MIME type map for common file types
 const EXTENSION_MIME_MAP: Record<string, string> = {
@@ -45,22 +46,29 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
   '.mp3': 'audio/mpeg',
 };
 
-// Maximum total size for all attachments. Gmail's 25MB limit applies to the
-// entire MIME message, and base64 encoding inflates binary data by ~33%, so
-// cap raw attachment bytes at 18MB to leave room for encoding overhead and
-// message headers/body.
+// Maximum total raw (pre-encoding) size for all attachments, checked against
+// the bytes on disk. Gmail's 25MB limit applies to the entire MIME message,
+// and base64 encoding inflates binary data by ~33%: 18MB of raw bytes becomes
+// ~24MB after encoding, leaving ~1MB of headroom under the 25MB cap for
+// message headers and body.
 const MAX_TOTAL_ATTACHMENT_SIZE_BYTES = 18 * 1024 * 1024;
+
+function assertWithinAttachmentSizeLimit(totalSize: number): void {
+  if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE_BYTES) {
+    throw new Error(
+      `Total attachment size (${(totalSize / 1024 / 1024).toFixed(2)}MB) exceeds the maximum allowed limit of ${MAX_TOTAL_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB.`,
+    );
+  }
+}
 
 function getMimeTypeFromExtension(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   return EXTENSION_MIME_MAP[ext] ?? 'application/octet-stream';
 }
 
-type AttachmentInput = {
-  filePath: string;
-  filename?: string;
-  mimeType?: string;
-};
+// Derived from the shared zod schema (also used for the MCP tool input in
+// index.ts) so the runtime validation and this type cannot drift apart.
+type AttachmentInput = z.infer<typeof gmailAttachmentSchema>;
 
 // Type definitions for email parameters
 type SendEmailParams = {
@@ -479,14 +487,20 @@ export class GmailService {
       if (replyTo) emailArraySchema.parse(replyTo);
       return null;
     } catch (error) {
+      // Only Zod validation failures mean the addresses were malformed;
+      // anything else is an internal fault and must not be mislabeled as an
+      // invalid-email error, so rethrow it for the caller's generic handler.
+      if (!(error instanceof ZodError)) {
+        throw error;
+      }
+      logToFile(`Rejected invalid email address input: ${error.message}`);
       return {
         content: [
           {
             type: 'text' as const,
             text: JSON.stringify({
               error: 'Invalid email address format',
-              details:
-                error instanceof Error ? error.message : 'Validation failed',
+              details: error.message,
             }),
           },
         ],
@@ -653,17 +667,19 @@ export class GmailService {
           }),
         );
         const totalSize = attachmentSizes.reduce((sum, size) => sum + size, 0);
-
-        if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE_BYTES) {
-          throw new Error(
-            `Total attachment size (${(totalSize / 1024 / 1024).toFixed(2)}MB) exceeds the maximum allowed limit of ${MAX_TOTAL_ATTACHMENT_SIZE_BYTES / 1024 / 1024}MB.`,
-          );
-        }
+        assertWithinAttachmentSizeLimit(totalSize);
 
         // Read each file from disk
         const resolvedAttachments = await Promise.all(
           attachments.map(async (att) => {
-            const content = await fs.readFile(att.filePath);
+            let content: Buffer;
+            try {
+              content = await fs.readFile(att.filePath);
+            } catch (readError) {
+              throw new Error(
+                `Could not read attachment file ${att.filePath}: ${readError instanceof Error ? readError.message : String(readError)}`,
+              );
+            }
             return {
               // `||` (not `??`) so empty strings also fall back to defaults —
               // an empty filename or MIME type is invalid in MIME headers.
@@ -673,6 +689,14 @@ export class GmailService {
                 att.mimeType || getMimeTypeFromExtension(att.filePath),
             };
           }),
+        );
+
+        // The stat-based check above is a pre-flight guard so oversized files
+        // are rejected before being read into memory, but a file can change
+        // between stat and read (TOCTOU). Re-check against the bytes actually
+        // read so the size cap is authoritative.
+        assertWithinAttachmentSizeLimit(
+          resolvedAttachments.reduce((sum, att) => sum + att.content.length, 0),
         );
 
         mimeMessage = MimeHelper.createMimeMessageWithAttachments({

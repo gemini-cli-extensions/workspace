@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import * as path from 'node:path';
 
 /**
  * Email validation schema
@@ -16,6 +17,37 @@ export const emailSchema = z.string().email('Invalid email format');
  * Validates multiple email addresses (for CC/BCC fields)
  */
 export const emailArraySchema = z.union([emailSchema, z.array(emailSchema)]);
+
+/**
+ * Gmail draft attachment input. Single source of truth shared by the MCP
+ * tool schema (index.ts) and GmailService's AttachmentInput type so the two
+ * definitions cannot drift apart.
+ *
+ * Note: empty-string filename/mimeType are intentionally accepted here —
+ * GmailService falls back to path-derived defaults for them.
+ */
+export const gmailAttachmentSchema = z.object({
+  filePath: z
+    .string()
+    .refine((p) => path.isAbsolute(p), {
+      message: 'filePath must be an absolute path',
+    })
+    .describe(
+      'Absolute local filesystem path to the file to attach (e.g., "/Users/name/downloads/report.pdf"). Use gmail.downloadAttachment first to save an email attachment locally before referencing it here.',
+    ),
+  filename: z
+    .string()
+    .optional()
+    .describe(
+      'Display name for the attachment in the email. Defaults to the filename portion of filePath.',
+    ),
+  mimeType: z
+    .string()
+    .optional()
+    .describe(
+      'MIME type of the attachment (e.g., "application/pdf"). Inferred from the file extension when omitted; falls back to "application/octet-stream".',
+    ),
+});
 
 /**
  * ISO 8601 datetime validation schema

@@ -20,6 +20,7 @@ import { PeopleService } from './services/PeopleService';
 import { SlidesService } from './services/SlidesService';
 import { SheetsService } from './services/SheetsService';
 import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
+import { gmailAttachmentSchema } from './utils/validation';
 
 import { setLoggingEnabled, logToFile } from './utils/logger';
 import { applyToolNameNormalization } from './utils/tool-normalization';
@@ -1304,27 +1305,7 @@ System labels that can be modified:
             'The thread ID to create the draft as a reply to. When provided, the draft will be linked to the existing thread with appropriate reply headers.',
           ),
         attachments: z
-          .array(
-            z.object({
-              filePath: z
-                .string()
-                .describe(
-                  'Absolute local filesystem path to the file to attach (e.g., "/Users/name/downloads/report.pdf"). Use gmail.downloadAttachment first to save an email attachment locally before referencing it here.',
-                ),
-              filename: z
-                .string()
-                .optional()
-                .describe(
-                  'Display name for the attachment in the email. Defaults to the filename portion of filePath.',
-                ),
-              mimeType: z
-                .string()
-                .optional()
-                .describe(
-                  'MIME type of the attachment (e.g., "application/pdf"). Inferred from the file extension when omitted; falls back to "application/octet-stream".',
-                ),
-            }),
-          )
+          .array(gmailAttachmentSchema)
           .optional()
           .describe(
             'Files to attach to the draft. Each entry must reference an absolute local path. Download attachments first with gmail.downloadAttachment if needed.',

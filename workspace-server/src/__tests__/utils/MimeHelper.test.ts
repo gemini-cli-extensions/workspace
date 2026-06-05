@@ -140,6 +140,28 @@ describe('MimeHelper', () => {
       expect(decoded).toContain(`References: ${messageId}`);
     });
 
+    it('should sanitize In-Reply-To and References headers in simple messages', () => {
+      const encoded = MimeHelper.createMimeMessage({
+        to: 'recipient@example.com',
+        subject: 'Re: Test',
+        body: 'Body',
+        inReplyTo: '<orig@example.com>\r\nX-Injected: true',
+        references: '<a@example.com>\r\nX-Also-Injected: true',
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      // CR/LF stripped, so injected text cannot start a new header line
+      expect(decoded).not.toContain('\r\nX-Injected:');
+      expect(decoded).not.toContain('\r\nX-Also-Injected:');
+      expect(decoded).toContain(
+        'In-Reply-To: <orig@example.com>X-Injected: true',
+      );
+      expect(decoded).toContain(
+        'References: <a@example.com>X-Also-Injected: true',
+      );
+    });
+
     it('should not include In-Reply-To or References headers when not provided', () => {
       const encoded = MimeHelper.createMimeMessage({
         to: 'recipient@example.com',
@@ -271,6 +293,64 @@ describe('MimeHelper', () => {
       );
       expect(decoded).toContain(
         'Content-Type: application/pdfX-Also-Injected: true',
+      );
+    });
+
+    it('should escape backslashes before quotes in attachment filenames', () => {
+      const attachments = [
+        {
+          // Raw filename: dir\file"name.txt
+          filename: 'dir\\file"name.txt',
+          content: Buffer.from('content'),
+          contentType: 'text/plain',
+        },
+      ];
+
+      const encoded = MimeHelper.createMimeMessageWithAttachments({
+        to: 'recipient@example.com',
+        subject: 'Backslash Test',
+        body: 'Message',
+        attachments,
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      // Backslashes must be doubled BEFORE quotes are escaped, so a literal
+      // backslash can never pair with an escaped quote to re-terminate the
+      // filename parameter. Expected on the wire: dir\\file\"name.txt
+      expect(decoded).toContain(
+        'Content-Disposition: attachment; filename="dir\\\\file\\"name.txt"',
+      );
+    });
+
+    it('should sanitize In-Reply-To and References headers in multipart messages', () => {
+      const attachments = [
+        {
+          filename: 'f.txt',
+          content: Buffer.from('x'),
+          contentType: 'text/plain',
+        },
+      ];
+
+      const encoded = MimeHelper.createMimeMessageWithAttachments({
+        to: 'recipient@example.com',
+        subject: 'Re: Test',
+        body: 'Body',
+        inReplyTo: '<orig@example.com>\r\nX-Injected: true',
+        references: '<a@example.com>\r\nX-Also-Injected: true',
+        attachments,
+      });
+
+      const decoded = MimeHelper.decodeBase64Url(encoded);
+
+      // CR/LF stripped, so injected text cannot start a new header line
+      expect(decoded).not.toContain('\r\nX-Injected:');
+      expect(decoded).not.toContain('\r\nX-Also-Injected:');
+      expect(decoded).toContain(
+        'In-Reply-To: <orig@example.com>X-Injected: true',
+      );
+      expect(decoded).toContain(
+        'References: <a@example.com>X-Also-Injected: true',
       );
     });
 

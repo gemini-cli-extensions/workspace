@@ -12,6 +12,7 @@ import {
   extractDocumentId,
   emailSchema,
   emailArraySchema,
+  gmailAttachmentSchema,
   searchQuerySchema,
   ValidationError,
 } from '../../utils/validation';
@@ -64,6 +65,36 @@ describe('Validation Utilities', () => {
         'invalid-email',
       ]);
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Gmail Attachment Validation', () => {
+    it('should accept an absolute filePath with optional fields omitted', () => {
+      const result = gmailAttachmentSchema.safeParse({
+        filePath: '/tmp/report.pdf',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject a relative filePath', () => {
+      const result = gmailAttachmentSchema.safeParse({
+        filePath: 'relative/report.pdf',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe(
+          'filePath must be an absolute path',
+        );
+      }
+    });
+
+    it('should accept empty-string filename and mimeType (service falls back to defaults)', () => {
+      const result = gmailAttachmentSchema.safeParse({
+        filePath: '/tmp/report.pdf',
+        filename: '',
+        mimeType: '',
+      });
+      expect(result.success).toBe(true);
     });
   });
 

@@ -1339,8 +1339,137 @@ describe('GmailService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      // Bare errno is wrapped with the failing path so the error identifies
+      // which attachment could not be read
+      expect(response.error).toContain(
+        'Could not read attachment file /tmp/missing.pdf',
+      );
       expect(response.error).toContain('ENOENT');
       expect(mockGmailAPI.users.drafts.create).not.toHaveBeenCalled();
+    });
+
+    it('should surface fs.stat failures with a descriptive error and not call the Gmail API', async () => {
+      (fs.stat as any).mockRejectedValue(
+        new Error('EACCES: permission denied'),
+      );
+
+      const result = await gmailService.createDraft({
+        to: 'a@example.com',
+        subject: 'S',
+        body: 'B',
+        attachments: [{ filePath: '/tmp/locked.pdf' }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain(
+        'Could not access attachment file /tmp/locked.pdf',
+      );
+      expect(response.error).toContain('EACCES');
+      expect(fs.readFile).not.toHaveBeenCalled();
+      expect(mockGmailAPI.users.drafts.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject when the combined size of multiple attachments exceeds the limit', async () => {
+      // Each file is well under the 18MB cap; only their sum exceeds it.
+      (fs.stat as any).mockResolvedValue({
+        isFile: () => true,
+        size: 10 * 1024 * 1024, // 10MB each
+      });
+
+      const result = await gmailService.createDraft({
+        to: 'recipient@example.com',
+        subject: 'Combined Too Large',
+        body: 'Body',
+        attachments: [{ filePath: '/tmp/a.zip' }, { filePath: '/tmp/b.zip' }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('20.00MB');
+      expect(response.error).toContain('exceeds the maximum allowed limit');
+      expect(fs.readFile).not.toHaveBeenCalled();
+      expect(mockGmailAPI.users.drafts.create).not.toHaveBeenCalled();
+    });
+
+    it('should attach multiple files and pass each to the MIME builder', async () => {
+      mockGmailAPI.users.drafts.create.mockResolvedValue({
+        data: {
+          id: 'd-multi',
+          message: { id: 'm-multi', threadId: null, labelIds: [] },
+        },
+      });
+      const bufA = Buffer.from('first file');
+      const bufB = Buffer.from('second file');
+      (fs.readFile as any).mockImplementation(async (p: string) =>
+        p === '/tmp/a.pdf' ? bufA : bufB,
+      );
+
+      await gmailService.createDraft({
+        to: 'a@example.com',
+        subject: 'S',
+        body: 'B',
+        attachments: [{ filePath: '/tmp/a.pdf' }, { filePath: '/tmp/b.txt' }],
+      });
+
+      expect(
+        MimeHelper.createMimeMessageWithAttachments as jest.Mock,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: [
+            {
+              filename: 'a.pdf',
+              content: bufA,
+              contentType: 'application/pdf',
+            },
+            { filename: 'b.txt', content: bufB, contentType: 'text/plain' },
+          ],
+        }),
+      );
+    });
+
+    it('should enforce the size cap against bytes actually read (stat/read TOCTOU)', async () => {
+      // stat reports a small size, but the file grew before readFile ran
+      (fs.stat as any).mockResolvedValue({ isFile: () => true, size: 1024 });
+      (fs.readFile as any).mockResolvedValue(
+        Buffer.alloc(18 * 1024 * 1024 + 1),
+      );
+
+      const result = await gmailService.createDraft({
+        to: 'a@example.com',
+        subject: 'S',
+        body: 'B',
+        attachments: [{ filePath: '/tmp/grew.bin' }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('exceeds the maximum allowed limit');
+      expect(mockGmailAPI.users.drafts.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject an invalid replyTo address', async () => {
+      const result = await gmailService.createDraft({
+        to: 'valid@example.com',
+        subject: 'S',
+        body: 'B',
+        replyTo: 'not-an-email',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Invalid email address format');
+      expect(MimeHelper.createMimeMessage).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid cc and bcc addresses', async () => {
+      const result = await gmailService.createDraft({
+        to: 'valid@example.com',
+        subject: 'S',
+        body: 'B',
+        cc: ['ok@example.com', 'bad-cc'],
+        bcc: 'bad-bcc',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Invalid email address format');
+      expect(MimeHelper.createMimeMessage).not.toHaveBeenCalled();
     });
 
     it('should use createMimeMessage (not WithAttachments) when attachments array is empty', async () => {
