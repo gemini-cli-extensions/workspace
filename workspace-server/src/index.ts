@@ -1855,8 +1855,8 @@ System labels that can be modified:
     peopleService.getUserRelations,
   );
 
-  // Tasks tools
-  server.registerTool(
+  // Tasks tools (gated behind the tasks feature groups; default-OFF)
+  registerTool(
     'tasks.listLists',
     {
       description: "Lists the authenticated user's task lists.",
@@ -1875,7 +1875,7 @@ System labels that can be modified:
     tasksService.listTaskLists,
   );
 
-  server.registerTool(
+  registerTool(
     'tasks.list',
     {
       description: 'Lists tasks in a specific task list.',
@@ -1923,7 +1923,7 @@ System labels that can be modified:
     tasksService.listTasks,
   );
 
-  server.registerTool(
+  registerTool(
     'tasks.create',
     {
       description: 'Creates a new task in the specified task list.',
@@ -1940,7 +1940,7 @@ System labels that can be modified:
     tasksService.createTask,
   );
 
-  server.registerTool(
+  registerTool(
     'tasks.update',
     {
       description: 'Updates an existing task.',
@@ -1962,7 +1962,7 @@ System labels that can be modified:
     tasksService.updateTask,
   );
 
-  server.registerTool(
+  registerTool(
     'tasks.complete',
     {
       description: 'Completes a task (convenience wrapper around update).',
@@ -1974,7 +1974,7 @@ System labels that can be modified:
     tasksService.completeTask,
   );
 
-  server.registerTool(
+  registerTool(
     'tasks.delete',
     {
       description: 'Deletes a task.',

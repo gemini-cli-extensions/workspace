@@ -260,14 +260,14 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
     service: 'tasks',
     group: 'read',
     scopes: scopes('tasks.readonly'),
-    tools: [],
+    tools: ['tasks.listLists', 'tasks.list'],
     defaultEnabled: false,
   },
   {
     service: 'tasks',
     group: 'write',
     scopes: scopes('tasks'),
-    tools: [],
+    tools: ['tasks.create', 'tasks.update', 'tasks.complete', 'tasks.delete'],
     defaultEnabled: false,
   },
 ] as const satisfies readonly FeatureGroup[];
