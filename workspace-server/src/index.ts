@@ -1909,13 +1909,13 @@ System labels that can be modified:
           .string()
           .optional()
           .describe(
-            "Lower bound for a task's due date (as a RFC 3339 timestamp).",
+            'Lower bound for a task\'s due date (as a RFC 3339 timestamp, e.g., "2024-01-15T12:00:00Z").',
           ),
         dueMax: z
           .string()
           .optional()
           .describe(
-            "Upper bound for a task's due date (as a RFC 3339 timestamp).",
+            'Upper bound for a task\'s due date (as a RFC 3339 timestamp, e.g., "2024-01-15T12:00:00Z").',
           ),
       },
       ...readOnlyToolProps,
@@ -1934,7 +1934,9 @@ System labels that can be modified:
         due: z
           .string()
           .optional()
-          .describe('The due date for the task (as a RFC 3339 timestamp).'),
+          .describe(
+            'The due date for the task (as a RFC 3339 timestamp, e.g., "2024-01-15T12:00:00Z").',
+          ),
       },
     },
     tasksService.createTask,
@@ -1956,7 +1958,9 @@ System labels that can be modified:
         due: z
           .string()
           .optional()
-          .describe('The new due date for the task (as a RFC 3339 timestamp).'),
+          .describe(
+            'The new due date for the task (as a RFC 3339 timestamp, e.g., "2024-01-15T12:00:00Z").',
+          ),
       },
     },
     tasksService.updateTask,
