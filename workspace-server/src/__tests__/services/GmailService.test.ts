@@ -315,6 +315,36 @@ describe('GmailService', () => {
       expect(response).not.toHaveProperty('replyTo');
     });
 
+    it('should omit headers whose value is null', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'From', value: 'sender@example.com' },
+            { name: 'To', value: 'recipient@example.com' },
+            { name: 'Cc', value: null },
+            { name: 'Subject', value: 'Test Email' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response).not.toHaveProperty('cc');
+    });
+
     it('should match header names case-insensitively', async () => {
       const mockMessage = {
         id: 'msg1',
