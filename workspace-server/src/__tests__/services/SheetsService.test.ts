@@ -443,6 +443,32 @@ describe('SheetsService', () => {
       );
     });
 
+    it('should extract spreadsheet ID from a Sheets URL', async () => {
+      const mockResponse = {
+        data: {
+          updatedRange: 'Sheet1!A1:A1',
+          updatedRows: 1,
+          updatedColumns: 1,
+          updatedCells: 1,
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.update.mockResolvedValue(mockResponse);
+
+      await sheetsService.updateRange({
+        spreadsheetId:
+          'https://docs.google.com/spreadsheets/d/url-spreadsheet-id/edit#gid=0',
+        range: 'Sheet1!A1',
+        values: [['test']],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spreadsheetId: 'url-spreadsheet-id',
+        }),
+      );
+    });
+
     it('should handle errors gracefully', async () => {
       mockSheetsAPI.spreadsheets.values.update.mockRejectedValue(
         new Error('Update Error'),
@@ -455,6 +481,7 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
       expect(response.error).toBe('Update Error');
     });
   });
@@ -501,6 +528,22 @@ describe('SheetsService', () => {
       expect(response.updates.updatedRows).toBe(2);
     });
 
+    it('should handle an append response without updates', async () => {
+      mockSheetsAPI.spreadsheets.values.append.mockResolvedValue({ data: {} });
+
+      const result = await sheetsService.appendRange({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A:B',
+        values: [['NewRow']],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.updates.updatedRange).toBeUndefined();
+      expect(response.updates.updatedRows).toBeUndefined();
+      expect(response.updates.updatedColumns).toBeUndefined();
+      expect(response.updates.updatedCells).toBeUndefined();
+    });
+
     it('should handle errors gracefully', async () => {
       mockSheetsAPI.spreadsheets.values.append.mockRejectedValue(
         new Error('Append Error'),
@@ -513,6 +556,7 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
       expect(response.error).toBe('Append Error');
     });
   });
@@ -552,6 +596,7 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
       expect(response.error).toBe('Clear Error');
     });
   });
@@ -631,6 +676,7 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
       expect(response.error).toBe('Create Error');
     });
   });
@@ -668,6 +714,19 @@ describe('SheetsService', () => {
       expect(response.title).toBe('New Tab');
     });
 
+    it('should handle an addSheet response without replies', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await sheetsService.addSheet({
+        spreadsheetId: 'test-id',
+        title: 'New Tab',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.sheetId).toBeUndefined();
+      expect(response.title).toBeUndefined();
+    });
+
     it('should handle errors gracefully', async () => {
       mockSheetsAPI.spreadsheets.batchUpdate.mockRejectedValue(
         new Error('AddSheet Error'),
@@ -679,6 +738,7 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
       expect(response.error).toBe('AddSheet Error');
     });
   });
@@ -700,7 +760,9 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
-      expect(response.message).toBe('Successfully deleted sheet 456');
+      expect(response.message).toBe(
+        'Delete sheet request completed for sheet 456',
+      );
     });
 
     it('should handle errors gracefully', async () => {
@@ -714,6 +776,7 @@ describe('SheetsService', () => {
       });
 
       const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
       expect(response.error).toBe('DeleteSheet Error');
     });
   });

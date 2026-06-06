@@ -19,7 +19,7 @@ import { z } from 'zod';
  * Google Drive file attachment for calendar events.
  * Attachments are fully replaced (not appended) when provided.
  */
-export interface EventAttachment {
+interface EventAttachment {
   fileUrl: string;
   title?: string;
   mimeType?: string;
@@ -653,20 +653,20 @@ export class CalendarService {
       if (attendees !== undefined)
         requestBody.attendees = attendees.map((email) => ({ email }));
 
-      const patchParams: calendar_v3.Params$Resource$Events$Patch = {
+      const updateParams: calendar_v3.Params$Resource$Events$Patch = {
         calendarId: finalCalendarId,
         eventId,
         requestBody,
       };
       this.applyMeetAndAttachments(
         requestBody,
-        patchParams,
+        updateParams,
         addGoogleMeet,
         attachments,
         { allowEmptyAttachments: true },
       );
 
-      const res = await calendar.events.patch(patchParams);
+      const res = await calendar.events.patch(updateParams);
 
       logToFile(`Successfully updated event: ${res.data.id}`);
       return {

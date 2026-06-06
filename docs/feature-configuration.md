@@ -64,8 +64,8 @@ export WORKSPACE_FEATURE_OVERRIDES="gmail.write:off"
 # Disable all of Chat
 export WORKSPACE_FEATURE_OVERRIDES="chat.read:off,chat.write:off"
 
-# Enable experimental features (Slides write, Tasks)
-export WORKSPACE_FEATURE_OVERRIDES="slides.write:on,tasks.read:on,tasks.write:on"
+# Enable experimental features (Slides write, Sheets write, Tasks)
+export WORKSPACE_FEATURE_OVERRIDES="slides.write:on,sheets.write:on,tasks.read:on,tasks.write:on"
 ```
 
 ### Tool-Level Overrides
@@ -196,6 +196,15 @@ When a feature group is disabled:
 - `sheets.getText`
 - `sheets.getRange`
 - `sheets.getMetadata`
+
+### `sheets.write`
+
+- `sheets.updateRange`
+- `sheets.appendRange`
+- `sheets.clearRange`
+- `sheets.createSpreadsheet`
+- `sheets.addSheet`
+- `sheets.deleteSheet`
 
 ### `time.read`
 

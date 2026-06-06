@@ -13,6 +13,26 @@ import { gaxiosOptions } from '../utils/GaxiosConfig';
 export class SheetsService {
   constructor(private authManager: AuthManager) {}
 
+  private handleError(
+    context: string,
+    error: unknown,
+  ): {
+    isError: true;
+    content: { type: 'text'; text: string }[];
+  } {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logToFile(`[SheetsService] Error during ${context}: ${errorMessage}`);
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ error: errorMessage }),
+        },
+      ],
+    };
+  }
+
   private async getSheetsClient(): Promise<sheets_v4.Sheets> {
     const auth = await this.authManager.getAuthenticatedClient();
     const options = { ...gaxiosOptions, auth };
@@ -234,19 +254,7 @@ export class SheetsService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[SheetsService] Error during sheets.updateRange: ${errorMessage}`,
-      );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('sheets.updateRange', error);
     }
   };
 
@@ -293,19 +301,7 @@ export class SheetsService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[SheetsService] Error during sheets.appendRange: ${errorMessage}`,
-      );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('sheets.appendRange', error);
     }
   };
 
@@ -340,19 +336,7 @@ export class SheetsService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[SheetsService] Error during sheets.clearRange: ${errorMessage}`,
-      );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('sheets.clearRange', error);
     }
   };
 
@@ -395,19 +379,7 @@ export class SheetsService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[SheetsService] Error during sheets.createSpreadsheet: ${errorMessage}`,
-      );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('sheets.createSpreadsheet', error);
     }
   };
 
@@ -446,19 +418,7 @@ export class SheetsService {
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[SheetsService] Error during sheets.addSheet: ${errorMessage}`,
-      );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('sheets.addSheet', error);
     }
   };
 
@@ -491,25 +451,13 @@ export class SheetsService {
           {
             type: 'text' as const,
             text: JSON.stringify({
-              message: `Successfully deleted sheet ${sheetId}`,
+              message: `Delete sheet request completed for sheet ${sheetId}`,
             }),
           },
         ],
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logToFile(
-        `[SheetsService] Error during sheets.deleteSheet: ${errorMessage}`,
-      );
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: JSON.stringify({ error: errorMessage }),
-          },
-        ],
-      };
+      return this.handleError('sheets.deleteSheet', error);
     }
   };
 
