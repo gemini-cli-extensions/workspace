@@ -199,9 +199,11 @@ export class GmailService {
       if (format === 'metadata' || format === 'full') {
         const headers = message.payload?.headers || [];
         // Header names are case-insensitive per RFC 5322.
-        const getHeader = (name: string) =>
-          headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())
+        const getHeader = (name: string) => {
+          const searchName = name.toLowerCase();
+          return headers.find((h) => h.name?.toLowerCase() === searchName)
             ?.value;
+        };
 
         const subject = getHeader('Subject');
         const from = getHeader('From');
