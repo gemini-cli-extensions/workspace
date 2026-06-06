@@ -199,11 +199,13 @@ export class GmailService {
       if (format === 'metadata' || format === 'full') {
         const headers = message.payload?.headers || [];
         // Header names are case-insensitive per RFC 5322.
-        const getHeader = (name: string) => {
-          const searchName = name.toLowerCase();
-          return headers.find((h) => h.name?.toLowerCase() === searchName)
-            ?.value;
-        };
+        const headerMap = new Map<string, string | null>();
+        for (const h of headers) {
+          if (h.name && h.value !== undefined) {
+            headerMap.set(h.name.toLowerCase(), h.value);
+          }
+        }
+        const getHeader = (name: string) => headerMap.get(name.toLowerCase());
 
         const subject = getHeader('Subject');
         const from = getHeader('From');
@@ -235,9 +237,9 @@ export class GmailService {
                   subject,
                   from,
                   to,
-                  ...(cc !== undefined && { cc }),
-                  ...(bcc !== undefined && { bcc }),
-                  ...(replyTo !== undefined && { replyTo }),
+                  cc,
+                  bcc,
+                  replyTo,
                   date,
                   body: body || message.snippet,
                   attachments: attachments,
