@@ -202,7 +202,10 @@ export class GmailService {
         const headerMap = new Map<string, string>();
         for (const h of headers) {
           if (h.name && h.value != null) {
-            headerMap.set(h.name.toLowerCase(), h.value);
+            const key = h.name.toLowerCase();
+            if (!headerMap.has(key)) {
+              headerMap.set(key, h.value);
+            }
           }
         }
         const getHeader = (name: string) => headerMap.get(name.toLowerCase());

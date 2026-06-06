@@ -345,6 +345,36 @@ describe('GmailService', () => {
       expect(response).not.toHaveProperty('cc');
     });
 
+    it('should return the first value when duplicate headers exist', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'From', value: 'sender@example.com' },
+            { name: 'To', value: 'recipient@example.com' },
+            { name: 'Subject', value: 'First Subject' },
+            { name: 'Subject', value: 'Second Subject' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.subject).toBe('First Subject');
+    });
+
     it('should match header names case-insensitively', async () => {
       const mockMessage = {
         id: 'msg1',
