@@ -44,6 +44,7 @@ jest.mock('node:path', () => {
 });
 jest.mock('../../utils/paths', () => ({
   PROJECT_ROOT: '/mock/project/root',
+  STATE_DIR: '/mock/project/root',
   ENCRYPTED_TOKEN_PATH: '/mock/project/root/token.json',
   ENCRYPTION_MASTER_KEY_PATH: '/mock/project/root/key',
 }));

@@ -26,4 +26,44 @@ describe('paths utils', () => {
       expect(PROJECT_ROOT.endsWith('workspace-server')).toBe(false);
     });
   });
+
+  describe('STATE_DIR', () => {
+    const reload = () => {
+      jest.resetModules();
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return require('../../utils/paths') as typeof import('../../utils/paths');
+    };
+
+    afterEach(() => {
+      delete process.env['WORKSPACE_STATE_DIR'];
+      jest.resetModules();
+    });
+
+    it('defaults to PROJECT_ROOT when WORKSPACE_STATE_DIR is unset', () => {
+      delete process.env['WORKSPACE_STATE_DIR'];
+      const m = reload();
+      expect(m.STATE_DIR).toBe(m.PROJECT_ROOT);
+      expect(m.ENCRYPTED_TOKEN_PATH).toBe(
+        path.join(m.PROJECT_ROOT, 'gemini-cli-workspace-token.json'),
+      );
+      expect(m.ENCRYPTION_MASTER_KEY_PATH).toBe(
+        path.join(m.PROJECT_ROOT, '.gemini-cli-workspace-master-key'),
+      );
+    });
+
+    it('honors WORKSPACE_STATE_DIR for token and master-key paths', () => {
+      process.env['WORKSPACE_STATE_DIR'] = '/var/lib/workspace-state';
+      const m = reload();
+      expect(m.STATE_DIR).toBe('/var/lib/workspace-state');
+      expect(m.ENCRYPTED_TOKEN_PATH).toBe(
+        path.join('/var/lib/workspace-state', 'gemini-cli-workspace-token.json'),
+      );
+      expect(m.ENCRYPTION_MASTER_KEY_PATH).toBe(
+        path.join(
+          '/var/lib/workspace-state',
+          '.gemini-cli-workspace-master-key',
+        ),
+      );
+    });
+  });
 });
