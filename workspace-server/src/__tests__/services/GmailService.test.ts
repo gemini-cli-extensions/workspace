@@ -953,7 +953,7 @@ describe('GmailService', () => {
 
     it('skips a non-existent root with a warning while a valid second root still gates correctly', async () => {
       const missingRoot = realPath.join(tmpRoot, 'does-not-exist');
-      process.env.ATTACHMENT_ALLOWED_ROOTS = `${missingRoot}:${allowedDir}`;
+      process.env.ATTACHMENT_ALLOWED_ROOTS = `${missingRoot}${realPath.delimiter}${allowedDir}`;
       const warnSpy = jest
         .spyOn(console, 'warn')
         .mockImplementation(() => undefined);
@@ -988,7 +988,7 @@ describe('GmailService', () => {
     it('fails closed when every configured root is missing', async () => {
       const missingA = realPath.join(tmpRoot, 'missing-a');
       const missingB = realPath.join(tmpRoot, 'missing-b');
-      process.env.ATTACHMENT_ALLOWED_ROOTS = `${missingA}:${missingB}`;
+      process.env.ATTACHMENT_ALLOWED_ROOTS = `${missingA}${realPath.delimiter}${missingB}`;
       jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
       const filePath = realPath.join(allowedDir, 'file.pdf');
