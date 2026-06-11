@@ -61,7 +61,7 @@ jobs:
         run: npm run test:ci
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           directory: ./workspace-server/coverage
           flags: unittests
