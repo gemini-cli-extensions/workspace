@@ -468,11 +468,12 @@ export class DocsService {
       const lastElement = bodyContent?.[bodyContent.length - 1];
       const insertAt = Math.max(1, (lastElement?.endIndex || 1) - 1);
 
-      // When the body already has content, insertAt sits just before the
-      // final newline of the last paragraph; prepending a newline keeps the
-      // first markdown block from merging into that paragraph (and its block
-      // style from leaking onto existing text).
-      const prefix = insertAt > 1 ? '\n' : '';
+      // When the last paragraph has visible content (insertAt past its
+      // start), a separating newline keeps the first markdown block from
+      // merging into it (and its block style from leaking onto existing
+      // text). An already-empty trailing paragraph needs no separator: a
+      // prefix there would leave a stray blank line.
+      const prefix = insertAt > (lastElement?.startIndex ?? 0) ? '\n' : '';
 
       // One insertText with the full plain text; offsets let us compute every
       // style range afterwards.

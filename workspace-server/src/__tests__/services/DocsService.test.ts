@@ -1165,7 +1165,9 @@ describe('DocsService', () => {
         tabs: [
           {
             tabProperties: { tabId: 't.0' },
-            documentTab: { body: { content: [{ endIndex: 2 }] } },
+            documentTab: {
+              body: { content: [{ startIndex: 1, endIndex: 2 }] },
+            },
           },
         ],
       },
@@ -1233,11 +1235,15 @@ describe('DocsService', () => {
           tabs: [
             {
               tabProperties: { tabId: 't.0' },
-              documentTab: { body: { content: [{ endIndex: 2 }] } },
+              documentTab: {
+                body: { content: [{ startIndex: 1, endIndex: 2 }] },
+              },
             },
             {
               tabProperties: { tabId: 't.target' },
-              documentTab: { body: { content: [{ endIndex: 10 }] } },
+              documentTab: {
+                body: { content: [{ startIndex: 1, endIndex: 10 }] },
+              },
             },
           ],
         },
@@ -1260,6 +1266,33 @@ describe('DocsService', () => {
       expect(
         styleCall.requestBody.requests[0].updateParagraphStyle.range,
       ).toEqual({ startIndex: 10, endIndex: 13, tabId: 't.target' });
+    });
+
+    it('skips the separator when the trailing paragraph is already empty', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          tabs: [
+            {
+              tabProperties: { tabId: 't.0' },
+              documentTab: {
+                body: { content: [{ startIndex: 8, endIndex: 9 }] },
+              },
+            },
+          ],
+        },
+      });
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.appendMarkdown({
+        documentId: 'test-doc-id',
+        markdown: 'plain',
+      });
+
+      const insertCall = mockDocsAPI.documents.batchUpdate.mock.calls[0][0];
+      expect(insertCall.requestBody.requests[0].insertText).toEqual({
+        location: { index: 8 },
+        text: 'plain\n',
+      });
     });
 
     it('errors when the tab is not found', async () => {
