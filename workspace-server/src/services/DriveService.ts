@@ -556,7 +556,10 @@ export class DriveService {
       `[DriveService] Exporting file ${fileId} as ${format} to ${localPath}`,
     );
     try {
-      const mimeType = DriveService.EXPORT_FORMATS[format.toLowerCase()];
+      const mimeType =
+        typeof format === 'string'
+          ? DriveService.EXPORT_FORMATS[format.toLowerCase()]
+          : undefined;
       if (!mimeType) {
         throw new Error(
           `Unsupported format "${format}". Supported: ${Object.keys(DriveService.EXPORT_FORMATS).join(', ')}`,
@@ -571,6 +574,9 @@ export class DriveService {
         { responseType: 'arraybuffer' },
       );
 
+      if (response.data == null) {
+        throw new Error('Export returned no body');
+      }
       const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
       if (buffer.length === 0) {
         throw new Error('Export returned an empty body');

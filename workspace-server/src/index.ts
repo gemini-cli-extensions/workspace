@@ -1023,7 +1023,6 @@ async function main() {
             'The local file path where the export should be saved (e.g., "exports/report.pdf").',
           ),
       },
-      ...readOnlyToolProps,
     },
     driveService.exportFile,
   );
