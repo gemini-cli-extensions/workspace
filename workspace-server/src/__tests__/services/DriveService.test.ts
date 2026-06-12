@@ -76,6 +76,9 @@ describe('DriveService', () => {
       comments: {
         list: jest.fn(),
       },
+      replies: {
+        create: jest.fn(),
+      },
     };
 
     // Mock the google.drive constructor
@@ -1437,6 +1440,117 @@ describe('DriveService', () => {
           fields: expect.stringContaining('action'),
         }),
       );
+    });
+  });
+
+  describe('replyToComment', () => {
+    it('should post a reply via replies.create', async () => {
+      const mockReply = {
+        id: 'reply1',
+        content: 'Thanks, fixed!',
+        author: { displayName: 'Test User', emailAddress: 'test@example.com' },
+        createdTime: '2025-01-01T00:00:00Z',
+      };
+      mockDriveAPI.replies.create.mockResolvedValue({ data: mockReply });
+
+      const result = await driveService.replyToComment({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+        content: 'Thanks, fixed!',
+      });
+
+      expect(mockDriveAPI.replies.create).toHaveBeenCalledWith({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+        fields: 'id, content, author(displayName, emailAddress), createdTime',
+        requestBody: { content: 'Thanks, fixed!' },
+      });
+      const reply = JSON.parse(result.content[0].text);
+      expect(reply).toEqual(mockReply);
+    });
+
+    it('should extract the file ID from a full URL', async () => {
+      mockDriveAPI.replies.create.mockResolvedValue({ data: { id: 'r' } });
+
+      await driveService.replyToComment({
+        fileId: 'https://docs.google.com/document/d/url-doc-id/edit',
+        commentId: 'comment1',
+        content: 'reply',
+      });
+
+      expect(mockDriveAPI.replies.create).toHaveBeenCalledWith(
+        expect.objectContaining({ fileId: 'url-doc-id' }),
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockDriveAPI.replies.create.mockRejectedValue(new Error('Reply Error'));
+
+      const result = await driveService.replyToComment({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+        content: 'reply',
+      });
+
+      expect(result.content[0].text).toContain('Reply Error');
+    });
+  });
+
+  describe('resolveComment', () => {
+    it('should resolve a comment via replies.create with action resolve', async () => {
+      const mockReply = {
+        id: 'reply2',
+        action: 'resolve',
+        content: '',
+        author: { displayName: 'Test User', emailAddress: 'test@example.com' },
+        createdTime: '2025-01-01T00:00:00Z',
+      };
+      mockDriveAPI.replies.create.mockResolvedValue({ data: mockReply });
+
+      const result = await driveService.resolveComment({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+      });
+
+      expect(mockDriveAPI.replies.create).toHaveBeenCalledWith({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+        fields:
+          'id, action, content, author(displayName, emailAddress), createdTime',
+        requestBody: { action: 'resolve', content: '' },
+      });
+      const reply = JSON.parse(result.content[0].text);
+      expect(reply.action).toBe('resolve');
+    });
+
+    it('should include an optional closing message', async () => {
+      mockDriveAPI.replies.create.mockResolvedValue({ data: { id: 'r' } });
+
+      await driveService.resolveComment({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+        content: 'Done in the latest revision.',
+      });
+
+      expect(mockDriveAPI.replies.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestBody: {
+            action: 'resolve',
+            content: 'Done in the latest revision.',
+          },
+        }),
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockDriveAPI.replies.create.mockRejectedValue(new Error('Resolve Error'));
+
+      const result = await driveService.resolveComment({
+        fileId: 'test-doc-id',
+        commentId: 'comment1',
+      });
+
+      expect(result.content[0].text).toContain('Resolve Error');
     });
   });
 });

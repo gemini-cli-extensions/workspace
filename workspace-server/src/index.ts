@@ -1032,6 +1032,41 @@ async function main() {
   );
 
   registerTool(
+    'drive.replyToComment',
+    {
+      description:
+        'Posts a reply to an existing comment on a Google Drive file (Docs, Sheets, Slides, etc.). Use drive.getComments to find comment IDs.',
+      inputSchema: {
+        fileId: z
+          .string()
+          .describe('The ID or URL of the file the comment belongs to.'),
+        commentId: z.string().describe('The ID of the comment to reply to.'),
+        content: z.string().min(1).describe('The reply text.'),
+      },
+    },
+    driveService.replyToComment,
+  );
+
+  registerTool(
+    'drive.resolveComment',
+    {
+      description:
+        'Marks a comment on a Google Drive file as resolved, optionally with a closing reply. Use drive.getComments to find comment IDs.',
+      inputSchema: {
+        fileId: z
+          .string()
+          .describe('The ID or URL of the file the comment belongs to.'),
+        commentId: z.string().describe('The ID of the comment to resolve.'),
+        content: z
+          .string()
+          .optional()
+          .describe('Optional closing message posted with the resolution.'),
+      },
+    },
+    driveService.resolveComment,
+  );
+
+  registerTool(
     'drive.renameFile',
     {
       description: 'Renames a file or folder in Google Drive.',

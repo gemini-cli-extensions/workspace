@@ -49,6 +49,9 @@ The extension provides the following tools:
 - `drive.downloadFile`: Downloads a file from Google Drive to a local path.
 - `drive.trashFile`: Moves a file or folder to the trash in Google Drive.
 - `drive.renameFile`: Renames a file or folder in Google Drive.
+- `drive.replyToComment`: Posts a reply to an existing comment on a Drive file.
+- `drive.resolveComment`: Marks a comment on a Drive file as resolved,
+  optionally with a closing reply.
 
 ### Google Calendar
 

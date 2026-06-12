@@ -452,6 +452,79 @@ export class DriveService {
     }
   };
 
+  public replyToComment = async ({
+    fileId,
+    commentId,
+    content,
+  }: {
+    fileId: string;
+    commentId: string;
+    content: string;
+  }) => {
+    logToFile(
+      `[DriveService] Replying to comment ${commentId} on file: ${fileId}`,
+    );
+    try {
+      const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
+      const res = await drive.replies.create({
+        fileId: id,
+        commentId,
+        fields: 'id, content, author(displayName, emailAddress), createdTime',
+        requestBody: { content },
+      });
+
+      logToFile(`[DriveService] Created reply ${res.data.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.replyToComment', error);
+    }
+  };
+
+  public resolveComment = async ({
+    fileId,
+    commentId,
+    content,
+  }: {
+    fileId: string;
+    commentId: string;
+    content?: string;
+  }) => {
+    logToFile(
+      `[DriveService] Resolving comment ${commentId} on file: ${fileId}`,
+    );
+    try {
+      const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
+      const res = await drive.replies.create({
+        fileId: id,
+        commentId,
+        fields:
+          'id, action, content, author(displayName, emailAddress), createdTime',
+        requestBody: { action: 'resolve', content: content ?? '' },
+      });
+
+      logToFile(`[DriveService] Resolved comment ${commentId}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify(res.data, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.resolveComment', error);
+    }
+  };
+
   public moveFile = async ({
     fileId,
     folderId,

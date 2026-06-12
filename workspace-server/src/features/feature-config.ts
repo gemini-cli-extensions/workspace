@@ -99,6 +99,8 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
       'drive.moveFile',
       'drive.trashFile',
       'drive.renameFile',
+      'drive.replyToComment',
+      'drive.resolveComment',
     ],
     defaultEnabled: true,
   },
