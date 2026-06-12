@@ -1517,7 +1517,7 @@ describe('DriveService', () => {
         commentId: 'comment1',
         fields:
           'id, action, content, author(displayName, emailAddress), createdTime',
-        requestBody: { action: 'resolve', content: '' },
+        requestBody: { action: 'resolve' },
       });
       const reply = JSON.parse(result.content[0].text);
       expect(reply.action).toBe('resolve');

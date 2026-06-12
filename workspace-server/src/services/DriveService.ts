@@ -467,6 +467,9 @@ export class DriveService {
     try {
       const drive = await this.getDriveClient();
       const id = extractDocumentId(fileId);
+      // Note: replies.create does not take supportsAllDrives (that parameter
+      // belongs to the files/drives endpoints); comment threads on Shared
+      // Drive files work through this endpoint as-is.
       const res = await drive.replies.create({
         fileId: id,
         commentId,
@@ -508,7 +511,9 @@ export class DriveService {
         commentId,
         fields:
           'id, action, content, author(displayName, emailAddress), createdTime',
-        requestBody: { action: 'resolve', content: content ?? '' },
+        requestBody: content
+          ? { action: 'resolve', content }
+          : { action: 'resolve' },
       });
 
       logToFile(`[DriveService] Resolved comment ${commentId}`);
