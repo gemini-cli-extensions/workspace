@@ -33,6 +33,12 @@ describe('stripInlineMarkdown', () => {
     expect(out.formats).toEqual([{ type: 'italic', start: 0, end: 2 }]);
   });
 
+  it('supports double-underscore bold', () => {
+    const out = stripInlineMarkdown('__hi__');
+    expect(out.text).toBe('hi');
+    expect(out.formats).toEqual([{ type: 'bold', start: 0, end: 2 }]);
+  });
+
   it('leaves markers with no closer as literal text', () => {
     const out = stripInlineMarkdown('a *b and c');
     expect(out.text).toBe('a *b and c');

@@ -79,6 +79,7 @@ export function stripInlineMarkdown(input: string): {
       }
     }
     if (tryMarker('**', 'bold')) continue;
+    if (tryMarker('__', 'bold')) continue;
     if (tryMarker('~~', 'strikethrough')) continue;
     if (tryMarker('`', 'code')) continue;
     if (tryMarker('*', 'italic')) continue;

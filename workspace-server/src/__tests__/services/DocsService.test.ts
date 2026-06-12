@@ -1251,14 +1251,15 @@ describe('DocsService', () => {
       });
 
       const insertCall = mockDocsAPI.documents.batchUpdate.mock.calls[0][0];
-      expect(insertCall.requestBody.requests[0].insertText.location).toEqual({
-        index: 9,
-        tabId: 't.target',
-      });
+      const insertReq = insertCall.requestBody.requests[0].insertText;
+      expect(insertReq.location).toEqual({ index: 9, tabId: 't.target' });
+      // Non-empty tab: a newline is prepended so the heading does not merge
+      // into the existing last paragraph, shifting the style range by 1.
+      expect(insertReq.text).toBe('\nHi\n');
       const styleCall = mockDocsAPI.documents.batchUpdate.mock.calls[1][0];
       expect(
         styleCall.requestBody.requests[0].updateParagraphStyle.range,
-      ).toEqual({ startIndex: 9, endIndex: 12, tabId: 't.target' });
+      ).toEqual({ startIndex: 10, endIndex: 13, tabId: 't.target' });
     });
 
     it('errors when the tab is not found', async () => {

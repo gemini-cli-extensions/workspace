@@ -468,9 +468,15 @@ export class DocsService {
       const lastElement = bodyContent?.[bodyContent.length - 1];
       const insertAt = Math.max(1, (lastElement?.endIndex || 1) - 1);
 
+      // When the body already has content, insertAt sits just before the
+      // final newline of the last paragraph; prepending a newline keeps the
+      // first markdown block from merging into that paragraph (and its block
+      // style from leaking onto existing text).
+      const prefix = insertAt > 1 ? '\n' : '';
+
       // One insertText with the full plain text; offsets let us compute every
       // style range afterwards.
-      let fullText = '';
+      let fullText = prefix;
       const offsets: number[] = [];
       for (const block of renderable) {
         offsets.push(fullText.length);
