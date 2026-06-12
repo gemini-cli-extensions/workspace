@@ -22,6 +22,9 @@ The extension provides the following tools:
 - `docs.getText`: Retrieves the text content of a Google Doc.
 - `docs.replaceText`: Replaces all occurrences of a given text with new text in
   a Google Doc.
+- `docs.appendMarkdown`: Appends markdown-formatted content as natively
+  formatted Docs text (headings, bold/italic/strikethrough/code, links, lists)
+  in a single call.
 - `docs.formatText`: Applies formatting (bold, italic, headings, etc.) to text
   ranges in a Google Doc.
 

@@ -444,6 +444,25 @@ async function main() {
     docsService.formatText,
   );
 
+  registerTool(
+    'docs.appendMarkdown',
+    {
+      description:
+        'Appends markdown-formatted content to a Google Doc as natively formatted text in one call: headings (#-######), **bold**, *italic*, ~~strikethrough~~, `inline code`, [links](url), bullet (- item) and numbered (1. item) lists. Prefer this over docs.writeText + docs.formatText when writing new formatted content, since no character-index math is needed. Horizontal rules are skipped; tables degrade to plain text.',
+      inputSchema: {
+        documentId: z.string().describe('The ID of the document to modify.'),
+        markdown: z.string().min(1).describe('The markdown content to append.'),
+        tabId: z
+          .string()
+          .optional()
+          .describe(
+            'The ID of the tab to append to. If not provided, appends to the first tab.',
+          ),
+      },
+    },
+    docsService.appendMarkdown,
+  );
+
   // Slides tools
   registerTool(
     'slides.getText',

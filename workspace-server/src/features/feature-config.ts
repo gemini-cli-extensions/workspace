@@ -73,6 +73,7 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
       'docs.writeText',
       'docs.replaceText',
       'docs.formatText',
+      'docs.appendMarkdown',
     ],
     defaultEnabled: true,
   },

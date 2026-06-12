@@ -1158,4 +1158,149 @@ describe('DocsService', () => {
       });
     });
   });
+
+  describe('appendMarkdown', () => {
+    const emptyDocTabs = {
+      data: {
+        tabs: [
+          {
+            tabProperties: { tabId: 't.0' },
+            documentTab: { body: { content: [{ endIndex: 2 }] } },
+          },
+        ],
+      },
+    };
+
+    it('inserts stripped text once and styles headings, inline ranges, and merged bullets', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(emptyDocTabs);
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.appendMarkdown({
+        documentId: 'test-doc-id',
+        markdown: '# Title\nHello **world**\n- a\n- b',
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledTimes(2);
+
+      const insertCall = mockDocsAPI.documents.batchUpdate.mock.calls[0][0];
+      expect(insertCall.requestBody.requests).toEqual([
+        {
+          insertText: {
+            location: { index: 1 },
+            text: 'Title\nHello world\na\nb\n',
+          },
+        },
+      ]);
+
+      const styleCall = mockDocsAPI.documents.batchUpdate.mock.calls[1][0];
+      expect(styleCall.requestBody.requests).toEqual([
+        {
+          updateParagraphStyle: {
+            range: { startIndex: 1, endIndex: 7 },
+            paragraphStyle: { namedStyleType: 'HEADING_1' },
+            fields: 'namedStyleType',
+          },
+        },
+        {
+          updateTextStyle: {
+            range: { startIndex: 13, endIndex: 18 },
+            textStyle: { bold: true },
+            fields: 'bold',
+          },
+        },
+        {
+          createParagraphBullets: {
+            range: { startIndex: 19, endIndex: 23 },
+            bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE',
+          },
+        },
+      ]);
+
+      const payload = JSON.parse(result.content[0].text);
+      expect(payload).toEqual({
+        documentId: 'test-doc-id',
+        blocksProcessed: 4,
+        headings: 1,
+        styledRanges: 1,
+        bulletLists: 1,
+        skippedHorizontalRules: 0,
+      });
+    });
+
+    it('threads tabId through locations and ranges', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          tabs: [
+            {
+              tabProperties: { tabId: 't.0' },
+              documentTab: { body: { content: [{ endIndex: 2 }] } },
+            },
+            {
+              tabProperties: { tabId: 't.target' },
+              documentTab: { body: { content: [{ endIndex: 10 }] } },
+            },
+          ],
+        },
+      });
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.appendMarkdown({
+        documentId: 'test-doc-id',
+        markdown: '# Hi',
+        tabId: 't.target',
+      });
+
+      const insertCall = mockDocsAPI.documents.batchUpdate.mock.calls[0][0];
+      expect(insertCall.requestBody.requests[0].insertText.location).toEqual({
+        index: 9,
+        tabId: 't.target',
+      });
+      const styleCall = mockDocsAPI.documents.batchUpdate.mock.calls[1][0];
+      expect(
+        styleCall.requestBody.requests[0].updateParagraphStyle.range,
+      ).toEqual({ startIndex: 9, endIndex: 12, tabId: 't.target' });
+    });
+
+    it('errors when the tab is not found', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(emptyDocTabs);
+
+      const result = await docsService.appendMarkdown({
+        documentId: 'test-doc-id',
+        markdown: 'hello',
+        tabId: 't.missing',
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Tab with ID t.missing');
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('returns zero counts without API calls when only horizontal rules remain', async () => {
+      const result = await docsService.appendMarkdown({
+        documentId: 'test-doc-id',
+        markdown: '---\n\n***',
+      });
+
+      expect(mockDocsAPI.documents.get).not.toHaveBeenCalled();
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+      const payload = JSON.parse(result.content[0].text);
+      expect(payload.blocksProcessed).toBe(0);
+      expect(payload.skippedHorizontalRules).toBe(2);
+    });
+
+    it('handles errors gracefully', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(emptyDocTabs);
+      mockDocsAPI.documents.batchUpdate.mockRejectedValue(
+        new Error('Markdown Error'),
+      );
+
+      const result = await docsService.appendMarkdown({
+        documentId: 'test-doc-id',
+        markdown: 'hello',
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('Markdown Error');
+    });
+  });
 });

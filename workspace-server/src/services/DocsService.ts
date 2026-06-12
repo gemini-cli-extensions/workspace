@@ -10,6 +10,7 @@ import { logToFile } from '../utils/logger';
 import { extractDocId } from '../utils/IdUtils';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
 import { extractDocumentId as validateAndExtractDocId } from '../utils/validation';
+import { parseMarkdownBlocks } from '../utils/markdown';
 
 // Field mask for documents.get when reading tab content. Selects only the
 // structural fields we use; broader masks like 'tabs' alone trigger
@@ -400,6 +401,244 @@ export class DocsService {
     italic: { italic: true },
     underline: { underline: true },
     strikethrough: { strikethrough: true },
+  };
+
+  /**
+   * Appends markdown-formatted content as natively formatted Docs content.
+   * One insertText with the stripped plain text, then one batchUpdate with
+   * style requests computed from parse offsets, so callers never do index
+   * arithmetic. Horizontal rules are skipped (no Docs API request exists for
+   * them); tables are not parsed and degrade to plain paragraphs.
+   */
+  public appendMarkdown = async ({
+    documentId,
+    markdown,
+    tabId,
+  }: {
+    documentId: string;
+    markdown: string;
+    tabId?: string;
+  }) => {
+    logToFile(
+      `[DocsService] Starting appendMarkdown for document: ${documentId}, tabId: ${tabId}`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const blocks = parseMarkdownBlocks(markdown);
+      const renderable = blocks.filter((b) => b.type !== 'hr') as Array<
+        Exclude<ReturnType<typeof parseMarkdownBlocks>[number], { type: 'hr' }>
+      >;
+      const skippedHorizontalRules = blocks.length - renderable.length;
+
+      if (renderable.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                documentId: id,
+                blocksProcessed: 0,
+                skippedHorizontalRules,
+              }),
+            },
+          ],
+        };
+      }
+
+      const docs = await this.getDocsClient();
+
+      // Discover the end index of the target tab's body (same approach as
+      // writeText's end-position branch).
+      const res = await docs.documents.get({
+        documentId: id,
+        fields: TABS_FIELD_MASK,
+        includeTabsContent: true,
+      });
+      const tabs = this._flattenTabs(res.data.tabs || []);
+      let bodyContent: docs_v1.Schema$StructuralElement[] | undefined;
+      if (tabId) {
+        const tab = tabs.find((t) => t.tabProperties?.tabId === tabId);
+        if (!tab) {
+          throw new Error(`Tab with ID ${tabId} not found.`);
+        }
+        bodyContent = tab.documentTab?.body?.content;
+      } else if (tabs.length > 0) {
+        bodyContent = tabs[0].documentTab?.body?.content;
+      }
+      const lastElement = bodyContent?.[bodyContent.length - 1];
+      const insertAt = Math.max(1, (lastElement?.endIndex || 1) - 1);
+
+      // One insertText with the full plain text; offsets let us compute every
+      // style range afterwards.
+      let fullText = '';
+      const offsets: number[] = [];
+      for (const block of renderable) {
+        offsets.push(fullText.length);
+        fullText += block.text + '\n';
+      }
+
+      const loc = (index: number) => (tabId ? { index, tabId } : { index });
+      const range = (startIndex: number, endIndex: number) =>
+        tabId ? { startIndex, endIndex, tabId } : { startIndex, endIndex };
+
+      await docs.documents.batchUpdate({
+        documentId: id,
+        requestBody: {
+          requests: [
+            { insertText: { location: loc(insertAt), text: fullText } },
+          ],
+        },
+      });
+
+      const HEADING_TYPES = [
+        '',
+        'HEADING_1',
+        'HEADING_2',
+        'HEADING_3',
+        'HEADING_4',
+        'HEADING_5',
+        'HEADING_6',
+      ];
+      const requests: docs_v1.Schema$Request[] = [];
+      let headings = 0;
+      let styledRanges = 0;
+
+      renderable.forEach((block, k) => {
+        const bStart = insertAt + offsets[k];
+        const bEnd = bStart + block.text.length + 1;
+
+        if (block.type === 'heading') {
+          requests.push({
+            updateParagraphStyle: {
+              range: range(bStart, bEnd),
+              paragraphStyle: {
+                namedStyleType: HEADING_TYPES[block.level] || 'HEADING_1',
+              },
+              fields: 'namedStyleType',
+            },
+          });
+          headings++;
+        }
+
+        for (const f of block.formats) {
+          const fS = bStart + f.start;
+          const fE = bStart + f.end;
+          if (fS >= fE) continue;
+          let textStyle: docs_v1.Schema$TextStyle;
+          let fields: string;
+          switch (f.type) {
+            case 'bold':
+              textStyle = { bold: true };
+              fields = 'bold';
+              break;
+            case 'italic':
+              textStyle = { italic: true };
+              fields = 'italic';
+              break;
+            case 'strikethrough':
+              textStyle = { strikethrough: true };
+              fields = 'strikethrough';
+              break;
+            case 'link':
+              textStyle = { link: { url: f.url } };
+              fields = 'link';
+              break;
+            case 'code':
+              textStyle = {
+                weightedFontFamily: { fontFamily: 'Roboto Mono' },
+                backgroundColor: {
+                  color: { rgbColor: { red: 0.95, green: 0.95, blue: 0.95 } },
+                },
+              };
+              fields = 'weightedFontFamily,backgroundColor';
+              break;
+          }
+          requests.push({
+            updateTextStyle: { range: range(fS, fE), textStyle, fields },
+          });
+          styledRanges++;
+        }
+      });
+
+      // Merge consecutive list items of the same kind into single
+      // createParagraphBullets ranges, applied last in the batch.
+      let bulletLists = 0;
+      let runType: 'bullet' | 'numbered' | null = null;
+      let runStart = 0;
+      let runEnd = 0;
+      const flushRun = () => {
+        if (!runType) return;
+        requests.push({
+          createParagraphBullets: {
+            range: range(runStart, runEnd),
+            bulletPreset:
+              runType === 'bullet'
+                ? 'BULLET_DISC_CIRCLE_SQUARE'
+                : 'NUMBERED_DECIMAL_ALPHA_ROMAN',
+          },
+        });
+        bulletLists++;
+        runType = null;
+      };
+      renderable.forEach((block, k) => {
+        const bStart = insertAt + offsets[k];
+        const bEnd = bStart + block.text.length + 1;
+        if (block.type === 'bullet' || block.type === 'numbered') {
+          if (runType === block.type) {
+            runEnd = bEnd;
+          } else {
+            flushRun();
+            runType = block.type;
+            runStart = bStart;
+            runEnd = bEnd;
+          }
+        } else {
+          flushRun();
+        }
+      });
+      flushRun();
+
+      if (requests.length > 0) {
+        await docs.documents.batchUpdate({
+          documentId: id,
+          requestBody: { requests },
+        });
+      }
+
+      logToFile(
+        `[DocsService] Finished appendMarkdown for document: ${id} (${renderable.length} blocks)`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              documentId: id,
+              blocksProcessed: renderable.length,
+              headings,
+              styledRanges,
+              bulletLists,
+              skippedHorizontalRules,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[DocsService] Error during docs.appendMarkdown: ${errorMessage}`,
+      );
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
   };
 
   public formatText = async ({
