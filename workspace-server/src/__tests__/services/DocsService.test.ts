@@ -538,10 +538,10 @@ describe('DocsService', () => {
       expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledTimes(2);
       const secondCall = mockDocsAPI.documents.batchUpdate.mock.calls[1][0];
       expect(secondCall.requestBody.requests).toEqual([
-        { insertText: { location: { index: 12 }, text: '95' } },
-        { insertText: { location: { index: 10 }, text: 'Alice' } },
-        { insertText: { location: { index: 7 }, text: 'Score' } },
-        { insertText: { location: { index: 5 }, text: 'Name' } },
+        { insertText: { location: { index: 11 }, text: '95' } },
+        { insertText: { location: { index: 9 }, text: 'Alice' } },
+        { insertText: { location: { index: 6 }, text: 'Score' } },
+        { insertText: { location: { index: 4 }, text: 'Name' } },
       ]);
 
       const response = JSON.parse(result.content[0].text);

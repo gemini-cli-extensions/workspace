@@ -622,10 +622,11 @@ export class DocsService {
             if (text === '') continue;
             const cellStart = cells[c].content?.[0]?.startIndex;
             if (cellStart === undefined || cellStart === null) continue;
-            // The first insertable position inside a cell is one past the
-            // cell's own start index.
+            // content[0] is the cell's first paragraph; its startIndex is the
+            // first insertable position (inserting one past it would land on
+            // the paragraph's terminating newline and 400 on empty cells).
             cellRequests.push({
-              insertText: { location: { index: cellStart + 1 }, text },
+              insertText: { location: { index: cellStart }, text },
             });
           }
         }

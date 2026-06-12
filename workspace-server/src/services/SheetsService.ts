@@ -246,6 +246,7 @@ export class SheetsService {
         `[SheetsService] Error during sheets.getRanges: ${errorMessage}`,
       );
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,
