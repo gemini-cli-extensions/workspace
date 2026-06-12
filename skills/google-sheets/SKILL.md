@@ -49,6 +49,22 @@ sheets.getRange({
 })
 ```
 
+### Multiple Ranges in One Call
+
+When you need several disjoint ranges (e.g., KPI cells spread across sheets),
+use `sheets.getRanges` instead of calling `sheets.getRange` repeatedly — it
+reads all ranges in a single API call and returns them in request order:
+
+```
+sheets.getRanges({
+  spreadsheetId: "spreadsheet-id",
+  ranges: ["Sheet1!A1:D10", "Summary!B2", "Q4!F1:F12"]
+})
+```
+
+Optional: `valueRenderOption` (`FORMATTED_VALUE` default, `UNFORMATTED_VALUE`,
+or `FORMULA`) and `majorDimension` (`ROWS` default or `COLUMNS`).
+
 ### Metadata
 
 Use `sheets.getMetadata` to get spreadsheet structure without reading data —

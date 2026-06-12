@@ -533,6 +533,145 @@ export class DocsService {
     }
   };
 
+  public insertTable = async ({
+    documentId,
+    rows,
+    columns,
+    index,
+    data,
+  }: {
+    documentId: string;
+    rows: number;
+    columns: number;
+    index?: number;
+    data?: string[][];
+  }) => {
+    logToFile(
+      `[DocsService] Starting insertTable for document: ${documentId} (${rows}x${columns})`,
+    );
+    try {
+      const id = extractDocId(documentId) || documentId;
+      const docs = await this.getDocsClient();
+
+      if (data) {
+        if (data.length > rows) {
+          throw new Error(
+            `data has ${data.length} rows but the table only has ${rows}.`,
+          );
+        }
+        const widest = Math.max(0, ...data.map((row) => row.length));
+        if (widest > columns) {
+          throw new Error(
+            `data has a row with ${widest} cells but the table only has ${columns} columns.`,
+          );
+        }
+      }
+
+      const insertTableRequest: docs_v1.Schema$InsertTableRequest = {
+        rows,
+        columns,
+      };
+      if (index !== undefined) {
+        insertTableRequest.location = { index };
+      } else {
+        insertTableRequest.endOfSegmentLocation = {};
+      }
+
+      await docs.documents.batchUpdate({
+        documentId: id,
+        requestBody: { requests: [{ insertTable: insertTableRequest }] },
+      });
+
+      let cellsFilled = 0;
+
+      if (data && data.length > 0) {
+        // Re-read the document to locate the table that was just inserted and
+        // compute each cell's insertion index.
+        const res = await docs.documents.get({
+          documentId: id,
+          fields: 'body(content(startIndex,endIndex,table))',
+        });
+        const content = res.data.body?.content || [];
+
+        let table: docs_v1.Schema$StructuralElement | undefined;
+        if (index !== undefined) {
+          table = content.find(
+            (el) => el.table && (el.startIndex ?? 0) >= index,
+          );
+        } else {
+          for (const el of content) {
+            if (el.table) table = el;
+          }
+        }
+        if (!table?.table?.tableRows) {
+          throw new Error(
+            'Table was inserted but could not be located to fill cell data.',
+          );
+        }
+
+        // Build one insertText request per non-empty cell. Inserting text
+        // shifts every later index, so requests are applied in reverse
+        // document order to keep the earlier indexes valid.
+        const cellRequests: docs_v1.Schema$Request[] = [];
+        const tableRows = table.table.tableRows;
+        for (let r = 0; r < tableRows.length && r < data.length; r++) {
+          const cells = tableRows[r].tableCells || [];
+          const rowData = data[r] || [];
+          for (let c = 0; c < cells.length && c < rowData.length; c++) {
+            const text = String(rowData[c] ?? '');
+            if (text === '') continue;
+            const cellStart = cells[c].content?.[0]?.startIndex;
+            if (cellStart === undefined || cellStart === null) continue;
+            // The first insertable position inside a cell is one past the
+            // cell's own start index.
+            cellRequests.push({
+              insertText: { location: { index: cellStart + 1 }, text },
+            });
+          }
+        }
+
+        if (cellRequests.length > 0) {
+          cellRequests.reverse();
+          await docs.documents.batchUpdate({
+            documentId: id,
+            requestBody: { requests: cellRequests },
+          });
+          cellsFilled = cellRequests.length;
+        }
+      }
+
+      logToFile(
+        `[DocsService] Finished insertTable for document: ${id} (${cellsFilled} cells filled)`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              documentId: id,
+              rows,
+              columns,
+              cellsFilled,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(`[DocsService] Error during docs.insertTable: ${errorMessage}`);
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
   public getText = async ({
     documentId,
     tabId,

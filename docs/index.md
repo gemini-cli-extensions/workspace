@@ -22,6 +22,8 @@ The extension provides the following tools:
 - `docs.getText`: Retrieves the text content of a Google Doc.
 - `docs.replaceText`: Replaces all occurrences of a given text with new text in
   a Google Doc.
+- `docs.insertTable`: Inserts a table into a Google Doc, optionally pre-filled
+  with cell data.
 - `docs.formatText`: Applies formatting (bold, italic, headings, etc.) to text
   ranges in a Google Doc.
 
@@ -37,6 +39,8 @@ The extension provides the following tools:
 ### Google Sheets
 
 - `sheets.getText`: Retrieves the content of a Google Sheets spreadsheet.
+- `sheets.getRanges`: Gets values from multiple ranges of a Google Sheets
+  spreadsheet in a single call.
 - `sheets.getRange`: Gets values from a specific range in a Google Sheets
   spreadsheet.
 - `sheets.getMetadata`: Gets metadata about a Google Sheets spreadsheet.

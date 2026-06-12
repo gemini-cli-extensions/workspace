@@ -1484,6 +1484,98 @@ describe('SlidesService', () => {
     });
   });
 
+  describe('replaceImage', () => {
+    it('should replace an existing image with the default replace method', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      const result = await slidesService.replaceImage({
+        presentationId: 'test-pres-id',
+        imageObjectId: 'image-1',
+        imageUrl: 'https://example.com/new-chart.png',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              replaceImage: {
+                imageObjectId: 'image-1',
+                url: 'https://example.com/new-chart.png',
+                imageReplaceMethod: 'CENTER_INSIDE',
+              },
+            },
+          ],
+        },
+      });
+      expect(response.imageObjectId).toBe('image-1');
+      expect(response.imageReplaceMethod).toBe('CENTER_INSIDE');
+    });
+
+    it('should pass through an explicit CENTER_CROP replace method', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.replaceImage({
+        presentationId: 'test-pres-id',
+        imageObjectId: 'image-2',
+        imageUrl: 'https://example.com/photo.jpg',
+        imageReplaceMethod: 'CENTER_CROP',
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith({
+        presentationId: 'test-pres-id',
+        requestBody: {
+          requests: [
+            {
+              replaceImage: {
+                imageObjectId: 'image-2',
+                url: 'https://example.com/photo.jpg',
+                imageReplaceMethod: 'CENTER_CROP',
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should extract the presentation ID from a full URL', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({
+        data: { replies: [{}] },
+      });
+
+      await slidesService.replaceImage({
+        presentationId:
+          'https://docs.google.com/presentation/d/url-pres-id/edit',
+        imageObjectId: 'image-3',
+        imageUrl: 'https://example.com/x.png',
+      });
+
+      expect(mockSlidesAPI.presentations.batchUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ presentationId: 'url-pres-id' }),
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSlidesAPI.presentations.batchUpdate.mockRejectedValue(
+        new Error('Replace Error'),
+      );
+
+      const result = await slidesService.replaceImage({
+        presentationId: 'error-id',
+        imageObjectId: 'image-1',
+        imageUrl: 'https://example.com/fail.png',
+      });
+      const response = JSON.parse(result.content[0].text);
+      expect(result.isError).toBe(true);
+      expect(response.error).toBe('Replace Error');
+    });
+  });
+
   describe('addTable', () => {
     it('should add a table to a slide', async () => {
       mockSlidesAPI.presentations.batchUpdate.mockResolvedValue({

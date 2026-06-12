@@ -194,6 +194,68 @@ export class SheetsService {
     }
   };
 
+  public getRanges = async ({
+    spreadsheetId,
+    ranges,
+    valueRenderOption = 'FORMATTED_VALUE',
+    majorDimension = 'ROWS',
+  }: {
+    spreadsheetId: string;
+    ranges: string[];
+    valueRenderOption?: 'FORMATTED_VALUE' | 'UNFORMATTED_VALUE' | 'FORMULA';
+    majorDimension?: 'ROWS' | 'COLUMNS';
+  }) => {
+    logToFile(
+      `[SheetsService] Starting getRanges for spreadsheet: ${spreadsheetId}, ranges: ${ranges.length}`,
+    );
+    try {
+      const id = extractDocId(spreadsheetId) || spreadsheetId;
+
+      const sheets = await this.getSheetsClient();
+      const response = await sheets.spreadsheets.values.batchGet({
+        spreadsheetId: id,
+        ranges,
+        valueRenderOption,
+        majorDimension,
+      });
+
+      const valueRanges = (response.data.valueRanges || []).map((vr) => ({
+        range: vr.range,
+        majorDimension: vr.majorDimension,
+        values: vr.values || [],
+      }));
+
+      logToFile(
+        `[SheetsService] Finished getRanges for spreadsheet: ${id} (${valueRanges.length} ranges)`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              spreadsheetId: id,
+              valueRanges,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[SheetsService] Error during sheets.getRanges: ${errorMessage}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
+
   public getMetadata = async ({ spreadsheetId }: { spreadsheetId: string }) => {
     logToFile(
       `[SheetsService] Starting getMetadata for spreadsheet: ${spreadsheetId}`,

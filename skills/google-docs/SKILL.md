@@ -187,6 +187,25 @@ docs.writeText({
 })
 ```
 
+## Inserting Tables
+
+Use `docs.insertTable` to add a table, optionally pre-filled with data in a
+single call. The table is appended to the end of the body by default; pass
+`index` to insert at a specific position.
+
+```
+docs.insertTable({
+  documentId: "document-id",
+  rows: 3,
+  columns: 2,
+  data: [["Metric", "Value"], ["Revenue", "$1.2M"], ["Churn", "2.1%"]]
+})
+```
+
+`data` must fit within the table dimensions; omitted or empty cells are left
+blank. Filling cells during insertion is much more reliable than writing into
+table cells afterwards with index arithmetic.
+
 ## Find and Replace
 
 Use `docs.replaceText` to find all occurrences of a string and replace them.

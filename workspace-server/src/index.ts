@@ -444,6 +444,42 @@ async function main() {
     docsService.formatText,
   );
 
+  registerTool(
+    'docs.insertTable',
+    {
+      description:
+        'Inserts a table into a Google Doc, optionally pre-filled with cell data. Inserts at the end of the body by default, or at a specific index.',
+      inputSchema: {
+        documentId: z.string().describe('The ID of the document to modify.'),
+        rows: z
+          .number()
+          .int()
+          .positive()
+          .describe('The number of rows in the table.'),
+        columns: z
+          .number()
+          .int()
+          .positive()
+          .describe('The number of columns in the table.'),
+        index: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            'The 1-based index to insert the table at. If not provided, the table is appended to the end of the body.',
+          ),
+        data: z
+          .array(z.array(z.string()))
+          .optional()
+          .describe(
+            'Cell contents as a 2D array of strings, row by row (e.g., [["Name", "Score"], ["Alice", "95"]]). Must fit within the table dimensions. Omitted or empty cells are left blank.',
+          ),
+      },
+    },
+    docsService.insertTable,
+  );
+
   // Slides tools
   registerTool(
     'slides.getText',
@@ -806,6 +842,34 @@ async function main() {
   );
 
   registerTool(
+    'slides.replaceImage',
+    {
+      description:
+        'Replaces an existing image in a Google Slides presentation with a new image from a URL, preserving the original position and size. Use slides.getImages or slides.getMetadata to find image object IDs. Useful for refreshing charts or filling image placeholders in template decks.',
+      inputSchema: {
+        presentationId: z
+          .string()
+          .describe('The ID or URL of the presentation.'),
+        imageObjectId: z
+          .string()
+          .describe('The object ID of the existing image to replace.'),
+        imageUrl: z
+          .string()
+          .describe(
+            'The URL of the replacement image. Must be publicly accessible over HTTPS. Google requires PNG, JPEG, or GIF format, at most 50MB in size, and at most 25 megapixels.',
+          ),
+        imageReplaceMethod: z
+          .enum(['CENTER_INSIDE', 'CENTER_CROP'])
+          .optional()
+          .describe(
+            'How to fit the new image into the original bounds: CENTER_INSIDE scales to fit (default), CENTER_CROP fills and crops.',
+          ),
+      },
+    },
+    slidesService.replaceImage,
+  );
+
+  registerTool(
     'slides.addTable',
     {
       description:
@@ -926,6 +990,37 @@ async function main() {
       ...readOnlyToolProps,
     },
     sheetsService.getRange,
+  );
+
+  registerTool(
+    'sheets.getRanges',
+    {
+      description:
+        'Gets values from multiple ranges of a Google Sheets spreadsheet in a single call. More efficient than calling sheets.getRange once per range when reading several disjoint ranges (e.g., KPI cells across different sheets).',
+      inputSchema: {
+        spreadsheetId: z.string().describe('The ID or URL of the spreadsheet.'),
+        ranges: z
+          .array(z.string())
+          .min(1)
+          .describe(
+            'The A1 notation ranges to get (e.g., ["Sheet1!A1:B10", "Summary!D2"]).',
+          ),
+        valueRenderOption: z
+          .enum(['FORMATTED_VALUE', 'UNFORMATTED_VALUE', 'FORMULA'])
+          .optional()
+          .describe(
+            'How values are rendered: FORMATTED_VALUE as displayed (default), UNFORMATTED_VALUE as raw values, FORMULA as the cell formulas.',
+          ),
+        majorDimension: z
+          .enum(['ROWS', 'COLUMNS'])
+          .optional()
+          .describe(
+            'Whether the values arrays are row-major (ROWS, default) or column-major (COLUMNS).',
+          ),
+      },
+      ...readOnlyToolProps,
+    },
+    sheetsService.getRanges,
   );
 
   registerTool(

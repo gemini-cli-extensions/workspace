@@ -40,6 +40,7 @@ describe('SheetsService', () => {
         get: jest.fn(),
         values: {
           get: jest.fn(),
+          batchGet: jest.fn(),
         },
       },
     };
@@ -295,6 +296,102 @@ describe('SheetsService', () => {
 
       const response = JSON.parse(result.content[0].text);
       expect(response.error).toBe('Range Error');
+    });
+  });
+
+  describe('getRanges', () => {
+    it('should get values from multiple ranges in one call with defaults', async () => {
+      const mockBatchData = {
+        data: {
+          valueRanges: [
+            {
+              range: 'Sheet1!A1:B2',
+              majorDimension: 'ROWS',
+              values: [
+                ['A1', 'B1'],
+                ['A2', 'B2'],
+              ],
+            },
+            {
+              range: 'Summary!D2',
+              majorDimension: 'ROWS',
+              values: [['42']],
+            },
+          ],
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.batchGet.mockResolvedValue(
+        mockBatchData,
+      );
+
+      const result = await sheetsService.getRanges({
+        spreadsheetId: 'test-spreadsheet-id',
+        ranges: ['Sheet1!A1:B2', 'Summary!D2'],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.batchGet).toHaveBeenCalledWith({
+        spreadsheetId: 'test-spreadsheet-id',
+        ranges: ['Sheet1!A1:B2', 'Summary!D2'],
+        valueRenderOption: 'FORMATTED_VALUE',
+        majorDimension: 'ROWS',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.spreadsheetId).toBe('test-spreadsheet-id');
+      expect(response.valueRanges).toHaveLength(2);
+      expect(response.valueRanges[0].range).toBe('Sheet1!A1:B2');
+      expect(response.valueRanges[1].values).toEqual([['42']]);
+    });
+
+    it('should pass through render and dimension options', async () => {
+      mockSheetsAPI.spreadsheets.values.batchGet.mockResolvedValue({
+        data: { valueRanges: [] },
+      });
+
+      await sheetsService.getRanges({
+        spreadsheetId: 'test-spreadsheet-id',
+        ranges: ['Sheet1!A1'],
+        valueRenderOption: 'FORMULA',
+        majorDimension: 'COLUMNS',
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.batchGet).toHaveBeenCalledWith({
+        spreadsheetId: 'test-spreadsheet-id',
+        ranges: ['Sheet1!A1'],
+        valueRenderOption: 'FORMULA',
+        majorDimension: 'COLUMNS',
+      });
+    });
+
+    it('should default missing values arrays to empty', async () => {
+      mockSheetsAPI.spreadsheets.values.batchGet.mockResolvedValue({
+        data: {
+          valueRanges: [{ range: 'Sheet1!Z99', majorDimension: 'ROWS' }],
+        },
+      });
+
+      const result = await sheetsService.getRanges({
+        spreadsheetId: 'test-spreadsheet-id',
+        ranges: ['Sheet1!Z99'],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.valueRanges[0].values).toEqual([]);
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.values.batchGet.mockRejectedValue(
+        new Error('Batch Error'),
+      );
+
+      const result = await sheetsService.getRanges({
+        spreadsheetId: 'error-id',
+        ranges: ['Sheet1!A1'],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Batch Error');
     });
   });
 

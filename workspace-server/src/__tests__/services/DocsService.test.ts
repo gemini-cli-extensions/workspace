@@ -434,6 +434,154 @@ describe('DocsService', () => {
     });
   });
 
+  describe('insertTable', () => {
+    it('should append an empty table at the end of the body', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.insertTable({
+        documentId: 'test-doc-id',
+        rows: 2,
+        columns: 3,
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledTimes(1);
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              insertTable: {
+                rows: 2,
+                columns: 3,
+                endOfSegmentLocation: {},
+              },
+            },
+          ],
+        },
+      });
+      expect(mockDocsAPI.documents.get).not.toHaveBeenCalled();
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.rows).toBe(2);
+      expect(response.columns).toBe(3);
+      expect(response.cellsFilled).toBe(0);
+    });
+
+    it('should insert at a specific index when provided', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.insertTable({
+        documentId: 'test-doc-id',
+        rows: 1,
+        columns: 1,
+        index: 5,
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              insertTable: {
+                rows: 1,
+                columns: 1,
+                location: { index: 5 },
+              },
+            },
+          ],
+        },
+      });
+    });
+
+    it('should fill cell data in reverse document order', async () => {
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          body: {
+            content: [
+              { startIndex: 0, endIndex: 1 },
+              {
+                startIndex: 1,
+                endIndex: 50,
+                table: {
+                  tableRows: [
+                    {
+                      tableCells: [
+                        { content: [{ startIndex: 4 }] },
+                        { content: [{ startIndex: 6 }] },
+                      ],
+                    },
+                    {
+                      tableCells: [
+                        { content: [{ startIndex: 9 }] },
+                        { content: [{ startIndex: 11 }] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      });
+
+      const result = await docsService.insertTable({
+        documentId: 'test-doc-id',
+        rows: 2,
+        columns: 2,
+        data: [
+          ['Name', 'Score'],
+          ['Alice', '95'],
+        ],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledTimes(2);
+      const secondCall = mockDocsAPI.documents.batchUpdate.mock.calls[1][0];
+      expect(secondCall.requestBody.requests).toEqual([
+        { insertText: { location: { index: 12 }, text: '95' } },
+        { insertText: { location: { index: 10 }, text: 'Alice' } },
+        { insertText: { location: { index: 7 }, text: 'Score' } },
+        { insertText: { location: { index: 5 }, text: 'Name' } },
+      ]);
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.cellsFilled).toBe(4);
+    });
+
+    it('should reject data that exceeds the table dimensions', async () => {
+      const result = await docsService.insertTable({
+        documentId: 'test-doc-id',
+        rows: 1,
+        columns: 1,
+        data: [
+          ['a', 'b'],
+          ['c', 'd'],
+        ],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('data has 2 rows');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockDocsAPI.documents.batchUpdate.mockRejectedValue(
+        new Error('Table Error'),
+      );
+
+      const result = await docsService.insertTable({
+        documentId: 'error-id',
+        rows: 2,
+        columns: 2,
+      });
+
+      expect(result.isError).toBe(true);
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toBe('Table Error');
+    });
+  });
+
   describe('getText', () => {
     it('should extract text from a document', async () => {
       const mockDoc = {

@@ -1026,6 +1026,51 @@ export class SlidesService {
     }
   };
 
+  public replaceImage = async ({
+    presentationId,
+    imageObjectId,
+    imageUrl,
+    imageReplaceMethod = 'CENTER_INSIDE',
+  }: {
+    presentationId: string;
+    imageObjectId: string;
+    imageUrl: string;
+    imageReplaceMethod?: 'CENTER_INSIDE' | 'CENTER_CROP';
+  }) => {
+    logToFile(
+      `[SlidesService] Replacing image ${imageObjectId} in presentation: ${presentationId}`,
+    );
+    try {
+      const id = extractDocId(presentationId) || presentationId;
+      const slides = await this.getSlidesClient();
+
+      await slides.presentations.batchUpdate({
+        presentationId: id,
+        requestBody: {
+          requests: [
+            {
+              replaceImage: {
+                imageObjectId,
+                url: imageUrl,
+                imageReplaceMethod,
+              },
+            },
+          ],
+        },
+      });
+
+      logToFile(`[SlidesService] Replaced image: ${imageObjectId}`);
+      return this.formatResult({
+        presentationId: id,
+        imageObjectId,
+        imageUrl,
+        imageReplaceMethod,
+      });
+    } catch (error) {
+      return this.formatError('slides.replaceImage', error);
+    }
+  };
+
   public addTable = async ({
     presentationId,
     slideObjectId,
