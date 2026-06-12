@@ -72,6 +72,7 @@ describe('DriveService', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        export: jest.fn(),
       },
       comments: {
         list: jest.fn(),
@@ -1437,6 +1438,90 @@ describe('DriveService', () => {
           fields: expect.stringContaining('action'),
         }),
       );
+    });
+  });
+
+  describe('exportFile', () => {
+    it('should export a file with the mapped MIME type and save it', async () => {
+      const bytes = new TextEncoder().encode('%PDF-1.4 fake');
+      mockDriveAPI.files.export.mockResolvedValue({ data: bytes.buffer });
+
+      const result = await driveService.exportFile({
+        fileId: 'test-doc-id',
+        format: 'pdf',
+        localPath: '/tmp/out/report.pdf',
+      });
+
+      expect(mockDriveAPI.files.export).toHaveBeenCalledWith(
+        { fileId: 'test-doc-id', mimeType: 'application/pdf' },
+        { responseType: 'arraybuffer' },
+      );
+      expect(fs.promises.mkdir).toHaveBeenCalledWith('/tmp/out', {
+        recursive: true,
+      });
+      expect(fs.promises.writeFile).toHaveBeenCalledWith(
+        '/tmp/out/report.pdf',
+        expect.any(Buffer),
+      );
+      expect(result.content[0].text).toContain('Successfully exported');
+      expect(result.content[0].text).toContain('/tmp/out/report.pdf');
+    });
+
+    it('should map office formats to the right MIME types (case-insensitive)', async () => {
+      const bytes = new TextEncoder().encode('PK fake xlsx');
+      mockDriveAPI.files.export.mockResolvedValue({ data: bytes.buffer });
+
+      await driveService.exportFile({
+        fileId: 'sheet-id',
+        format: 'XLSX',
+        localPath: '/tmp/out/data.xlsx',
+      });
+
+      expect(mockDriveAPI.files.export).toHaveBeenCalledWith(
+        {
+          fileId: 'sheet-id',
+          mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+        { responseType: 'arraybuffer' },
+      );
+    });
+
+    it('should reject unsupported formats without calling the API', async () => {
+      const result = await driveService.exportFile({
+        fileId: 'test-doc-id',
+        format: 'tiff',
+        localPath: '/tmp/out/x.tiff',
+      });
+
+      expect(mockDriveAPI.files.export).not.toHaveBeenCalled();
+      expect(result.content[0].text).toContain('Unsupported format');
+    });
+
+    it('should reject empty export bodies', async () => {
+      mockDriveAPI.files.export.mockResolvedValue({
+        data: new ArrayBuffer(0),
+      });
+
+      const result = await driveService.exportFile({
+        fileId: 'test-doc-id',
+        format: 'pdf',
+        localPath: '/tmp/out/empty.pdf',
+      });
+
+      expect(result.content[0].text).toContain('empty body');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockDriveAPI.files.export.mockRejectedValue(new Error('Export Error'));
+
+      const result = await driveService.exportFile({
+        fileId: 'test-doc-id',
+        format: 'pdf',
+        localPath: '/tmp/out/fail.pdf',
+      });
+
+      expect(result.content[0].text).toContain('Export Error');
     });
   });
 });

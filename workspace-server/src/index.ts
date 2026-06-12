@@ -996,6 +996,39 @@ async function main() {
   );
 
   registerTool(
+    'drive.exportFile',
+    {
+      description:
+        'Exports a Google Workspace file (Doc, Sheet, Slides) to a local path in a standard format such as PDF, DOCX, XLSX, PPTX or CSV. Use this when the user wants the file as an artifact; use docs.getText / sheets.getText / slides.getText to read content instead.',
+      inputSchema: {
+        fileId: z.string().describe('The ID or URL of the file to export.'),
+        format: z
+          .enum([
+            'pdf',
+            'docx',
+            'xlsx',
+            'pptx',
+            'csv',
+            'txt',
+            'html',
+            'rtf',
+            'epub',
+          ])
+          .describe(
+            'Target format. The Drive API validates compatibility with the source file type (e.g. xlsx for Sheets, pptx for Slides).',
+          ),
+        localPath: z
+          .string()
+          .describe(
+            'The local file path where the export should be saved (e.g., "exports/report.pdf").',
+          ),
+      },
+      ...readOnlyToolProps,
+    },
+    driveService.exportFile,
+  );
+
+  registerTool(
     'drive.moveFile',
     {
       description:

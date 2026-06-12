@@ -531,6 +531,75 @@ export class DriveService {
     }
   };
 
+  private static readonly EXPORT_FORMATS: Record<string, string> = {
+    pdf: 'application/pdf',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    csv: 'text/csv',
+    txt: 'text/plain',
+    html: 'text/html',
+    rtf: 'application/rtf',
+    epub: 'application/epub+zip',
+  };
+
+  public exportFile = async ({
+    fileId,
+    format,
+    localPath,
+  }: {
+    fileId: string;
+    format: string;
+    localPath: string;
+  }) => {
+    logToFile(
+      `[DriveService] Exporting file ${fileId} as ${format} to ${localPath}`,
+    );
+    try {
+      const mimeType = DriveService.EXPORT_FORMATS[format.toLowerCase()];
+      if (!mimeType) {
+        throw new Error(
+          `Unsupported format "${format}". Supported: ${Object.keys(DriveService.EXPORT_FORMATS).join(', ')}`,
+        );
+      }
+
+      const drive = await this.getDriveClient();
+      const id = extractDocumentId(fileId);
+
+      const response = await drive.files.export(
+        { fileId: id, mimeType },
+        { responseType: 'arraybuffer' },
+      );
+
+      const buffer = Buffer.from(response.data as unknown as ArrayBuffer);
+      if (buffer.length === 0) {
+        throw new Error('Export returned an empty body');
+      }
+
+      const absolutePath = path.isAbsolute(localPath)
+        ? localPath
+        : path.resolve(PROJECT_ROOT, localPath);
+      const dir = path.dirname(absolutePath);
+
+      await fs.promises.mkdir(dir, { recursive: true });
+      await fs.promises.writeFile(absolutePath, buffer);
+
+      logToFile(
+        `[DriveService] Exported ${buffer.length} bytes to ${absolutePath}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Successfully exported file as ${format} (${buffer.length} bytes) to ${absolutePath}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return this.handleError('drive.exportFile', error);
+    }
+  };
+
   public downloadFile = async ({
     fileId,
     localPath,

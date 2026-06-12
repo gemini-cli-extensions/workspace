@@ -87,6 +87,7 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
       'drive.findFolder',
       'drive.search',
       'drive.downloadFile',
+      'drive.exportFile',
     ],
     defaultEnabled: true,
   },
