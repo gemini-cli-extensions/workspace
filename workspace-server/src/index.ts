@@ -519,6 +519,7 @@ async function main() {
           ),
         values: z
           .array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])))
+          .min(1)
           .describe(
             'A 2D array of values to append. Each inner array is a row (e.g., [["col1", "col2"], ["val1", "val2"]]).',
           ),

@@ -219,16 +219,35 @@ export class SheetsService {
         },
       });
 
+      const updates = response.data.updates;
+      if (!updates) {
+        logToFile(
+          `[SheetsService] appendRows returned no update metadata for: ${id}`,
+        );
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                error:
+                  'Append returned no update information; rows may not have been written.',
+              }),
+            },
+          ],
+        };
+      }
+
       logToFile(`[SheetsService] Finished appendRows for spreadsheet: ${id}`);
       return {
         content: [
           {
             type: 'text' as const,
             text: JSON.stringify({
-              updatedRange: response.data.updates?.updatedRange,
-              updatedRows: response.data.updates?.updatedRows,
-              updatedColumns: response.data.updates?.updatedColumns,
-              updatedCells: response.data.updates?.updatedCells,
+              updatedRange: updates.updatedRange,
+              updatedRows: updates.updatedRows,
+              updatedColumns: updates.updatedColumns,
+              updatedCells: updates.updatedCells,
             }),
           },
         ],
@@ -240,6 +259,7 @@ export class SheetsService {
         `[SheetsService] Error during sheets.appendRows: ${errorMessage}`,
       );
       return {
+        isError: true,
         content: [
           {
             type: 'text' as const,

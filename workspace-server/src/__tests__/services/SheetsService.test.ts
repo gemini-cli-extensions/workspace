@@ -413,14 +413,30 @@ describe('SheetsService', () => {
       });
 
       await sheetsService.appendRows({
-        spreadsheetId: 'https://docs.google.com/spreadsheets/d/abc123/edit',
+        spreadsheetId: 'https://docs.google.com/spreadsheets/d/1A2b-_C3dEfGhIjKlMnOpQr/edit',
         range: 'Sheet1!A1',
         values: [['value']],
       });
 
       expect(mockSheetsAPI.spreadsheets.values.append).toHaveBeenCalledWith(
-        expect.objectContaining({ spreadsheetId: 'abc123' }),
+        expect.objectContaining({ spreadsheetId: '1A2b-_C3dEfGhIjKlMnOpQr' }),
       );
+    });
+
+    it('should return isError when updates metadata is missing', async () => {
+      mockSheetsAPI.spreadsheets.values.append.mockResolvedValue({
+        data: {},
+      });
+
+      const result = await sheetsService.appendRows({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1',
+        values: [['value']],
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(result.isError).toBe(true);
+      expect(response.error).toMatch(/no update information/);
     });
 
     it('should handle errors gracefully', async () => {
@@ -435,6 +451,7 @@ describe('SheetsService', () => {
       });
       const response = JSON.parse(result.content[0].text);
 
+      expect(result.isError).toBe(true);
       expect(response.error).toBe('Append Error');
     });
   });
