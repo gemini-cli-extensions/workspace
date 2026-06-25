@@ -37,15 +37,15 @@
     "@googleapis/docs": "^9.3.0",
     "@googleapis/drive": "^20.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "google-auth-library": "^10.7.0",
+    "google-auth-library": "^10.9.0",
     "googleapis": "^173.0.0",
     "keytar": "^7.9.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.9.3",
-    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@types/node": "^26.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@vercel/ncc": "^0.44.0",
     "archiver": "^8.0.0",
@@ -60,7 +60,7 @@
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3",
-    "vite": "^8.0.16",
+    "vite": "^8.1.0",
     "vitepress": "^1.6.4",
     "vue": "^3.5.38"
   },
