@@ -10,7 +10,7 @@
     "workspace-server"
   ],
   "scripts": {
-    "prepare": "npm run build",
+    "prepare": "node scripts/prepare-build.js",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:watch": "npm run test:watch --workspaces --if-present",

@@ -138,6 +138,12 @@ const emailComposeSchema = {
     .boolean()
     .optional()
     .describe('Whether the body is HTML (default: false).'),
+  attachments: z
+    .array(gmailAttachmentSchema)
+    .optional()
+    .describe(
+      'Files to attach. Each entry must reference an absolute local path. Download attachments first with gmail.downloadAttachment if needed.',
+    ),
 };
 
 // Dynamically import version from package.json
@@ -1698,7 +1704,8 @@ System labels that can be modified:
   registerTool(
     'gmail.send',
     {
-      description: 'Send an email message.',
+      description:
+        'Send an email message, optionally with file attachments referenced by absolute local path.',
       inputSchema: emailComposeSchema,
     },
     gmailService.send,
@@ -1715,12 +1722,6 @@ System labels that can be modified:
           .optional()
           .describe(
             'The thread ID to create the draft as a reply to. When provided, the draft will be linked to the existing thread with appropriate reply headers.',
-          ),
-        attachments: z
-          .array(gmailAttachmentSchema)
-          .optional()
-          .describe(
-            'Files to attach to the draft. Each entry must reference an absolute local path. Download attachments first with gmail.downloadAttachment if needed.',
           ),
       },
     },

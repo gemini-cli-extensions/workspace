@@ -836,6 +836,231 @@ describe('GmailService', () => {
     });
   });
 
+  describe('send with attachments and ATTACHMENT_ALLOWED_ROOTS gate', () => {
+    // These tests exercise the real node:fs realpath used by the allowlist
+    // gate (allowed-roots.ts), so they create real temp directories/symlinks
+    // for the roots while keeping node:fs/promises (stat/readFile) mocked.
+    const realFs = jest.requireActual('node:fs') as typeof import('node:fs');
+    const os = jest.requireActual('node:os') as typeof import('node:os');
+    const realPath = jest.requireActual(
+      'node:path',
+    ) as typeof import('node:path');
+
+    let tmpRoot: string;
+    let allowedDir: string;
+    let siblingDir: string;
+    const originalAllowedRoots = process.env.ATTACHMENT_ALLOWED_ROOTS;
+
+    beforeEach(() => {
+      (MimeHelper.createMimeMessage as jest.Mock) = jest
+        .fn()
+        .mockReturnValue('base64encodedmessage');
+      (MimeHelper.createMimeMessageWithAttachments as jest.Mock) = jest
+        .fn()
+        .mockReturnValue('base64encodedmessage-with-attachments');
+      (fs.stat as any).mockResolvedValue({
+        isFile: () => true,
+        size: 1024,
+      });
+      (fs.readFile as any).mockResolvedValue(Buffer.from('file content'));
+      mockGmailAPI.users.messages.send.mockResolvedValue({
+        data: { id: 'sent-attach', threadId: null, labelIds: ['SENT'] },
+      });
+
+      // realpathSync resolves /tmp symlinks on macOS, so create + realpath the
+      // root so the containment comparison uses canonical paths on every OS.
+      tmpRoot = realFs.realpathSync(
+        realFs.mkdtempSync(realPath.join(os.tmpdir(), 'gws-allow-')),
+      );
+      allowedDir = realPath.join(tmpRoot, 'allowed');
+      siblingDir = realPath.join(tmpRoot, 'allowed-evil');
+      realFs.mkdirSync(allowedDir);
+      realFs.mkdirSync(siblingDir);
+    });
+
+    afterEach(() => {
+      if (originalAllowedRoots === undefined) {
+        delete process.env.ATTACHMENT_ALLOWED_ROOTS;
+      } else {
+        process.env.ATTACHMENT_ALLOWED_ROOTS = originalAllowedRoots;
+      }
+      if (tmpRoot) {
+        realFs.rmSync(tmpRoot, { recursive: true, force: true });
+      }
+    });
+
+    it('sends a multipart message for an in-allowlist attachment when the env is SET (gate ACTIVE but permissive)', async () => {
+      process.env.ATTACHMENT_ALLOWED_ROOTS = allowedDir;
+      const filePath = realPath.join(allowedDir, 'report.pdf');
+      realFs.writeFileSync(filePath, 'pdf');
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'With attachment',
+        body: 'See attached.',
+        attachments: [{ filePath, mimeType: 'application/pdf' }],
+      });
+
+      expect(MimeHelper.createMimeMessageWithAttachments).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: [
+            expect.objectContaining({
+              filename: 'report.pdf',
+              contentType: 'application/pdf',
+            }),
+          ],
+        }),
+      );
+      expect(MimeHelper.createMimeMessage).not.toHaveBeenCalled();
+      const response = JSON.parse(result.content[0].text);
+      expect(response.status).toBe('sent');
+    });
+
+    it('rejects a path outside ATTACHMENT_ALLOWED_ROOTS when the env is SET (gate ACTIVE)', async () => {
+      process.env.ATTACHMENT_ALLOWED_ROOTS = allowedDir;
+      const outsidePath = realPath.join(siblingDir, 'secret.pdf');
+      realFs.writeFileSync(outsidePath, 'secret');
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'Outside root',
+        body: 'Body',
+        attachments: [{ filePath: outsidePath }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('not within ATTACHMENT_ALLOWED_ROOTS');
+      expect(fs.readFile).not.toHaveBeenCalled();
+    });
+
+    it('rejects a symlink that resolves outside the allowed root (no symlink escape)', async () => {
+      process.env.ATTACHMENT_ALLOWED_ROOTS = allowedDir;
+      const realTarget = realPath.join(siblingDir, 'target.pdf');
+      realFs.writeFileSync(realTarget, 'secret');
+      const linkPath = realPath.join(allowedDir, 'link.pdf');
+      realFs.symlinkSync(realTarget, linkPath);
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'Symlink escape',
+        body: 'Body',
+        attachments: [{ filePath: linkPath }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('not within ATTACHMENT_ALLOWED_ROOTS');
+    });
+
+    it('skips a non-existent root with a warning while a valid second root still gates correctly', async () => {
+      const missingRoot = realPath.join(tmpRoot, 'does-not-exist');
+      process.env.ATTACHMENT_ALLOWED_ROOTS = `${missingRoot}${realPath.delimiter}${allowedDir}`;
+      const warnSpy = jest
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      const insideOk = realPath.join(allowedDir, 'ok.pdf');
+      realFs.writeFileSync(insideOk, 'pdf');
+      const okResult = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'Valid via second root',
+        body: 'Body',
+        attachments: [{ filePath: insideOk }],
+      });
+      expect(JSON.parse(okResult.content[0].text).status).toBe('sent');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('skipping unresolvable root'),
+      );
+
+      const outside = realPath.join(siblingDir, 'nope.pdf');
+      realFs.writeFileSync(outside, 'x');
+      const rejectResult = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'Outside via second root',
+        body: 'Body',
+        attachments: [{ filePath: outside }],
+      });
+      expect(JSON.parse(rejectResult.content[0].text).error).toContain(
+        'not within ATTACHMENT_ALLOWED_ROOTS',
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('fails closed when every configured root is missing', async () => {
+      const missingA = realPath.join(tmpRoot, 'missing-a');
+      const missingB = realPath.join(tmpRoot, 'missing-b');
+      process.env.ATTACHMENT_ALLOWED_ROOTS = `${missingA}${realPath.delimiter}${missingB}`;
+      jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      const filePath = realPath.join(allowedDir, 'file.pdf');
+      realFs.writeFileSync(filePath, 'pdf');
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'All roots missing',
+        body: 'Body',
+        attachments: [{ filePath }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('no configured root could be resolved');
+    });
+
+    it('rejects an attachment whose total raw size exceeds the shared cap before send', async () => {
+      process.env.ATTACHMENT_ALLOWED_ROOTS = allowedDir;
+      (fs.stat as any).mockResolvedValue({
+        isFile: () => true,
+        size: 30 * 1024 * 1024,
+      });
+      const filePath = realPath.join(allowedDir, 'huge.zip');
+      realFs.writeFileSync(filePath, 'big');
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'Too large',
+        body: 'Body',
+        attachments: [{ filePath }],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.error).toContain('exceeds the maximum allowed limit');
+      expect(fs.readFile).not.toHaveBeenCalled();
+    });
+
+    it('sends a plain message (createMimeMessage) when attachments are omitted', async () => {
+      delete process.env.ATTACHMENT_ALLOWED_ROOTS;
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'No attachment',
+        body: 'Body',
+      });
+
+      expect(MimeHelper.createMimeMessage).toHaveBeenCalled();
+      expect(
+        MimeHelper.createMimeMessageWithAttachments,
+      ).not.toHaveBeenCalled();
+      expect(JSON.parse(result.content[0].text).status).toBe('sent');
+    });
+
+    it('applies no path restriction when ATTACHMENT_ALLOWED_ROOTS is unset (any absolute path passes the gate)', async () => {
+      delete process.env.ATTACHMENT_ALLOWED_ROOTS;
+      // A path under the sibling dir would be rejected if the gate were active;
+      // with the env unset it must pass the gate (size/file checks still apply).
+      const filePath = realPath.join(siblingDir, 'anywhere.pdf');
+      realFs.writeFileSync(filePath, 'pdf');
+
+      const result = await gmailService.send({
+        to: 'recipient@example.com',
+        subject: 'Unset gate',
+        body: 'Body',
+        attachments: [{ filePath }],
+      });
+
+      expect(MimeHelper.createMimeMessageWithAttachments).toHaveBeenCalled();
+      expect(JSON.parse(result.content[0].text).status).toBe('sent');
+    });
+  });
+
   describe('createDraft', () => {
     beforeEach(async () => {
       (MimeHelper.createMimeMessage as jest.Mock) = jest

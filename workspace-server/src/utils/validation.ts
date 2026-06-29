@@ -19,6 +19,18 @@ export const emailSchema = z.string().email('Invalid email format');
 export const emailArraySchema = z.union([emailSchema, z.array(emailSchema)]);
 
 /**
+ * Maximum total raw (pre-encoding) size for all attachments on a single email,
+ * checked against the bytes on disk. Gmail's 25MB limit applies to the entire
+ * MIME message, and base64 encoding inflates binary data by ~33%: 18MB of raw
+ * bytes becomes ~24MB after encoding, leaving ~1MB of headroom under the 25MB
+ * cap for message headers and body.
+ *
+ * Single source of truth shared by gmail.send and gmail.createDraft so the cap
+ * cannot drift between the two compose paths.
+ */
+export const MAX_TOTAL_ATTACHMENT_SIZE_BYTES = 18 * 1024 * 1024;
+
+/**
  * Gmail draft attachment input. Single source of truth shared by the MCP
  * tool schema (index.ts) and GmailService's AttachmentInput type so the two
  * definitions cannot drift apart.

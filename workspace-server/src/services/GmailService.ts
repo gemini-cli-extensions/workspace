@@ -16,7 +16,12 @@ import {
   GMAIL_NO_LABEL_CHANGES_MESSAGE,
 } from '../utils/constants';
 import { gaxiosOptions } from '../utils/GaxiosConfig';
-import { emailArraySchema, gmailAttachmentSchema } from '../utils/validation';
+import {
+  emailArraySchema,
+  gmailAttachmentSchema,
+  MAX_TOTAL_ATTACHMENT_SIZE_BYTES,
+} from '../utils/validation';
+import { assertWithinAllowedRoots } from '../utils/allowed-roots';
 import { z, ZodError } from 'zod';
 
 // Extension to MIME type map for common file types
@@ -46,12 +51,8 @@ const EXTENSION_MIME_MAP: Record<string, string> = {
   '.mp3': 'audio/mpeg',
 };
 
-// Maximum total raw (pre-encoding) size for all attachments, checked against
-// the bytes on disk. Gmail's 25MB limit applies to the entire MIME message,
-// and base64 encoding inflates binary data by ~33%: 18MB of raw bytes becomes
-// ~24MB after encoding, leaving ~1MB of headroom under the 25MB cap for
-// message headers and body.
-const MAX_TOTAL_ATTACHMENT_SIZE_BYTES = 18 * 1024 * 1024;
+// MAX_TOTAL_ATTACHMENT_SIZE_BYTES is the single shared cap exported from
+// validation.ts so gmail.send and gmail.createDraft cannot drift apart.
 
 function assertWithinAttachmentSizeLimit(totalSize: number): void {
   if (totalSize > MAX_TOTAL_ATTACHMENT_SIZE_BYTES) {
@@ -79,11 +80,11 @@ type SendEmailParams = {
   bcc?: string | string[];
   replyTo?: string;
   isHtml?: boolean;
+  attachments?: AttachmentInput[];
 };
 
 type CreateDraftParams = SendEmailParams & {
   threadId?: string;
-  attachments?: AttachmentInput[];
 };
 
 interface GmailAttachment {
@@ -508,6 +509,128 @@ export class GmailService {
     }
   }
 
+  /**
+   * Builds the raw base64url MIME message shared by gmail.send and
+   * gmail.createDraft. When attachments are present each file path is validated
+   * (absolute path, optional ATTACHMENT_ALLOWED_ROOTS allowlist, must be a file,
+   * total size cap) and read from disk before a multipart/mixed message is
+   * produced; otherwise a plain message is produced (no behaviour change for the
+   * no-attachment path). Keeping this in one place guarantees both compose paths
+   * enforce the same security and size invariants.
+   */
+  private async buildComposeMimeMessage({
+    to,
+    subject,
+    body,
+    cc,
+    bcc,
+    replyTo,
+    isHtml = false,
+    attachments,
+    inReplyTo,
+    references,
+  }: SendEmailParams & {
+    inReplyTo?: string;
+    references?: string;
+  }): Promise<string> {
+    const toField = Array.isArray(to) ? to.join(', ') : to;
+    const ccField = cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined;
+    const bccField = bcc
+      ? Array.isArray(bcc)
+        ? bcc.join(', ')
+        : bcc
+      : undefined;
+
+    if (attachments && attachments.length > 0) {
+      // Validate all paths are absolute, within the allowlist (when one is
+      // configured), and check file sizes before reading anything.
+      const attachmentSizes = await Promise.all(
+        attachments.map(async (att) => {
+          if (!path.isAbsolute(att.filePath)) {
+            throw new Error(
+              `Attachment filePath must be an absolute path: ${att.filePath}`,
+            );
+          }
+
+          // Optional allowlist gate (no-op when ATTACHMENT_ALLOWED_ROOTS is
+          // unset). Runs before fs.stat so out-of-root paths are never touched.
+          assertWithinAllowedRoots(att.filePath);
+
+          let stats;
+          try {
+            stats = await fs.stat(att.filePath);
+          } catch (statError) {
+            throw new Error(
+              `Could not access attachment file ${att.filePath}: ${statError instanceof Error ? statError.message : String(statError)}`,
+            );
+          }
+
+          if (!stats.isFile()) {
+            throw new Error(`Attachment path is not a file: ${att.filePath}`);
+          }
+
+          return stats.size;
+        }),
+      );
+      const totalSize = attachmentSizes.reduce((sum, size) => sum + size, 0);
+      assertWithinAttachmentSizeLimit(totalSize);
+
+      // Read each file from disk.
+      const resolvedAttachments = await Promise.all(
+        attachments.map(async (att) => {
+          let content: Buffer;
+          try {
+            content = await fs.readFile(att.filePath);
+          } catch (readError) {
+            throw new Error(
+              `Could not read attachment file ${att.filePath}: ${readError instanceof Error ? readError.message : String(readError)}`,
+            );
+          }
+          return {
+            // `||` (not `??`) so empty strings also fall back to defaults —
+            // an empty filename or MIME type is invalid in MIME headers.
+            filename: att.filename || path.basename(att.filePath),
+            content,
+            contentType: att.mimeType || getMimeTypeFromExtension(att.filePath),
+          };
+        }),
+      );
+
+      // The stat-based check above is a pre-flight guard so oversized files
+      // are rejected before being read into memory, but a file can change
+      // between stat and read (TOCTOU). Re-check against the bytes actually
+      // read so the size cap is authoritative.
+      assertWithinAttachmentSizeLimit(
+        resolvedAttachments.reduce((sum, att) => sum + att.content.length, 0),
+      );
+
+      return MimeHelper.createMimeMessageWithAttachments({
+        to: toField,
+        subject,
+        body,
+        cc: ccField,
+        bcc: bccField,
+        replyTo,
+        inReplyTo,
+        references,
+        isHtml,
+        attachments: resolvedAttachments,
+      });
+    }
+
+    return MimeHelper.createMimeMessage({
+      to: toField,
+      subject,
+      body,
+      cc: ccField,
+      bcc: bccField,
+      replyTo,
+      isHtml,
+      inReplyTo,
+      references,
+    });
+  }
+
   public send = async ({
     to,
     subject,
@@ -516,6 +639,7 @@ export class GmailService {
     bcc,
     replyTo,
     isHtml = false,
+    attachments,
   }: SendEmailParams) => {
     try {
       // Validate email addresses
@@ -532,14 +656,15 @@ export class GmailService {
       logToFile(`Sending email to: ${to}, subject: ${subject}`);
 
       // Create MIME message
-      const mimeMessage = MimeHelper.createMimeMessage({
-        to: Array.isArray(to) ? to.join(', ') : to,
+      const mimeMessage = await this.buildComposeMimeMessage({
+        to,
         subject,
         body,
-        cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
-        bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
+        cc,
+        bcc,
         replyTo,
         isHtml,
+        attachments,
       });
 
       const gmail = await this.getGmailClient();
@@ -637,93 +762,19 @@ export class GmailService {
         }
       }
 
-      // Create MIME message
-      let mimeMessage: string;
-
-      if (attachments && attachments.length > 0) {
-        // Validate all paths are absolute and check file sizes before reading anything
-        const attachmentSizes = await Promise.all(
-          attachments.map(async (att) => {
-            if (!path.isAbsolute(att.filePath)) {
-              throw new Error(
-                `Attachment filePath must be an absolute path: ${att.filePath}`,
-              );
-            }
-
-            let stats;
-            try {
-              stats = await fs.stat(att.filePath);
-            } catch (statError) {
-              throw new Error(
-                `Could not access attachment file ${att.filePath}: ${statError instanceof Error ? statError.message : String(statError)}`,
-              );
-            }
-
-            if (!stats.isFile()) {
-              throw new Error(`Attachment path is not a file: ${att.filePath}`);
-            }
-
-            return stats.size;
-          }),
-        );
-        const totalSize = attachmentSizes.reduce((sum, size) => sum + size, 0);
-        assertWithinAttachmentSizeLimit(totalSize);
-
-        // Read each file from disk
-        const resolvedAttachments = await Promise.all(
-          attachments.map(async (att) => {
-            let content: Buffer;
-            try {
-              content = await fs.readFile(att.filePath);
-            } catch (readError) {
-              throw new Error(
-                `Could not read attachment file ${att.filePath}: ${readError instanceof Error ? readError.message : String(readError)}`,
-              );
-            }
-            return {
-              // `||` (not `??`) so empty strings also fall back to defaults —
-              // an empty filename or MIME type is invalid in MIME headers.
-              filename: att.filename || path.basename(att.filePath),
-              content,
-              contentType:
-                att.mimeType || getMimeTypeFromExtension(att.filePath),
-            };
-          }),
-        );
-
-        // The stat-based check above is a pre-flight guard so oversized files
-        // are rejected before being read into memory, but a file can change
-        // between stat and read (TOCTOU). Re-check against the bytes actually
-        // read so the size cap is authoritative.
-        assertWithinAttachmentSizeLimit(
-          resolvedAttachments.reduce((sum, att) => sum + att.content.length, 0),
-        );
-
-        mimeMessage = MimeHelper.createMimeMessageWithAttachments({
-          to: Array.isArray(to) ? to.join(', ') : to,
-          subject,
-          body,
-          cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
-          bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
-          replyTo,
-          inReplyTo,
-          references,
-          isHtml,
-          attachments: resolvedAttachments,
-        });
-      } else {
-        mimeMessage = MimeHelper.createMimeMessage({
-          to: Array.isArray(to) ? to.join(', ') : to,
-          subject,
-          body,
-          cc: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : undefined,
-          bcc: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : undefined,
-          replyTo,
-          isHtml,
-          inReplyTo,
-          references,
-        });
-      }
+      // Create MIME message (shared compose path with gmail.send).
+      const mimeMessage = await this.buildComposeMimeMessage({
+        to,
+        subject,
+        body,
+        cc,
+        bcc,
+        replyTo,
+        isHtml,
+        attachments,
+        inReplyTo,
+        references,
+      });
 
       const response = await gmail.users.drafts.create({
         userId: 'me',

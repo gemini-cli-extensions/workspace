@@ -6,9 +6,9 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { PROJECT_ROOT } from './paths';
+import { STATE_DIR } from './paths';
 
-const logFilePath = path.join(PROJECT_ROOT, 'logs', 'server.log');
+const logFilePath = path.join(STATE_DIR, 'logs', 'server.log');
 
 async function ensureLogDirectoryExists() {
   try {
