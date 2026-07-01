@@ -38,8 +38,13 @@ describe('SheetsService', () => {
     mockSheetsAPI = {
       spreadsheets: {
         get: jest.fn(),
+        create: jest.fn(),
+        batchUpdate: jest.fn(),
         values: {
           get: jest.fn(),
+          update: jest.fn(),
+          append: jest.fn(),
+          clear: jest.fn(),
         },
       },
     };
@@ -368,6 +373,411 @@ describe('SheetsService', () => {
       const response = JSON.parse(result.content[0].text);
 
       expect(response.error).toBe('Metadata Error');
+    });
+  });
+
+  describe('updateRange', () => {
+    it('should write values to a specific range', async () => {
+      const mockResponse = {
+        data: {
+          updatedRange: 'Sheet1!A1:B2',
+          updatedRows: 2,
+          updatedColumns: 2,
+          updatedCells: 4,
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.update.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.updateRange({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1:B2',
+        values: [
+          ['A1', 'B1'],
+          ['A2', 'B2'],
+        ],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.update).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1:B2',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [
+            ['A1', 'B1'],
+            ['A2', 'B2'],
+          ],
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.updatedRange).toBe('Sheet1!A1:B2');
+      expect(response.updatedRows).toBe(2);
+      expect(response.updatedColumns).toBe(2);
+      expect(response.updatedCells).toBe(4);
+    });
+
+    it('should use RAW valueInputOption when specified', async () => {
+      const mockResponse = {
+        data: {
+          updatedRange: 'Sheet1!A1:A1',
+          updatedRows: 1,
+          updatedColumns: 1,
+          updatedCells: 1,
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.update.mockResolvedValue(mockResponse);
+
+      await sheetsService.updateRange({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1',
+        values: [['=SUM(B1:B10)']],
+        valueInputOption: 'RAW',
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          valueInputOption: 'RAW',
+        }),
+      );
+    });
+
+    it('should extract spreadsheet ID from a Sheets URL', async () => {
+      const mockResponse = {
+        data: {
+          updatedRange: 'Sheet1!A1:A1',
+          updatedRows: 1,
+          updatedColumns: 1,
+          updatedCells: 1,
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.update.mockResolvedValue(mockResponse);
+
+      await sheetsService.updateRange({
+        spreadsheetId:
+          'https://docs.google.com/spreadsheets/d/url-spreadsheet-id/edit#gid=0',
+        range: 'Sheet1!A1',
+        values: [['test']],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spreadsheetId: 'url-spreadsheet-id',
+        }),
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.values.update.mockRejectedValue(
+        new Error('Update Error'),
+      );
+
+      const result = await sheetsService.updateRange({
+        spreadsheetId: 'error-id',
+        range: 'Sheet1!A1',
+        values: [['test']],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
+      expect(response.error).toBe('Update Error');
+    });
+  });
+
+  describe('appendRange', () => {
+    it('should append rows to a sheet', async () => {
+      const mockResponse = {
+        data: {
+          updates: {
+            updatedRange: 'Sheet1!A4:B5',
+            updatedRows: 2,
+            updatedColumns: 2,
+            updatedCells: 4,
+          },
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.append.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.appendRange({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A:B',
+        values: [
+          ['NewRow1', 'Data1'],
+          ['NewRow2', 'Data2'],
+        ],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.append).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A:B',
+        valueInputOption: 'USER_ENTERED',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: {
+          values: [
+            ['NewRow1', 'Data1'],
+            ['NewRow2', 'Data2'],
+          ],
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.updates.updatedRange).toBe('Sheet1!A4:B5');
+      expect(response.updates.updatedRows).toBe(2);
+    });
+
+    it('should handle an append response without updates', async () => {
+      mockSheetsAPI.spreadsheets.values.append.mockResolvedValue({ data: {} });
+
+      const result = await sheetsService.appendRange({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A:B',
+        values: [['NewRow']],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.updates.updatedRange).toBeUndefined();
+      expect(response.updates.updatedRows).toBeUndefined();
+      expect(response.updates.updatedColumns).toBeUndefined();
+      expect(response.updates.updatedCells).toBeUndefined();
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.values.append.mockRejectedValue(
+        new Error('Append Error'),
+      );
+
+      const result = await sheetsService.appendRange({
+        spreadsheetId: 'error-id',
+        range: 'Sheet1!A:B',
+        values: [['test']],
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
+      expect(response.error).toBe('Append Error');
+    });
+  });
+
+  describe('clearRange', () => {
+    it('should clear values from a range', async () => {
+      const mockResponse = {
+        data: {
+          clearedRange: 'Sheet1!A1:D10',
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.values.clear.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.clearRange({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1:D10',
+      });
+
+      expect(mockSheetsAPI.spreadsheets.values.clear).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        range: 'Sheet1!A1:D10',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.clearedRange).toBe('Sheet1!A1:D10');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.values.clear.mockRejectedValue(
+        new Error('Clear Error'),
+      );
+
+      const result = await sheetsService.clearRange({
+        spreadsheetId: 'error-id',
+        range: 'Sheet1!A1:A1',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
+      expect(response.error).toBe('Clear Error');
+    });
+  });
+
+  describe('createSpreadsheet', () => {
+    it('should create a new spreadsheet', async () => {
+      const mockResponse = {
+        data: {
+          spreadsheetId: 'new-spreadsheet-id',
+          spreadsheetUrl:
+            'https://docs.google.com/spreadsheets/d/new-spreadsheet-id',
+          properties: { title: 'My New Sheet' },
+          sheets: [{ properties: { sheetId: 0, title: 'Sheet1' } }],
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.create.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.createSpreadsheet({
+        title: 'My New Sheet',
+      });
+
+      expect(mockSheetsAPI.spreadsheets.create).toHaveBeenCalledWith({
+        requestBody: {
+          properties: { title: 'My New Sheet' },
+          sheets: undefined,
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.spreadsheetId).toBe('new-spreadsheet-id');
+      expect(response.title).toBe('My New Sheet');
+    });
+
+    it('should create a spreadsheet with custom sheet titles', async () => {
+      const mockResponse = {
+        data: {
+          spreadsheetId: 'new-id',
+          spreadsheetUrl: 'https://docs.google.com/spreadsheets/d/new-id',
+          properties: { title: 'Budget' },
+          sheets: [
+            { properties: { sheetId: 0, title: 'Summary' } },
+            { properties: { sheetId: 1, title: 'Data' } },
+          ],
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.create.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.createSpreadsheet({
+        title: 'Budget',
+        sheetTitles: ['Summary', 'Data'],
+      });
+
+      expect(mockSheetsAPI.spreadsheets.create).toHaveBeenCalledWith({
+        requestBody: {
+          properties: { title: 'Budget' },
+          sheets: [
+            { properties: { title: 'Summary' } },
+            { properties: { title: 'Data' } },
+          ],
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.sheets).toHaveLength(2);
+      expect(response.sheets[0].title).toBe('Summary');
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.create.mockRejectedValue(
+        new Error('Create Error'),
+      );
+
+      const result = await sheetsService.createSpreadsheet({
+        title: 'Error Sheet',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
+      expect(response.error).toBe('Create Error');
+    });
+  });
+
+  describe('addSheet', () => {
+    it('should add a new sheet to a spreadsheet', async () => {
+      const mockResponse = {
+        data: {
+          replies: [
+            {
+              addSheet: {
+                properties: { sheetId: 123, title: 'New Tab' },
+              },
+            },
+          ],
+        },
+      };
+
+      mockSheetsAPI.spreadsheets.batchUpdate.mockResolvedValue(mockResponse);
+
+      const result = await sheetsService.addSheet({
+        spreadsheetId: 'test-id',
+        title: 'New Tab',
+      });
+
+      expect(mockSheetsAPI.spreadsheets.batchUpdate).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: 'New Tab' } } }],
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.sheetId).toBe(123);
+      expect(response.title).toBe('New Tab');
+    });
+
+    it('should handle an addSheet response without replies', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await sheetsService.addSheet({
+        spreadsheetId: 'test-id',
+        title: 'New Tab',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.sheetId).toBeUndefined();
+      expect(response.title).toBeUndefined();
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockRejectedValue(
+        new Error('AddSheet Error'),
+      );
+
+      const result = await sheetsService.addSheet({
+        spreadsheetId: 'error-id',
+        title: 'Bad Tab',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
+      expect(response.error).toBe('AddSheet Error');
+    });
+  });
+
+  describe('deleteSheet', () => {
+    it('should delete a sheet from a spreadsheet', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await sheetsService.deleteSheet({
+        spreadsheetId: 'test-id',
+        sheetId: 456,
+      });
+
+      expect(mockSheetsAPI.spreadsheets.batchUpdate).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        requestBody: {
+          requests: [{ deleteSheet: { sheetId: 456 } }],
+        },
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.message).toBe(
+        'Delete sheet request completed for sheet 456',
+      );
+    });
+
+    it('should handle errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockRejectedValue(
+        new Error('DeleteSheet Error'),
+      );
+
+      const result = await sheetsService.deleteSheet({
+        spreadsheetId: 'error-id',
+        sheetId: 999,
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(result).toHaveProperty('isError', true);
+      expect(response.error).toBe('DeleteSheet Error');
     });
   });
 });

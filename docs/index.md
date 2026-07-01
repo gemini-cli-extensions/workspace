@@ -40,6 +40,14 @@ The extension provides the following tools:
 - `sheets.getRange`: Gets values from a specific range in a Google Sheets
   spreadsheet.
 - `sheets.getMetadata`: Gets metadata about a Google Sheets spreadsheet.
+- `sheets.updateRange`: Writes values to a specific range in a Google Sheets
+  spreadsheet.
+- `sheets.appendRange`: Appends rows to a range in a Google Sheets spreadsheet.
+- `sheets.clearRange`: Clears values from a specific range in a Google Sheets
+  spreadsheet.
+- `sheets.createSpreadsheet`: Creates a new Google Sheets spreadsheet.
+- `sheets.addSheet`: Adds a sheet tab to a Google Sheets spreadsheet.
+- `sheets.deleteSheet`: Deletes a sheet tab from a Google Sheets spreadsheet.
 
 ### Google Drive
 
