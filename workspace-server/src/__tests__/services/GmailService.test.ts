@@ -250,6 +250,164 @@ describe('GmailService', () => {
       expect(response.attachments).toEqual([]);
     });
 
+    it('should extract Cc, Bcc and Reply-To headers when present', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'From', value: 'sender@example.com' },
+            { name: 'To', value: 'recipient@example.com' },
+            { name: 'Cc', value: 'cc-recipient@example.com' },
+            { name: 'Bcc', value: 'archive@example.com' },
+            { name: 'Reply-To', value: 'replies@example.com' },
+            { name: 'Subject', value: 'Test Email' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.cc).toBe('cc-recipient@example.com');
+      expect(response.bcc).toBe('archive@example.com');
+      expect(response.replyTo).toBe('replies@example.com');
+    });
+
+    it('should omit Cc, Bcc and Reply-To when absent', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'From', value: 'sender@example.com' },
+            { name: 'To', value: 'recipient@example.com' },
+            { name: 'Subject', value: 'Test Email' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response).not.toHaveProperty('cc');
+      expect(response).not.toHaveProperty('bcc');
+      expect(response).not.toHaveProperty('replyTo');
+    });
+
+    it('should omit headers whose value is null', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'From', value: 'sender@example.com' },
+            { name: 'To', value: 'recipient@example.com' },
+            { name: 'Cc', value: null },
+            { name: 'Subject', value: 'Test Email' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response).not.toHaveProperty('cc');
+    });
+
+    it('should return the first value when duplicate headers exist', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'From', value: 'sender@example.com' },
+            { name: 'To', value: 'recipient@example.com' },
+            { name: 'Subject', value: 'First Subject' },
+            { name: 'Subject', value: 'Second Subject' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.subject).toBe('First Subject');
+    });
+
+    it('should match header names case-insensitively', async () => {
+      const mockMessage = {
+        id: 'msg1',
+        threadId: 'thread1',
+        payload: {
+          headers: [
+            { name: 'from', value: 'sender@example.com' },
+            { name: 'TO', value: 'recipient@example.com' },
+            { name: 'CC', value: 'cc-recipient@example.com' },
+            { name: 'subject', value: 'Test Email' },
+          ],
+          body: {
+            data: 'SGVsbG8gV29ybGQh', // Base64 for "Hello World!"
+          },
+        },
+      };
+
+      mockGmailAPI.users.messages.get.mockResolvedValue({
+        data: mockMessage,
+      });
+
+      const result = await gmailService.get({
+        messageId: 'msg1',
+        format: 'full',
+      });
+
+      const response = JSON.parse(result.content[0].text);
+      expect(response.from).toBe('sender@example.com');
+      expect(response.to).toBe('recipient@example.com');
+      expect(response.cc).toBe('cc-recipient@example.com');
+      expect(response.subject).toBe('Test Email');
+    });
+
     it('should extract attachments in full format', async () => {
       const mockMessage = {
         id: 'msg_with_attach',

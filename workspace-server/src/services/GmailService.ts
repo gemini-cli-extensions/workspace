@@ -198,12 +198,24 @@ export class GmailService {
       // Extract useful information based on format
       if (format === 'metadata' || format === 'full') {
         const headers = message.payload?.headers || [];
-        const getHeader = (name: string) =>
-          headers.find((h) => h.name === name)?.value;
+        // Header names are case-insensitive per RFC 5322.
+        const headerMap = new Map<string, string>();
+        for (const h of headers) {
+          if (h.name && h.value != null) {
+            const key = h.name.toLowerCase();
+            if (!headerMap.has(key)) {
+              headerMap.set(key, h.value);
+            }
+          }
+        }
+        const getHeader = (name: string) => headerMap.get(name.toLowerCase());
 
         const subject = getHeader('Subject');
         const from = getHeader('From');
         const to = getHeader('To');
+        const cc = getHeader('Cc');
+        const bcc = getHeader('Bcc');
+        const replyTo = getHeader('Reply-To');
         const date = getHeader('Date');
 
         // Extract body and attachments for full format
@@ -228,6 +240,9 @@ export class GmailService {
                   subject,
                   from,
                   to,
+                  cc,
+                  bcc,
+                  replyTo,
                   date,
                   body: body || message.snippet,
                   attachments: attachments,
