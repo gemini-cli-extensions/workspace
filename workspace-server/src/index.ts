@@ -24,6 +24,7 @@ import { GMAIL_SEARCH_MAX_RESULTS } from './utils/constants';
 import { gmailAttachmentSchema } from './utils/validation';
 
 import { setLoggingEnabled, logToFile } from './utils/logger';
+import { installProcessLifecycle } from './utils/process-lifecycle';
 import { applyToolNameNormalization } from './utils/tool-normalization';
 import { SCOPES } from './auth/scopes';
 import { resolveFeatures } from './features/index';
@@ -2004,6 +2005,7 @@ System labels that can be modified:
   // 4. Connect the transport layer and start listening
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  installProcessLifecycle({ close: () => server.close() });
 
   console.error(
     `Google Workspace MCP Server is running (using ${separator} for tool names). Listening for requests...`,
