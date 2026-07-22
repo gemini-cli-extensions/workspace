@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type ShutdownReason = 'stdin-end' | 'stdin-close' | 'SIGINT' | 'SIGTERM';
+export type ShutdownReason =
+  | 'stdin-end'
+  | 'stdin-close'
+  | 'disconnect'
+  | 'SIGINT'
+  | 'SIGTERM';
 
 interface EventSource {
   once(event: string, listener: () => void): unknown;
@@ -21,7 +26,6 @@ export interface ProcessLifecycleOptions {
   stdin?: StdinEventSource;
   signals?: EventSource;
   exit?: (code: number) => void;
-  setExitCode?: (code: number) => void;
   onError?: (reason: ShutdownReason, error: unknown) => void;
 }
 
@@ -47,8 +51,6 @@ export function installProcessLifecycle(
   const stdin = options.stdin ?? process.stdin;
   const signals = options.signals ?? process;
   const exit = options.exit ?? ((code: number) => process.exit(code));
-  const setExitCode =
-    options.setExitCode ?? ((code: number) => (process.exitCode = code));
   const onError =
     options.onError ??
     ((reason: ShutdownReason, error: unknown) => {
@@ -65,6 +67,9 @@ export function installProcessLifecycle(
   const onStdinClose = () => {
     void shutdown('stdin-close');
   };
+  const onDisconnect = () => {
+    void shutdown('disconnect');
+  };
   const onSigint = () => {
     void shutdown('SIGINT');
   };
@@ -80,6 +85,7 @@ export function installProcessLifecycle(
     disposed = true;
     stdin.off('end', onStdinEnd);
     stdin.off('close', onStdinClose);
+    signals.off('disconnect', onDisconnect);
     signals.off('SIGINT', onSigint);
     signals.off('SIGTERM', onSigterm);
   }
@@ -106,10 +112,10 @@ export function installProcessLifecycle(
         dispose();
       }
 
-      if (requestedExitCode !== undefined) {
-        exit(closeFailed ? 1 : requestedExitCode);
-      } else if (closeFailed) {
-        setExitCode(1);
+      if (closeFailed) {
+        exit(1);
+      } else if (requestedExitCode !== undefined) {
+        exit(requestedExitCode);
       }
     })();
 
@@ -118,6 +124,7 @@ export function installProcessLifecycle(
 
   stdin.once('end', onStdinEnd);
   stdin.once('close', onStdinClose);
+  signals.once('disconnect', onDisconnect);
   signals.once('SIGINT', onSigint);
   signals.once('SIGTERM', onSigterm);
 

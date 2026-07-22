@@ -35,6 +35,27 @@ describe('installProcessLifecycle', () => {
     expect(exit).not.toHaveBeenCalled();
   });
 
+  it('closes once when the process disconnects and then stdin closes', async () => {
+    const stdin = new FakeStdin();
+    const signals = new EventEmitter();
+    const close = jest.fn(async () => {});
+    const exit = jest.fn<(code: number) => void>();
+    const controller = installProcessLifecycle({
+      close,
+      stdin,
+      signals,
+      exit,
+    });
+
+    signals.emit('disconnect');
+    stdin.emit('close');
+
+    await controller.getShutdownPromise();
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(exit).not.toHaveBeenCalled();
+  });
+
   it('upgrades an in-flight stdin shutdown when SIGTERM arrives', async () => {
     const stdin = new FakeStdin();
     const signals = new EventEmitter();
@@ -118,6 +139,35 @@ describe('installProcessLifecycle', () => {
     expect(exit).toHaveBeenCalledWith(1);
   });
 
+  it('reports close errors and exits with failure after disconnect', async () => {
+    const stdin = new FakeStdin();
+    const signals = new EventEmitter();
+    const error = new Error('close failed');
+    const callOrder: string[] = [];
+    const onError = jest.fn<(reason: string, error: unknown) => void>(() => {
+      callOrder.push('error');
+    });
+    const exit = jest.fn<(code: number) => void>(() => {
+      callOrder.push('exit');
+    });
+    const controller = installProcessLifecycle({
+      close: jest.fn(async () => {
+        throw error;
+      }),
+      stdin,
+      signals,
+      exit,
+      onError,
+    });
+
+    signals.emit('disconnect');
+    await controller.getShutdownPromise();
+
+    expect(onError).toHaveBeenCalledWith('disconnect', error);
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(callOrder).toEqual(['error', 'exit']);
+  });
+
   it('closes immediately when stdin had already ended', async () => {
     const stdin = new FakeStdin();
     stdin.readableEnded = true;
@@ -143,11 +193,13 @@ describe('installProcessLifecycle', () => {
     controller.dispose();
     stdin.emit('end');
     signals.emit('SIGTERM');
+    signals.emit('disconnect');
 
     expect(close).not.toHaveBeenCalled();
     expect(stdin.listenerCount('end')).toBe(0);
     expect(stdin.listenerCount('close')).toBe(0);
     expect(signals.listenerCount('SIGINT')).toBe(0);
     expect(signals.listenerCount('SIGTERM')).toBe(0);
+    expect(signals.listenerCount('disconnect')).toBe(0);
   });
 });
