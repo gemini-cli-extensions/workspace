@@ -122,4 +122,30 @@ describe("handleMcpRequest", () => {
     const res = await handleMcpRequest(new Request("https://example.workers.dev/mcp", { method: "GET" }), env, ctx);
     expect(res.status).toBe(405);
   });
+
+  it("a request missing `method` degrades to -32600 instead of throwing", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const res = await handleMcpRequest(rpc({ jsonrpc: "2.0", id: 1 }), env, ctx);
+    expect(res.status).toBe(200);
+    const body = await rpcJson(res);
+    expect(body.error).toBeDefined();
+    expect(body.error!.code).toBe(-32600);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("a non-JSON body degrades to a parse error instead of throwing", async () => {
+    const res = await handleMcpRequest(
+      new Request("https://example.workers.dev/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "not json",
+      }),
+      env,
+      ctx,
+    );
+    expect([400, 200]).toContain(res.status);
+    const body = await rpcJson(res);
+    expect(body.error).toBeDefined();
+    expect(body.error!.code).toBe(-32700);
+  });
 });

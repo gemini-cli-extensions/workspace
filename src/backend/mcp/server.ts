@@ -41,7 +41,37 @@ function rpcError(id: string | number | null, code: number, message: string): Js
   return { jsonrpc: "2.0", id, error: { code, message } };
 }
 
-/** Dispatches a single JSON-RPC request. Returns `null` for notifications (no `id`, no response body owed). */
+/** Best-effort `id` extraction for error responses when the body shape itself is untrusted. */
+function extractId(raw: unknown): string | number | null {
+  if (raw && typeof raw === "object" && "id" in raw) {
+    const id = (raw as { id?: unknown }).id;
+    return typeof id === "string" || typeof id === "number" ? id : null;
+  }
+  return null;
+}
+
+/**
+ * Validates + dispatches a single untrusted JSON-RPC element. `/mcp` is a
+ * public endpoint, so `raw` may be anything a caller sent as JSON (an array
+ * element, `null`, a string, an object missing `method`, ...) — never assume
+ * it matches `JsonRpcRequest` before checking its shape. Any error thrown
+ * below (including unexpected bugs in `dispatch`) is caught here so callers
+ * always get a JSON-RPC error instead of an unhandled exception.
+ */
+async function safeDispatch(raw: unknown, env: Env, sub: string | null): Promise<JsonRpcResponse | null> {
+  const id = extractId(raw);
+  if (typeof raw !== "object" || raw === null || typeof (raw as { method?: unknown }).method !== "string") {
+    return rpcError(id, -32600, "Invalid Request");
+  }
+  try {
+    return await dispatch(raw as JsonRpcRequest, env, sub);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return rpcError(id, -32603, `Internal error: ${msg}`);
+  }
+}
+
+/** Dispatches a single well-formed JSON-RPC request. Returns `null` for notifications (no `id`, no response body owed). */
 async function dispatch(req: JsonRpcRequest, env: Env, sub: string | null): Promise<JsonRpcResponse | null> {
   const id = req.id ?? null;
   const method = req.method;
@@ -142,7 +172,7 @@ export async function handleMcpRequest(request: Request, env: Env, _ctx: Executi
   const sub = await resolveSub(request, env);
 
   if (Array.isArray(body)) {
-    const responses = (await Promise.all(body.map((r) => dispatch(r as JsonRpcRequest, env, sub)))).filter(
+    const responses = (await Promise.all(body.map((r) => safeDispatch(r, env, sub)))).filter(
       (r): r is JsonRpcResponse => r !== null,
     );
     if (responses.length === 0) {
@@ -151,7 +181,7 @@ export async function handleMcpRequest(request: Request, env: Env, _ctx: Executi
     return new Response(JSON.stringify(responses), { status: 200, headers: JSON_HEADERS });
   }
 
-  const response = await dispatch(body as JsonRpcRequest, env, sub);
+  const response = await safeDispatch(body, env, sub);
   if (response === null) {
     return new Response(null, { status: 202 });
   }
