@@ -31,18 +31,11 @@ type DOBindingDescriptor = {
 /**
  * Canonical list of Durable Object agent bindings the coordinator pings.
  *
- * Each entry is opened via `env[binding].idFromName("health-probe")`, a stub
- * is fetched, and a no-op HTTP request to `/__ping` is sent. Failures and
- * timeouts are caught and recorded — they do not abort the run.
+ * This Worker has zero Durable Object bindings, so the list is empty — kept
+ * as a typed array (rather than deleting `pingAgent`/`DOBindingDescriptor`)
+ * so a future binding can be re-added here without touching the run logic.
  */
-const AGENT_BINDINGS: DOBindingDescriptor[] = [
-  { binding: "CODE_MODE_AGENT" as keyof Env, name: "code_mode_agent_ping" },
-  { binding: "BROWSER_HITL_AGENT" as keyof Env, name: "browser_hitl_agent_ping" },
-  { binding: "WORKFLOWS_AGENT" as keyof Env, name: "workflows_agent_ping" },
-  { binding: "ARTIFACT_AGENT" as keyof Env, name: "artifact_agent_ping" },
-  { binding: "CHAT_BROKER" as keyof Env, name: "chat_broker_ping" },
-  { binding: "NOTIFICATIONS_AGENT" as keyof Env, name: "notifications_agent_ping" },
-];
+const AGENT_BINDINGS: DOBindingDescriptor[] = [];
 
 const PING_TIMEOUT_MS = 2000;
 

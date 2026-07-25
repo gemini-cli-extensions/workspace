@@ -6,18 +6,15 @@
  * `projects` table is empty, so it is safe to call repeatedly (e.g. from a
  * "Seed demo data" button or a first-run script). It populates projects, tasks
  * (spread across the last ~30 days so the dashboard time-series renders),
- * team notes, webhooks, an activity feed, and a handful of realtime
- * notifications (routed through the NotificationsAgent Durable Object).
+ * team notes, webhooks, and an activity feed.
  *
  * This is intentionally public for template convenience. For a production app,
  * move it behind `/api/admin/*` (auth-gated) or delete it.
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { getAgentByName } from "agents";
 import { sql } from "drizzle-orm";
 
-import type { NotificationsAgent } from "@/backend/ai/agents/NotificationsAgent";
 import { getDb } from "@/backend/db";
 import { activityLog, projects, tasks, teamNotes, webhooks } from "@/backend/db/schema";
 
@@ -172,24 +169,11 @@ seedRouter.openapi(
       { actor: "EM", action: "completed", entityType: "task", summary: "Completed “Migrate D1 schema to folders”", createdAt: daysAgo(15) },
     ]);
 
-    // --- Notifications (through the realtime DO) -----------------------------
-    let notificationCount = 0;
-    try {
-      const ns = c.env.NOTIFICATIONS_AGENT as unknown as DurableObjectNamespace<NotificationsAgent>;
-      const stub = await getAgentByName(ns, "global");
-      const seedNotifications = [
-        { type: "success" as const, title: "Deploy succeeded", body: "Edge Platform shipped to production." },
-        { type: "mention" as const, title: "You were mentioned", body: "SP mentioned you on “Add rate limiting”." },
-        { type: "warning" as const, title: "Task overdue", body: "“Add rate limiting to the API gateway” is past due." },
-        { type: "info" as const, title: "New teammate", body: "D joined the Design System project." },
-      ];
-      for (const n of seedNotifications) {
-        await stub.add(n);
-        notificationCount++;
-      }
-    } catch (err) {
-      console.warn("Seed: notifications DO unavailable", err);
-    }
+    // Notifications used to be seeded through the realtime NotificationsAgent
+    // Durable Object; this Worker has zero DO bindings now, so that step is
+    // gone. `counts.notifications` stays 0 until a DO-free notifications path
+    // exists.
+    const notificationCount = 0;
 
     // Recompute denormalized task counts per project.
     await db.run(

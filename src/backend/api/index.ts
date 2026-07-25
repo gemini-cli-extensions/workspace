@@ -9,9 +9,9 @@
  *   - `/scalar`       — interactive Scalar API reference UI
  *   - `/swagger`      — Swagger UI
  *
- * The chat / agent surfaces are NOT served here — they run on Durable Objects
- * via the Agents SDK (`routeAgentRequest`) and are wired in `src/_worker.ts`.
- * Route mount order: auth → health → config → admin → docs → client-error.
+ * This Worker has zero Durable Object bindings. MCP (`/mcp`) and Google OAuth
+ * (`/auth/google*`) are wired directly in `src/_worker.ts`, outside this Hono
+ * app. Route mount order: auth → health → config → admin → docs → client-error.
  */
 
 import { swaggerUI } from "@hono/swagger-ui";
@@ -27,10 +27,8 @@ import { clientErrorRouter } from "./routes/client-error";
 import { adminRouter, configRouter } from "./routes/config";
 import { docsRouter } from "./routes/docs";
 import { healthRouter } from "./routes/health";
-import { inboxRouter } from "./routes/inbox";
 import { activityRouter } from "./routes/activity";
 import { dashboardRouter } from "./routes/dashboard";
-import { notificationsRouter } from "./routes/notifications";
 import { projectsRouter } from "./routes/projects";
 import { seedRouter } from "./routes/seed";
 import { settingsRouter } from "./routes/settings";
@@ -38,8 +36,6 @@ import { taskDetailRouter } from "./routes/task-detail";
 import { taskHierarchyRouter } from "./routes/task-hierarchy";
 import { tasksRouter } from "./routes/tasks";
 import { teamNotesRouter } from "./routes/team-notes";
-import { threadsRouter } from "./routes/threads";
-import { webhooksRouter } from "./routes/webhooks";
 
 // ---------------------------------------------------------------------------
 // App type — shared by all routers
@@ -127,13 +123,9 @@ app.route("/api/tasks", taskDetailRouter);
 // Parent/child (subtask) navigation — GET /{id}/children, GET /{id}/ancestors.
 app.route("/api/tasks", taskHierarchyRouter);
 app.route("/api/team-notes", teamNotesRouter);
-app.route("/api/threads", threadsRouter);
 app.route("/api/settings", settingsRouter);
-app.route("/api/webhooks", webhooksRouter);
 app.route("/api/activity", activityRouter);
-app.route("/api/notifications", notificationsRouter);
 app.route("/api/dashboard", dashboardRouter);
-app.route("/api/inbox", inboxRouter);
 app.route("/api/seed", seedRouter);
 
 app.route("/api/__client-error", clientErrorRouter);

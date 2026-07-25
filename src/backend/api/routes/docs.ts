@@ -10,7 +10,6 @@
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 
-import { ChatBroker } from "../../ai/agents/ChatBroker";
 import {
   BEST_PRACTICES_TABLE_DESCRIPTION,
   BEST_PRACTICES_COLUMN_DESCRIPTIONS,
@@ -165,54 +164,6 @@ const TABLE_DOCS: Record<string, TableDocEntry> = {
 const TABLE_NAMES = Object.keys(TABLE_DOCS);
 
 // ---------------------------------------------------------------------------
-// Agent metadata — the Agents SDK showcase agents
-// ---------------------------------------------------------------------------
-
-/**
- * Lightweight metadata descriptors for the showcase Durable Object agents that
- * don't (yet) expose a static `docsMetadata()`. Keeps the `/docs/agents` page
- * populated without forcing every agent to implement the full contract.
- */
-const SHOWCASE_AGENTS = [
-  {
-    name: "CodeModeAgent",
-    className: "CodeModeAgent",
-    description:
-      "Demonstrates server-side tool calling: the agent generates and reasons over code, exposing callable RPC methods to the frontend.",
-    docsPath: "/docs/agents/code-mode",
-    methods: [] as Array<{ name: string; description: string }>,
-    tools: [] as string[],
-  },
-  {
-    name: "BrowserHitlAgent",
-    className: "BrowserHitlAgent",
-    description:
-      "Human-in-the-loop browser automation: proposes actions, persists them as proposals, and waits for approval before continuing.",
-    docsPath: "/docs/agents/browser-hitl",
-    methods: [],
-    tools: [],
-  },
-  {
-    name: "WorkflowsAgent",
-    className: "WorkflowsAgent",
-    description:
-      "Durable, multi-step workflows that survive restarts — showcases scheduled tasks and durable execution on a Durable Object.",
-    docsPath: "/docs/agents/workflows",
-    methods: [],
-    tools: [],
-  },
-  {
-    name: "ArtifactAgent",
-    className: "ArtifactAgent",
-    description:
-      "Streams structured artifacts (documents, canvases) back to an assistant-ui surface with incremental updates.",
-    docsPath: "/docs/agents/artifacts",
-    methods: [],
-    tools: [],
-  },
-];
-
-// ---------------------------------------------------------------------------
 // Zod schemas for responses
 // ---------------------------------------------------------------------------
 
@@ -327,6 +278,10 @@ docsRouter.openapi(
 );
 
 // GET /api/docs/agents
+//
+// This Worker has zero Durable Object bindings — no agents to document.
+// Kept as an empty-array endpoint (rather than removed) so `/docs/agents`
+// consumers don't need a conditional fetch.
 docsRouter.openapi(
   createRoute({
     method: "get",
@@ -340,11 +295,6 @@ docsRouter.openapi(
     },
   }),
   (async (c: any) => {
-    const agents = [
-      { ...ChatBroker.docsMetadata(), tools: [] as string[] },
-      ...SHOWCASE_AGENTS,
-    ];
-
-    return c.json({ agents });
+    return c.json({ agents: [] });
   }) as any,
 );

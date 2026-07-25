@@ -1,5 +1,5 @@
 {
-  "name": "core-template-cfw-assets-astro-shadcn",
+  "name": "google-workspace-mcp",
   "main": "dist/_worker.js/index.js",
   "compatibility_date": "2026-05-25",
   "compatibility_flags": ["nodejs_compat"],
@@ -27,112 +27,8 @@
     "run_worker_first": true,
     "not_found_handling": "404-page",
   },
-  "ai": {
-    "binding": "AI",
-    // Workers AI has no local emulation. `remote: true` lets `wrangler dev`
-    // (which runs Durable Objects locally — `--remote` is unsupported for DOs)
-    // proxy AI inference to the real Workers AI service, so the chat agents
-    // stream genuine model output during local development.
-    "remote": true,
-  },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "CODE_MODE_AGENT",
-        "class_name": "CodeModeAgent",
-      },
-      {
-        "name": "BROWSER_HITL_AGENT",
-        "class_name": "BrowserHitlAgent",
-      },
-      {
-        "name": "WORKFLOWS_AGENT",
-        "class_name": "WorkflowsAgent",
-      },
-      {
-        "name": "ARTIFACT_AGENT",
-        "class_name": "ArtifactAgent",
-      },
-      {
-        "name": "CHAT_BROKER",
-        "class_name": "ChatBroker",
-      },
-      {
-        "name": "NOTIFICATIONS_AGENT",
-        "class_name": "NotificationsAgent",
-      },
-      {
-        "name": "ORCHESTRATOR_AGENT",
-        "class_name": "OrchestratorAgent",
-      },
-      {
-        "name": "RESEARCHER_AGENT",
-        "class_name": "ResearcherAgent",
-      },
-      {
-        "name": "CODER_AGENT",
-        "class_name": "CoderAgent",
-      },
-      {
-        "name": "MCP_AGENT",
-        "class_name": "McpAgent",
-      },
-      {
-        "name": "THINKING_AGENT",
-        "class_name": "ThinkingAgent",
-      },
-      {
-        "name": "SKILLS_AGENT",
-        "class_name": "SkillsAgent",
-      },
-    ],
-  },
-  "browser": {
-    "binding": "MYBROWSER",
-  },
-  "worker_loaders": [
-    { "binding": "WORKER_LOADERS" }
-  ],
   "migrations": [
-    // v1 captures the original deployed-class set so wrangler can apply
-    // an additive history. Do NOT rewrite this tag — it is immutable
-    // once a Worker has shipped under it.
-    {
-      "tag": "v1",
-      "new_sqlite_classes": [
-        "OrchestratorAgent",
-        "CodeModeAgent",
-        "GoogleDocsAgent",
-        "BrowserHitlAgent",
-        "WorkflowsAgent",
-        "ArtifactAgent",
-      ],
-    },
-    // v2 brings the live Worker in line with the lean template:
-    //   - retire OrchestratorAgent + GoogleDocsAgent (no longer exported)
-    //   - introduce ChatBroker (assistant-ui WebSocket broker)
-    //   - introduce NotificationsAgent (per-session realtime fanout)
-    {
-      "tag": "v2",
-      "deleted_classes": ["OrchestratorAgent", "GoogleDocsAgent"],
-      "new_sqlite_classes": ["ChatBroker", "NotificationsAgent"],
-    },
-    // v3 re-introduces the OrchestratorAgent (re-created additively after v2
-    // retired it) as a live multi-agent coordinator, adds its specialist
-    // sub-agents (ResearcherAgent, CoderAgent), and registers the three new
-    // showcase agents (McpAgent, ThinkingAgent, SkillsAgent). v1/v2 are left
-    // untouched — they are immutable history.
-    {
-      "tag": "v3",
-      "new_sqlite_classes": [
-        "OrchestratorAgent",
-        "ResearcherAgent",
-        "CoderAgent",
-        "McpAgent",
-        "ThinkingAgent",
-        "SkillsAgent",
-      ],
-    },
+    { "tag": "v1", "new_sqlite_classes": [] },
   ],
   // ---------------------------------------------------------------------------
   // Cloudflare Email Routing (inbound) — the `/inbox` showcase
@@ -162,12 +58,6 @@
   // plus `npx wrangler email sending enable yourdomain.com`. Add it only if you
   // wire an outbound reply flow.
   "vars": {
-    "AI_GATEWAY_ID": "default-gateway",
-    "MODEL_CHAT": "@cf/openai/gpt-oss-120b",
-    "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",
-    "MODEL_DRAFT": "@cf/openai/gpt-oss-120b",
-    "MODEL_TRANSCRIBE": "@cf/openai/whisper-large-v3-turbo",
-    "DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
     // Optional verified destination for message.forward() in the email handler.
     // Empty string = forwarding disabled (the message is stored in D1 only).
     "INBOX_FORWARD_TO": "",
@@ -227,14 +117,6 @@
       "binding": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
-    },
-  ],
-  //  wrangler vectorize create core-template-cfw-assets-astro-shadcn-career-memory --preset @cf/baai/bge-large-en-v1.5
-  "vectorize": [
-    {
-      "binding": "VECTORIZE_CAREER_MEMORY",
-      "index_name": "core-template-cfw-assets-astro-shadcn-career-memory",
-      "remote": true,
     },
   ],
   "r2_buckets": [

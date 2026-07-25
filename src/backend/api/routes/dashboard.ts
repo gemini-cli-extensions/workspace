@@ -16,10 +16,8 @@
  */
 
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { generateText } from "ai";
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 
-import { getChatModel } from "../../ai/providers/ai-sdk";
 import { getDb } from "../../db";
 import { metricsDaily, notifications, projects, tasks } from "../../db/schema";
 
@@ -348,15 +346,12 @@ dashboardRouter.openapi(
     },
   }),
   async (c) => {
-    const { range } = c.req.valid("query");
     const db = getDb(c.env);
     const now = new Date();
     const generatedAt = now.toISOString();
-    const rangeLabel = range ?? "30d";
-    const since = rangeStart(range);
 
     // --- Gather aggregates ------------------------------------------------
-    const [projectAgg, taskAgg, overdueAgg, unreadAgg, recentTasks] = await Promise.all([
+    const [projectAgg, taskAgg, overdueAgg, unreadAgg] = await Promise.all([
       db
         .select({
           total: sql<number>`count(*)`,
@@ -379,62 +374,26 @@ dashboardRouter.openapi(
         .select({ count: sql<number>`count(*)` })
         .from(notifications)
         .where(eq(notifications.read, false)),
-      db
-        .select({ status: tasks.status, createdAt: tasks.createdAt })
-        .from(tasks)
-        .where(gte(tasks.createdAt, since))
-        .orderBy(desc(tasks.createdAt))
-        .limit(200),
     ]);
 
     const totalProjects = projectAgg[0]?.total ?? 0;
     const activeProjects = projectAgg[0]?.active ?? 0;
     const totalTasks = taskAgg[0]?.total ?? 0;
     const completedTasks = taskAgg[0]?.completed ?? 0;
-    const inProgressTasks = taskAgg[0]?.inProgress ?? 0;
-    const todoTasks = taskAgg[0]?.todo ?? 0;
     const completionRate =
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
     const overdueTasks = overdueAgg[0]?.count ?? 0;
     const unreadNotifications = unreadAgg[0]?.count ?? 0;
-    const recentCreated = recentTasks.length;
-    const recentCompleted = recentTasks.filter((t) => t.status === "done").length;
 
-    // --- Build prompt (real newlines — NOT .join('\n')) --------------------
-    const prompt = `You are a project management analyst. Given the following dashboard metrics for the last ${rangeLabel}, produce exactly 2–4 concise bullet points (markdown, using "- " prefix) highlighting trends, risks, and recommendations. Do NOT repeat the numbers verbatim — interpret them.
-
-Dashboard metrics (${rangeLabel} window):
-- Total projects: ${totalProjects} (${activeProjects} active)
-- Total tasks: ${totalTasks} | Completed: ${completedTasks} | In Progress: ${inProgressTasks} | To Do: ${todoTasks}
-- Completion rate: ${completionRate}%
-- Overdue tasks: ${overdueTasks}
-- Unread notifications: ${unreadNotifications}
-- Tasks created in window: ${recentCreated}
-- Tasks completed in window: ${recentCompleted}
-
-Respond with only the bullet list. No preamble, no headings.`;
-
-    // --- Call Workers AI --------------------------------------------------
-    let insight: string;
-    try {
-      const model = getChatModel(c.env);
-      const result = await generateText({
-        model,
-        prompt,
-        maxOutputTokens: 400,
-      });
-      insight = result.text.trim();
-      if (!insight) throw new Error("empty response");
-    } catch (aiErr) {
-      console.error(
-        JSON.stringify({ level: "WARN", route: "dashboardInsights", aiError: String(aiErr) }),
-      );
-      // Graceful fallback — synthesize a bullet list from the raw numbers
-      insight = `- Completion rate is ${completionRate}% across ${totalTasks} tasks.
+    // This Worker has no Workers AI binding (removed with the Durable Object
+    // strip in Task 2) — synthesize the insight directly from the aggregates
+    // instead of calling an LLM.
+    // ponytail: static bullet list, upgrade to a real model call once an AI
+    // provider is wired back in.
+    const insight = `- Completion rate is ${completionRate}% across ${totalTasks} tasks.
 - ${overdueTasks > 0 ? `${overdueTasks} task${overdueTasks !== 1 ? "s are" : " is"} currently overdue — review priorities.` : "No overdue tasks detected."}
 - ${activeProjects} of ${totalProjects} project${totalProjects !== 1 ? "s are" : " is"} active.
 - ${unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications !== 1 ? "s" : ""} pending review.` : "Notification inbox is clear."}`;
-    }
 
     return c.json({ insight, generatedAt }, 200);
   },
