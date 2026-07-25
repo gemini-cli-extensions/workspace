@@ -30,33 +30,6 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": [] },
   ],
-  // ---------------------------------------------------------------------------
-  // Cloudflare Email Routing (inbound) — the `/inbox` showcase
-  // ---------------------------------------------------------------------------
-  //
-  // RECEIVING email needs NO wrangler binding. The Worker exports an
-  // `email(message, env, ctx)` handler (see src/_worker.ts +
-  // src/backend/email/inbound.ts); Cloudflare invokes it when a Routing Rule
-  // points an incoming address at this Worker. Set that up out-of-band:
-  //
-  //   Dashboard → the zone → Email → Email Routing →
-  //     1. Enable Email Routing for the domain (adds the required MX + TXT/SPF).
-  //     2. Routing Rules → "Send to a Worker" → select this Worker
-  //        (core-template-cfw-assets-astro-shadcn), or use a catch-all rule.
-  //   …or via CLI:
-  //     npx wrangler email routing rules create \
-  //       --match "to=demo@yourdomain.com" --action worker \
-  //       --value core-template-cfw-assets-astro-shadcn
-  //
-  // FORWARDING a copy via `message.forward(INBOX_FORWARD_TO)` is optional. The
-  // destination must be VERIFIED first (Dashboard → Destination addresses, or
-  // `npx wrangler email routing addresses create you@gmail.com`). Leave
-  // INBOX_FORWARD_TO empty to disable forwarding.
-  //
-  // REPLYING/SENDING (not used by this showcase) WOULD need a binding:
-  //   "send_email": [{ "name": "EMAIL" }]
-  // plus `npx wrangler email sending enable yourdomain.com`. Add it only if you
-  // wire an outbound reply flow.
   "vars": {
     // Optional verified destination for message.forward() in the email handler.
     // Empty string = forwarding disabled (the message is stored in D1 only).

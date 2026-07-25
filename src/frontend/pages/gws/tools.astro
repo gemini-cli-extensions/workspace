@@ -10,8 +10,15 @@ import { Badge } from "@/components/ui/badge";
 
 type Tool = { name: string; description: string; inputSchema: unknown };
 
-const res = await fetch(new URL("/api/gws/tools", Astro.url));
-const { tools } = (res.ok ? await res.json() : { tools: [] }) as { tools: Tool[] };
+let tools: Tool[] = [];
+try {
+  const res = await fetch(new URL("/api/gws/tools", Astro.url));
+  if (res.ok) {
+    ({ tools } = (await res.json()) as { tools: Tool[] });
+  }
+} catch {
+  // fall through to the empty state below
+}
 ---
 
 <BaseLayout

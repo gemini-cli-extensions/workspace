@@ -122,10 +122,13 @@ async function dispatch(req: JsonRpcRequest, env: Env, sub: string | null): Prom
       const started = Date.now();
       try {
         const { result, asset } = await tool.run({ env, sub }, parsedArgs);
+        // ponytail: mcp_logs is served by public-ish /api/gws/operations to any
+        // signed-in user — never persist raw arg values or response bodies
+        // (gmail_send body, gmail_list contents, etc). Key names are enough for
+        // the operations-log UI (tool name / success / latency / timestamp).
         await logOperation(env, {
           toolName: tool.name,
-          request: parsedArgs,
-          response: result,
+          request: { keys: Object.keys(parsedArgs ?? {}) },
           success: true,
           latencyMs: Date.now() - started,
         });
@@ -137,7 +140,7 @@ async function dispatch(req: JsonRpcRequest, env: Env, sub: string | null): Prom
         const msg = err instanceof Error ? err.message : String(err);
         await logOperation(env, {
           toolName: tool.name,
-          request: parsedArgs,
+          request: { keys: Object.keys(parsedArgs ?? {}) },
           success: false,
           errorMessage: msg,
           latencyMs: Date.now() - started,

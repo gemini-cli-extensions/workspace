@@ -11,6 +11,7 @@ import { z } from "zod";
 import { getDb } from "@/db";
 import { assetEvents, mcpLogs, workspaceAssets } from "@db/schemas";
 import { TOOLS } from "@/backend/mcp/tools";
+import { verifySessionCookie } from "@/backend/lib/cookies";
 
 import type { AppBindings } from "../index";
 
@@ -27,8 +28,13 @@ gwsRouter.get("/tools", (c) =>
   }),
 );
 
-/** GET /operations?limit= — recent google-workspace MCP call log, newest first. */
+/** GET /operations?limit= — recent google-workspace MCP call log, newest first. Auth required. */
 gwsRouter.get("/operations", async (c) => {
+  const session = await verifySessionCookie(c.env, c.req.header("Cookie"));
+  if (!session) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const limit = Number(c.req.query("limit") ?? "100");
   const db = getDb(c.env);
   const operations = await db
@@ -40,11 +46,26 @@ gwsRouter.get("/operations", async (c) => {
   return c.json({ operations });
 });
 
-/** GET /assets — tracked workspace assets, newest-touched first, with their events. */
+/** GET /assets — the caller's tracked workspace assets, newest-touched first, with their events. Auth required. */
 gwsRouter.get("/assets", async (c) => {
+  const session = await verifySessionCookie(c.env, c.req.header("Cookie"));
+  if (!session) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const db = getDb(c.env);
-  const assets = await db.select().from(workspaceAssets).orderBy(desc(workspaceAssets.lastTouchedAt)).limit(200);
-  const events = await db.select().from(assetEvents).orderBy(desc(assetEvents.createdAt)).limit(1000);
+  const assets = await db
+    .select()
+    .from(workspaceAssets)
+    .where(eq(workspaceAssets.userSub, session.sub))
+    .orderBy(desc(workspaceAssets.lastTouchedAt))
+    .limit(200);
+  const events = await db
+    .select()
+    .from(assetEvents)
+    .where(eq(assetEvents.userSub, session.sub))
+    .orderBy(desc(assetEvents.createdAt))
+    .limit(1000);
 
   const eventsByAsset = new Map<string, (typeof events)[number][]>();
   for (const event of events) {
