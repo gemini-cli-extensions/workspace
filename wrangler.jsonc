@@ -61,6 +61,9 @@
     // Optional verified destination for message.forward() in the email handler.
     // Empty string = forwarding disabled (the message is stored in D1 only).
     "INBOX_FORWARD_TO": "",
+    // Deployed Worker URL, used to build the Google OAuth redirect_uri.
+    // Empty string = fall back to the incoming request's origin.
+    "PUBLIC_BASE_URL": "",
   },
   "kv_namespaces": [
     {

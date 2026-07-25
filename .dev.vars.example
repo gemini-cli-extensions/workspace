@@ -1,0 +1,4 @@
+# Local dev secrets for `wrangler dev` (copy to .dev.vars, which is gitignored). Never commit real values.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+PUBLIC_BASE_URL=http://localhost:8787
