@@ -5,7 +5,8 @@ const SESSION_COOKIE = "cr_session";
 const TWO_YEARS_SECONDS = 60 * 60 * 24 * 365 * 2;
 
 export type SessionPayload = {
-  sub: "single-user";
+  sub: string; // Google account `sub` (was: "single-user")
+  email?: string;
   exp: number;
   iat: number;
 };
@@ -16,7 +17,8 @@ export async function createSessionCookie(
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const session: SessionPayload = {
-    sub: "single-user",
+    sub: payload.sub ?? "single-user",
+    email: payload.email,
     iat: payload.iat ?? now,
     exp: payload.exp ?? now + TWO_YEARS_SECONDS,
   };
