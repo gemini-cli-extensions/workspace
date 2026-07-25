@@ -1,0 +1,80 @@
+---
+/**
+ * `/gws/assets` — tracked workspace assets with their event timelines,
+ * SSR-fetched from `GET /api/gws/assets` (Task 15). Same self-fetch pattern
+ * as `/gws/tools` and `/gws/operations`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { shortDate } from "@/lib/format";
+
+type AssetEvent = { id: string; action: string; toolName: string; createdAt: string | number };
+type Asset = {
+  id: string;
+  assetType: string;
+  title: string | null;
+  url: string | null;
+  lastTouchedAt: string | number;
+  events: AssetEvent[];
+};
+
+const res = await fetch(new URL("/api/gws/assets", Astro.url));
+const { assets } = (res.ok ? await res.json() : { assets: [] }) as { assets: Asset[] };
+---
+
+<BaseLayout
+  title="Asset Activity"
+  description="Google Workspace files touched through MCP tool calls, each with its event timeline"
+>
+  <div class="container mx-auto max-w-4xl px-4 py-16">
+    <section class="mb-10 space-y-4">
+      <Badge variant="outline" class="font-mono text-[11px]">{assets.length} assets</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight">Asset Activity</h1>
+      <p class="max-w-2xl text-base text-muted-foreground">
+        Drive files, Docs, Sheets, and Gmail threads touched through MCP tool calls, newest-touched
+        first. Loaded live from <code class="text-primary">GET /api/gws/assets</code>.
+      </p>
+    </section>
+
+    {assets.length === 0 ? (
+      <p class="rounded-xl bg-card p-8 text-center text-sm text-muted-foreground ring-1 ring-border/40">
+        No tracked assets yet. Sign in and call a tool that touches a file through <code class="text-primary">/mcp</code> to see it here.
+      </p>
+    ) : (
+      <div class="space-y-4">
+        {assets.map((asset) => (
+          <div class="rounded-xl bg-card p-5 ring-1 ring-border/40">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex min-w-0 items-center gap-2">
+                <Badge variant="outline" class="shrink-0 font-mono text-[10px] uppercase">{asset.assetType}</Badge>
+                {asset.url ? (
+                  <a href={asset.url} target="_blank" rel="noopener noreferrer" class="truncate font-medium text-foreground hover:text-primary hover:underline">
+                    {asset.title ?? asset.url}
+                  </a>
+                ) : (
+                  <span class="truncate font-medium text-foreground">{asset.title ?? asset.id}</span>
+                )}
+              </div>
+              <span class="shrink-0 text-xs text-muted-foreground">last touched {shortDate(asset.lastTouchedAt)}</span>
+            </div>
+
+            {asset.events.length > 0 ? (
+              <ul class="mt-4 space-y-2 border-t border-border/40 pt-4">
+                {asset.events.map((event) => (
+                  <li class="flex items-center justify-between gap-3 text-xs">
+                    <span class="text-foreground">
+                      <span class="font-medium">{event.action}</span>
+                      <span class="text-muted-foreground"> via </span>
+                      <span class="font-mono">{event.toolName}</span>
+                    </span>
+                    <span class="shrink-0 text-muted-foreground">{shortDate(event.createdAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>

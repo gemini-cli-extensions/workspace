@@ -1,0 +1,52 @@
+---
+/**
+ * `/gws/tools` — the MCP tool catalog, SSR-fetched from `GET /api/gws/tools`
+ * (Task 15). Self-fetch during SSR because `/api/gws/*` is served by the same
+ * Worker (see `isApiPath` in `src/_worker.ts`) — no separate origin, no auth
+ * needed for this read-only catalog.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+
+type Tool = { name: string; description: string; inputSchema: unknown };
+
+const res = await fetch(new URL("/api/gws/tools", Astro.url));
+const { tools } = (res.ok ? await res.json() : { tools: [] }) as { tools: Tool[] };
+---
+
+<BaseLayout
+  title="MCP Tools"
+  description="The Google Workspace MCP tool catalog — names, descriptions, and JSON-Schema input shapes"
+>
+  <div class="container mx-auto max-w-4xl px-4 py-16">
+    <section class="mb-10 space-y-4">
+      <Badge variant="outline" class="font-mono text-[11px]">{tools.length} tools</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight">MCP Tools</h1>
+      <p class="max-w-2xl text-base text-muted-foreground">
+        Every tool below is callable through the stateless <code class="text-primary">/mcp</code> JSON-RPC
+        endpoint once you're signed in. Loaded live from <code class="text-primary">GET /api/gws/tools</code>.
+      </p>
+    </section>
+
+    {tools.length === 0 ? (
+      <p class="rounded-xl bg-card p-8 text-center text-sm text-muted-foreground ring-1 ring-border/40">
+        No tools registered.
+      </p>
+    ) : (
+      <div class="space-y-4">
+        {tools.map((tool) => (
+          <details class="group overflow-hidden rounded-xl bg-card ring-1 ring-border/40">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+              <div class="min-w-0">
+                <div class="font-mono text-sm font-semibold text-foreground">{tool.name}</div>
+                <div class="mt-1 text-sm text-muted-foreground">{tool.description}</div>
+              </div>
+              <span aria-hidden class="shrink-0 text-muted-foreground transition-transform group-open:rotate-180">▾</span>
+            </summary>
+            <pre class="overflow-x-auto border-t border-border/40 bg-muted/30 px-5 py-4 font-mono text-xs leading-relaxed text-foreground/90">{JSON.stringify(tool.inputSchema, null, 2)}</pre>
+          </details>
+        ))}
+      </div>
+    )}
+  </div>
+</BaseLayout>

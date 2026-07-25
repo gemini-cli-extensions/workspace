@@ -1,0 +1,67 @@
+---
+/**
+ * `/gws` — landing page for the Google Workspace MCP tool. Explains what the
+ * Worker does, offers "Sign in with Google" (`/auth/google`), and links the
+ * four sub-pages. Static content only — no API calls needed here.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+const cards = [
+  { href: "/gws/setup", icon: "🛠️", title: "Setup & Deploy", desc: "OAuth client, secrets, KV/D1, and the deploy + sign-in flow." },
+  { href: "/gws/tools", icon: "🧰", title: "MCP Tools", desc: "The tool catalog exposed at /mcp, with JSON-Schema input shapes." },
+  { href: "/gws/operations", icon: "📜", title: "Operations Log", desc: "Recent MCP tool invocations — status, latency, and timestamps." },
+  { href: "/gws/assets", icon: "📁", title: "Asset Activity", desc: "Workspace files touched through MCP, each with its event timeline." },
+];
+---
+
+<BaseLayout
+  title="Google Workspace MCP"
+  description="A remote MCP server exposing Google Drive, Docs, Sheets, and Gmail tools on Cloudflare Workers"
+>
+  <div class="container mx-auto max-w-6xl px-4 py-16">
+
+    <!-- Hero -->
+    <section class="mb-16 space-y-6">
+      <Badge variant="outline" class="font-mono text-[11px]">Remote MCP Server</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight sm:text-5xl">Google Workspace MCP</h1>
+      <p class="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+        A single Cloudflare Worker that exposes Google Drive, Docs, Sheets, and Gmail as MCP
+        tools over a stateless <code class="text-primary">/mcp</code> JSON-RPC endpoint. Sign in
+        with your Google account once; every tool call runs against your own Workspace data,
+        keyed by your Google account (multi-user, no shared credentials).
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a href="/auth/google">
+          <Button size="lg">Sign in with Google</Button>
+        </a>
+        <a href="/gws/setup">
+          <Button size="lg" variant="outline">Setup &amp; Deploy</Button>
+        </a>
+      </div>
+    </section>
+
+    <!-- Sub-page cards -->
+    <section>
+      <h2 class="mb-6 text-2xl font-bold tracking-tight">Explore</h2>
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        {cards.map((item) => (
+          <a href={item.href} class="block">
+            <Card class="h-full transition-colors hover:ring-primary/50">
+              <CardHeader>
+                <div class="mb-2 text-3xl">{item.icon}</div>
+                <CardTitle class="text-base">{item.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription class="text-sm">{item.desc}</CardDescription>
+              </CardContent>
+            </Card>
+          </a>
+        ))}
+      </div>
+    </section>
+
+  </div>
+</BaseLayout>

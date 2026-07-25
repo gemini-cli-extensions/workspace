@@ -1,0 +1,71 @@
+---
+/**
+ * `/gws/operations` — MCP tool invocation log, SSR-fetched from
+ * `GET /api/gws/operations` (Task 15). Same self-fetch pattern as
+ * `/gws/tools`: `/api/*` is served by this same Worker.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { shortDate } from "@/lib/format";
+
+type Operation = {
+  id: string;
+  toolName: string;
+  success: boolean;
+  latencyMs: number;
+  errorMessage: string | null;
+  createdAt: string | number;
+};
+
+const res = await fetch(new URL("/api/gws/operations?limit=100", Astro.url));
+const { operations } = (res.ok ? await res.json() : { operations: [] }) as { operations: Operation[] };
+---
+
+<BaseLayout
+  title="Operations Log"
+  description="Recent Google Workspace MCP tool invocations — status, latency, and timestamps"
+>
+  <div class="container mx-auto max-w-5xl px-4 py-16">
+    <section class="mb-10 space-y-4">
+      <Badge variant="outline" class="font-mono text-[11px]">{operations.length} calls</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight">Operations Log</h1>
+      <p class="max-w-2xl text-base text-muted-foreground">
+        Every MCP tool call made through <code class="text-primary">/mcp</code>, newest first. Loaded live
+        from <code class="text-primary">GET /api/gws/operations</code>.
+      </p>
+    </section>
+
+    {operations.length === 0 ? (
+      <p class="rounded-xl bg-card p-8 text-center text-sm text-muted-foreground ring-1 ring-border/40">
+        No operations logged yet. Sign in and call a tool through <code class="text-primary">/mcp</code> to see it here.
+      </p>
+    ) : (
+      <div class="overflow-hidden rounded-xl bg-card ring-1 ring-border/40">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-muted-foreground">
+              <th class="px-5 py-3 font-medium">Tool</th>
+              <th class="px-5 py-3 font-medium">Status</th>
+              <th class="px-5 py-3 font-medium">Latency</th>
+              <th class="px-5 py-3 font-medium">When</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border/40">
+            {operations.map((op) => (
+              <tr>
+                <td class="px-5 py-3 font-mono text-xs text-foreground">{op.toolName}</td>
+                <td class="px-5 py-3">
+                  <Badge variant={op.success ? "secondary" : "destructive"} class="font-mono text-[10px]">
+                    {op.success ? "ok" : "fail"}
+                  </Badge>
+                </td>
+                <td class="px-5 py-3 text-muted-foreground">{op.latencyMs}ms</td>
+                <td class="px-5 py-3 text-muted-foreground" title={String(op.createdAt)}>{shortDate(op.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</BaseLayout>
