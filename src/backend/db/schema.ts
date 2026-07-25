@@ -34,3 +34,4 @@ export * from "./schemas/settings";
 export * from "./schemas/notifications";
 export * from "./schemas/inbox";
 export * from "./schemas/chat";
+export * from "./schemas/workspace-assets";
