@@ -21,8 +21,9 @@ We want to:
    so we inherit the full frontend + backend scaffolding.
 4. Add frontend pages: setup docs, MCP tools catalog, an **operations log**, and
    a **workspace-asset activity** view — all backed by D1.
-5. Keep the template's existing pages; rewire the navbar to this tool and add a
-   new landing page.
+5. Keep the template's **structural** pages (docs, settings, dashboard, etc.);
+   drop the agent/showcase demo pages (see "Stripped from the template"); rewire
+   the navbar to this tool and add a new landing page.
 
 ## Confirmed decisions
 
@@ -36,6 +37,12 @@ We want to:
   the Worker. New Worker-native services live under `src/backend/mcp/`.
 - **Auth model:** **multi-user OAuth**, keyed by the Google account `sub`. Any
   user can sign in; their tokens are stored per-`sub` in KV.
+- **Durable Objects:** **strip all of them.** The template ships ~12 agent/
+  showcase DOs (CodeModeAgent, BrowserHitlAgent, WorkflowsAgent, ArtifactAgent,
+  OrchestratorAgent, ResearcherAgent, CoderAgent, ChatBroker, NotificationsAgent,
+  McpAgent, ThinkingAgent, SkillsAgent) — none are needed for this tool. Remove
+  them and serve `/mcp` **statelessly** in Hono (MCP SDK with
+  `sessionIdGenerator: undefined`). Zero DOs in the final Worker.
 
 ## Non-goals (this phase)
 
@@ -43,7 +50,30 @@ We want to:
 - Deploying to Cloudflare or completing the live Google OAuth consent — these are
   interactive/account-scoped steps the **user** performs; this work delivers the
   code, config, migrations, and setup docs.
-- Changing or removing any existing template page.
+- Keeping the template's agent/showcase demo pages (they depend on the stripped
+  DOs — see below).
+
+## Stripped from the template
+
+Removing all agent DOs forces removing the pages/routes that depend on them.
+
+- **Remove (DO-dependent):** every Durable Object class + `src/backend/ai/agents/`;
+  the `routeAgentRequest` branch in `src/_worker.ts`; the `agents`/AI-SDK wiring;
+  realtime + showcase pages: `chat`, `assistant`, `notifications`, `inbox`,
+  `playbook`, and `showcase/*`; their API routes (`threads`, `notifications`,
+  `inbox`, `webhooks` if agent-only). The `ai`/`browser`/`worker_loaders`/
+  `vectorize`/`durable_objects` bindings drop from `wrangler.jsonc`.
+- **Keep (structural / D1-backed):** `BaseLayout`, nav components, `siteConfig`,
+  `docs/*`, `settings/*`, `dashboard`, `analytics`, `tasks`, `projects`, `notes`,
+  health + config + activity API routes, `db/`, `lib/` (crypto, cookies), the
+  `DB` (D1) and `SESSIONS` (KV) bindings.
+- **Migrations:** since this Worker was never deployed under this name, rewrite
+  `wrangler.jsonc` `migrations` **fresh** (single `v1`, no DO classes) rather than
+  carrying the template's DO migration history. Drizzle `drizzle/` D1 migrations
+  are regenerated for the kept + new tables.
+
+If a "kept" page turns out to hard-depend on a removed DO, it moves to the remove
+list — no broken pages ship.
 
 ## Architecture
 
@@ -51,12 +81,11 @@ Single Cloudflare Worker (Astro SSR + Hono API + Durable Objects), deployed with
 `[assets]` (not Pages), per the template. New surfaces added on top:
 
 ```
-Worker fetch router (src/_worker.ts, unchanged routing precedence):
-  /agents/*        → Agents SDK (template)
+Worker fetch router (src/_worker.ts — /agents/* branch removed):
   /auth/google/*   → NEW: Google OAuth login + callback (Hono)
-  /mcp             → NEW: remote MCP endpoint (Streamable HTTP)
-  /api/*  + docs   → Hono API (template + new routes)
-  everything else  → Astro SSR pages (template + new pages)
+  /mcp             → NEW: remote MCP endpoint (Streamable HTTP, stateless)
+  /api/*  + docs   → Hono API (kept template routes + new routes)
+  everything else  → Astro SSR pages (kept template pages + new pages)
 ```
 
 ### 1. Google OAuth + KV token store
@@ -85,8 +114,9 @@ Worker fetch router (src/_worker.ts, unchanged routing precedence):
 ### 2. MCP server (`src/backend/mcp/`)
 
 - `server.ts` — builds an MCP server (`@modelcontextprotocol/sdk`) over
-  **Streamable HTTP** transport, mounted at `/mcp`. Resolves the caller's `sub`,
-  loads their `TokenProvider`, registers tools.
+  **Streamable HTTP** transport, **stateless** (`sessionIdGenerator: undefined`),
+  mounted at `/mcp` directly in the Hono/fetch handler (no Durable Object).
+  Resolves the caller's `sub`, loads their `TokenProvider`, registers tools.
 - `services/` — Workers-native rewrites, each a thin class over `fetch`:
   - `DriveService` — list/search/get/create files (Drive v3 REST).
   - `DocsService` — get/create/batchUpdate (Docs v1 REST).
@@ -171,8 +201,11 @@ its own `package.json` for reference but is excluded from the Worker build.
 - **MCP client auth** via session-token bearer is a pragmatic first cut; a
   provider that speaks MCP's OAuth (dynamic registration) is the eventual target.
   Flagged, not built this phase.
-- **Template size:** it ships many Durable Objects / AI agents unrelated to this
-  tool. We keep them (per "leave existing pages") but they add deploy surface;
-  acceptable for now.
+- **Stateless MCP tradeoff:** no session resumption or server-initiated
+  messages. Fine for a tools-only server; revisit only if a client needs
+  sessions.
+- **Dropped demo pages:** stripping DOs removes the template's agent/showcase
+  pages. Intentional (lean over demo completeness); reversible by restoring the
+  template copy if ever wanted.
 - **Scope creep guard:** only 4 services this phase. Remaining 7 are a documented
   follow-up, same pattern.
