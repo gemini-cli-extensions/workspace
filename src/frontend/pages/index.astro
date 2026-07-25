@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/config";
-import { AssistantModal } from "@/components/assistant/AssistantModal";
 ---
 
 <BaseLayout title="Cloudflare Edge Ecosystem" description="Strategic overview of the Cloudflare edge ecosystem">
@@ -364,7 +363,4 @@ import { AssistantModal } from "@/components/assistant/AssistantModal";
     </section>
 
   </div>
-
-  <!-- Floating "Ask AI" assistant modal (browser-only island). -->
-  <AssistantModal client:only="react" />
 </BaseLayout>
