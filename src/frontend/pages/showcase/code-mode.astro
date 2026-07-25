@@ -1,0 +1,31 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { CodeModePanel } from "@/components/showcase/CodeModePanel";
+---
+
+<BaseLayout
+  title="Code Mode"
+  description="Run TypeScript in sandboxed V8 isolates via the code-mode-agent"
+>
+  <div class="container mx-auto max-w-7xl px-4 py-12">
+    <!-- Explainer header (trimmed doc) -->
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">Code Mode</h1>
+        <Badge variant="outline">code-mode-agent</Badge>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        Instead of dozens of sequential tool calls, the agent writes a single
+        TypeScript plan and executes it inside an isolated V8 Worker (~15ms cold
+        start, no network unless allowed). The editor below calls the agent&rsquo;s
+        <code class="text-primary">executeCode</code> RPC and shows the real isolate
+        output; the chat drives the same sandbox through the
+        <code class="text-primary">executePlan</code> tool.
+      </p>
+    </header>
+
+    <!-- Live interactive panel (browser-only agents stack) -->
+    <CodeModePanel client:only="react" />
+  </div>
+</BaseLayout>

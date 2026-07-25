@@ -1,0 +1,41 @@
+---
+import { cn } from "@/lib/utils";
+
+import HeadSEO from "@/components/HeadSEO.astro";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+
+const { title, description, ogImage } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <HeadSEO title={title} description={description} ogImage={ogImage} />
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem("theme");
+          const prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          const dark = stored ? stored === "dark" : prefersDark;
+          document.documentElement.classList.toggle("dark", dark);
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body
+    class={cn(
+      "group/body overscroll-none antialiased [--footer-height:calc(var(--spacing)*14)] [--header-height:calc(var(--spacing)*14)] xl:[--footer-height:calc(var(--spacing)*24)]",
+    )}
+  >
+    <div class="bg-background relative z-10 flex min-h-svh flex-col">
+      <Header client:load />
+      <main class="flex flex-1 flex-col">
+        <slot />
+      </main>
+      <Footer />
+    </div>
+  </body>
+</html>

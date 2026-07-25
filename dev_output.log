@@ -1,0 +1,21 @@
+
+> @126colby/core-template-cfw-assets-astro-shadcn@26.02.24 dev /app
+> astro dev
+
+(node:12593) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+03:08:31 [@astrojs/cloudflare] Enabling sessions with Cloudflare KV with the "SESSION" KV binding.
+03:08:31 [@astrojs/cloudflare] If you see the error "Invalid binding `SESSION`" in your build output, you need to add the binding to your wrangler config file.
+03:08:32 [ERROR] [@astrojs/cloudflare] An unhandled error occurred while running the "astro:server:setup" hook
+Failed to start the remote proxy session, see the error details below:
+
+You must be logged in to use wrangler dev in remote mode. Try logging in, or run wrangler dev --local.
+  Location:
+    /app/node_modules/.pnpm/wrangler@4.50.0_@cloudflare+workers-types@4.20260307.1/node_modules/wrangler/wrangler-dist/cli.js:270920:11
+  Stack trace:
+    at /app/node_modules/.pnpm/wrangler@4.50.0_@cloudflare+workers-types@4.20260307.1/node_modules/wrangler/wrangler-dist/cli.js:270920:11
+    at async startRemoteProxySession (/app/node_modules/.pnpm/wrangler@4.50.0_@cloudflare+workers-types@4.20260307.1/node_modules/wrangler/wrangler-dist/cli.js:270891:18)
+    at async getPlatformProxy (/app/node_modules/.pnpm/wrangler@4.50.0_@cloudflare+workers-types@4.20260307.1/node_modules/wrangler/wrangler-dist/cli.js:274755:27)
+    at async withTakingALongTimeMsg (file:///app/node_modules/.pnpm/astro@5.18.0_@types+node@24.11.0_jiti@2.6.1_lightningcss@1.31.1_rollup@4.53.3_typescript@5.9.3/node_modules/astro/dist/integrations/hooks.js:32:12)
+    at async runHookServerSetup (file:///app/node_modules/.pnpm/astro@5.18.0_@types+node@24.11.0_jiti@2.6.1_lightningcss@1.31.1_rollup@4.53.3_typescript@5.9.3/node_modules/astro/dist/integrations/hooks.js:336:5)
+ ELIFECYCLE  Command failed with exit code 1.

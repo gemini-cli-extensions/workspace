@@ -1,0 +1,38 @@
+---
+/**
+ * Inbox — Cloudflare Email Routing showcase.
+ *
+ * Demonstrates the full inbound-email flow end-to-end: an email sent to a
+ * routed address hits the Worker's `email()` handler, which parses + stores it
+ * in D1 (`email_messages`). This page renders those rows in a polished two-pane
+ * inbox (list + reading pane), reading from `GET /api/inbox`.
+ *
+ * The island uses plain fetch (`@/lib/api`) — no agents/PartySocket stack — so
+ * `client:load` is appropriate for this above-the-fold interactive surface.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Inbox } from "@/components/inbox";
+---
+
+<BaseLayout
+  title="Inbox"
+  description="A two-pane email inbox powered end-to-end by Cloudflare Email Routing: inbound mail is parsed by the Worker's email() handler, stored in D1, and read here."
+>
+  <div class="container mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">📨</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Inbox</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        End-to-end Cloudflare Email Routing. Mail sent to a routed address is
+        parsed by the Worker's <code class="rounded bg-muted px-1 py-0.5 text-sm"
+          >email()</code
+        > handler, stored in D1, and shown here in a two-pane reader. Load demo
+        data to explore, or wire a routing rule to receive live mail.
+      </p>
+    </header>
+
+    <Inbox client:load />
+  </div>
+</BaseLayout>

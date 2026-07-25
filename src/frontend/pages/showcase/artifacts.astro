@@ -1,0 +1,330 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CodeBlock } from "@/components/ui/code-block";
+
+const artifactAgentCode = `import { AIChatAgent } from "@cloudflare/ai-chat";
+import { generateText } from "ai";
+
+export class ArtifactAgent extends AIChatAgent {
+  async onChatMessage() {
+    // Get or create artifact repository
+    const repo = await this.env.ARTIFACTS.get("agent-workspace");
+    const originalCode = await repo.read("index.ts");
+
+    // Generate refactored version
+    const response = await generateText({
+      model: this.env.AI,
+      prompt: \`Refactor this code to improve readability:
+
+\${originalCode}
+
+Return only the refactored code.\`
+    });
+
+    const updatedCode = response.text;
+
+    // Commit update to Git-native Artifacts storage
+    await repo.write("index.ts", updatedCode);
+    const commit = await repo.commit(
+      "Refactored runtime initialization for better readability"
+    );
+
+    // Expose git metadata back to client for instant diff evaluation
+    this.setState({
+      lastCommitHash: commit.hash,
+      lastCommitMessage: commit.message,
+      originalCode,
+      updatedCode,
+      timestamp: Date.now()
+    });
+
+    return {
+      message: "Code refactored successfully",
+      commitHash: commit.hash
+    };
+  }
+
+  @callable()
+  async getFileHistory(filePath: string) {
+    const repo = await this.env.ARTIFACTS.get("agent-workspace");
+    const commits = await repo.log(filePath);
+
+    return commits.map(c => ({
+      hash: c.hash,
+      message: c.message,
+      author: c.author,
+      timestamp: c.timestamp
+    }));
+  }
+
+  @callable()
+  async revertToCommit(commitHash: string) {
+    const repo = await this.env.ARTIFACTS.get("agent-workspace");
+    await repo.checkout(commitHash);
+
+    return { status: "reverted", hash: commitHash };
+  }
+}`;
+
+const codeRefinementViewCode = `import { useAgent } from "agents/react";
+import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { DiffEditor } from "@monaco-editor/react";
+
+export function CodeRefinementView() {
+  const agent = useAgent({
+    agent: "ArtifactAgent",
+    name: "artifact-session"
+  });
+
+  const chat = useAgentChat({ agent });
+
+  // Extract diff state from agent
+  const {
+    originalCode,
+    updatedCode,
+    lastCommitHash,
+    lastCommitMessage
+  } = agent.state || {};
+
+  return (
+    <div className="h-screen flex flex-col bg-zinc-950">
+      {/* Header */}
+      <div className="p-4 flex justify-between items-center">
+        <div>
+          <h2 className="text-base font-bold text-white">
+            Cloudflare Git Artifact: index.ts
+          </h2>
+          <p className="text-zinc-400 text-xs mt-0.5">
+            Commit:{" "}
+            <code className="text-orange-500">
+              {lastCommitHash || "HEAD"}
+            </code>
+          </p>
+          {lastCommitMessage && (
+            <p className="text-zinc-500 text-xs mt-1">
+              {lastCommitMessage}
+            </p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <button onClick={() => agent.stub.getFileHistory("index.ts")}>
+            View History
+          </button>
+          <button onClick={() => agent.stub.revertToCommit(lastCommitHash)}>
+            Revert
+          </button>
+        </div>
+      </div>
+
+      {/* Diff Viewer */}
+      <div className="flex-1 overflow-hidden">
+        {originalCode && updatedCode ? (
+          <DiffEditor
+            original={originalCode}
+            modified={updatedCode}
+            language="typescript"
+            theme="vs-dark"
+            options={{ readOnly: true, renderSideBySide: true }}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-zinc-500 text-sm">No changes to display</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}`;
+
+const artifactWranglerCode = `{
+  "name": "artifacts-showcase",
+  "main": "dist/_worker.js/index.js",
+  "compatibility_date": "2026-05-25",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ARTIFACT_AGENT",
+        "class_name": "ArtifactAgent"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ArtifactAgent"]
+    }
+  ],
+  "artifacts": [
+    {
+      "binding": "ARTIFACTS",
+      "namespace": "code-refinement"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  }
+}`;
+---
+
+<BaseLayout title="Memory & Artifacts" description="Git-native versioned storage with diff viewing">
+  <div class="container mx-auto px-4 py-12 max-w-7xl">
+
+    <section class="mb-12">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-5xl">📂</span>
+        <div>
+          <h1 class="text-4xl font-bold tracking-tight">Memory & Artifacts</h1>
+          <p class="text-muted-foreground mt-2">Git-native versioned storage with assistant-ui Diff Viewer</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-12">
+      <Card class="border-zinc-800 bg-zinc-950">
+        <CardHeader>
+          <CardTitle>Showcase Overview</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <p class="text-sm text-muted-foreground">
+            Memory & Artifacts integrates a comparative viewport panel wrapping up a styled code revision viewer tracking custom state snapshots (<code class="text-orange-400">originalCode</code> vs <code class="text-orange-400">updatedCode</code>) with Git-compatible versioning.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <Badge className="bg-green-950 text-green-400 border-green-800">Artifacts</Badge>
+            <Badge className="bg-blue-950 text-blue-400 border-blue-800">Git-native</Badge>
+            <Badge className="bg-purple-950 text-purple-400 border-purple-800">Diff Viewer</Badge>
+            <Badge className="bg-orange-950 text-orange-400 border-orange-800">Version Control</Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">Implementation Reference</h2>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <CodeBlock
+          client:visible
+          filename="ArtifactAgent.ts"
+          language="ts"
+          code={artifactAgentCode}
+          showLineNumbers
+          maxHeight="24rem"
+        />
+
+        <CodeBlock
+          client:visible
+          filename="CodeRefinementView.tsx"
+          language="tsx"
+          code={codeRefinementViewCode}
+          showLineNumbers
+          maxHeight="24rem"
+        />
+      </div>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">Wrangler Configuration</h2>
+      <CodeBlock client:visible filename="wrangler.jsonc" language="json" code={artifactWranglerCode} showLineNumbers />
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">Key Features</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base flex items-center gap-2">
+              <span class="text-xl">🔄</span> Git-Native Storage
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Cloudflare Artifacts provides Git-compatible filesystem allowing creation of millions of repositories instantly, designed specifically for agent-generated code at massive scale.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base flex items-center gap-2">
+              <span class="text-xl">📊</span> Visual Diff Viewer
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Monaco Editor's DiffEditor component provides side-by-side comparison with syntax highlighting, showing exactly what changed between versions.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base flex items-center gap-2">
+              <span class="text-xl">⏮️</span> Version History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Full Git history with commit hashes, messages, and timestamps. Revert to any previous version instantly with a single RPC call.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base flex items-center gap-2">
+              <span class="text-xl">🤝</span> Agent Collaboration
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Multiple agents can work on the same artifact repository, with proper merge conflict detection and resolution workflows.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-2xl font-bold mb-6">Real-World Use Cases</h2>
+      <div class="space-y-4">
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base">AI Code Review Workflow</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Agent proposes code changes, commits to Artifacts, displays diff to user for approval. If approved, changes merge; if rejected, agent iterates based on feedback.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base">Iterative Code Generation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Track evolution of generated code across multiple iterations. Each refinement is a Git commit, allowing easy comparison and rollback to any previous version.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base">Configuration Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Store and version application configurations, API schemas, or documentation. Agents can propose updates with full audit trail and diff visibility.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+  </div>
+</BaseLayout>

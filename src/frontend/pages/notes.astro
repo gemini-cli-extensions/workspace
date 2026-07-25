@@ -1,0 +1,31 @@
+---
+/**
+ * Team notes — shared notes from `GET /api/team-notes` with search, pinned and
+ * project filters, create/edit/delete dialogs, and pin toggling. Mounts the
+ * TeamNotes island with `client:only="react"` because the note body now uses a
+ * PlateJS rich-text editor + read-only renderer, both of which depend on
+ * browser-only DOM APIs and must never run during Astro SSR.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { TeamNotes } from "@/components/tasks/TeamNotes";
+---
+
+<BaseLayout
+  title="Team Notes"
+  description="Shared, pinnable notes scoped to projects. Search, filter, create, edit, and pin the notes your team needs at hand."
+>
+  <div class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">📝</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Team Notes</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Lightweight, shared notes attached to projects. Pin the important ones,
+        filter by project, and keep context out of scattered docs.
+      </p>
+    </header>
+
+    <TeamNotes client:only="react" />
+  </div>
+</BaseLayout>

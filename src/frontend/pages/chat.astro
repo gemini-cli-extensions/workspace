@@ -1,0 +1,11 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AgentChat } from "@/components/AgentChat";
+---
+
+<BaseLayout
+  title="AI Assistant Chat"
+  description="Chat with AI agents powered by Cloudflare Agents SDK and Workers AI"
+>
+  <AgentChat client:only="react" />
+</BaseLayout>

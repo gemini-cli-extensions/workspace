@@ -1,0 +1,358 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CodeBlock } from "@/components/ui/code-block";
+
+/**
+ * Developer Playbook — the documentation hub for this template.
+ *
+ * Every code example is rendered through the React `CodeBlock` island
+ * (`client:visible`) so snippets get real Shiki syntax highlighting,
+ * filenames, language badges, and copy buttons. Content is kept accurate to
+ * THIS project: Astro SSR + Hono + D1/Drizzle + the Cloudflare Agents SDK,
+ * all on a single Worker.
+ */
+
+const agentClassExample = `import { AIChatAgent } from "@cloudflare/ai-chat";
+import { createWorkersAI } from "workers-ai-provider";
+import { streamText } from "ai";
+
+/** A chat agent backed by a Durable Object with embedded SQLite history. */
+export class ChatBroker extends AIChatAgent<Env> {
+  async onChatMessage() {
+    const workersai = createWorkersAI({ binding: this.env.AI });
+
+    const result = streamText({
+      model: workersai("@cf/meta/llama-3.3-70b-instruct"),
+      messages: this.messages, // full history, restored from SQLite
+    });
+
+    return result.toUIMessageStreamResponse();
+  }
+}`;
+
+const agentClientExample = `import { useAgent } from "agents/react";
+import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
+
+function Chat({ userId, token }: { userId: string; token: string }) {
+  const agent = useAgent({
+    agent: "chat-broker",     // kebab-case of the DO class name
+    name: userId,             // gated by auth — never trust an unbound name
+    query: { token },         // forwarded to the Worker fetch handler
+  });
+
+  const chat = useAgentChat({ agent });
+  const runtime = useAISDKRuntime(chat);
+
+  return <AssistantRuntimeProvider runtime={runtime}>{/* Thread */}</AssistantRuntimeProvider>;
+}`;
+
+const useAgentChatExample = `const {
+  messages,                // current conversation history (from SQLite)
+  sendMessage,             // send a new message to the agent
+  setMessages,             // update list (syncs back to the server)
+  clearHistory,            // wipe all messages
+  status,                  // "ready" | "streaming" | "error"
+  addToolResult,           // manually provide a client-side tool result
+} = useAgentChat({ agent });`;
+
+const stateSyncExample = `// Subscribe to server-streamed agent state for sidebar/header bindings.
+const agent = useAgent({
+  agent: "workflows-agent",
+  name: sessionId,
+  onStateUpdate: (state: { activeWorkflow?: string; lastProgress?: number }) => {
+    setActiveWorkflow(state.activeWorkflow);
+    setProgress(state.lastProgress ?? 0);
+  },
+});`;
+
+const honoRouteExample = `import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+
+export const tasksRouter = new OpenAPIHono<{ Bindings: Env }>();
+
+const TaskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  status: z.enum(["todo", "doing", "done"]),
+});
+
+tasksRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/",
+    operationId: "listTasks",
+    responses: {
+      200: {
+        description: "All tasks for the workspace",
+        content: { "application/json": { schema: z.array(TaskSchema) } },
+      },
+    },
+  }),
+  async (c) => {
+    const rows = await c.env.DB.prepare("SELECT * FROM tasks").all();
+    return c.json(rows.results);
+  },
+);`;
+
+const drizzleSchemaExample = `import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { createInsertSchema } from "drizzle-zod";
+
+/** Tasks live under db/schemas/tasks/tasks.ts (one table per file). */
+export const tasks = sqliteTable("tasks", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("todo"),
+  projectId: text("project_id"),
+  createdAt: integer("created_at").notNull(),
+});
+
+// Drizzle-Zod gives the API layer a validated insert schema for free.
+export const insertTaskSchema = createInsertSchema(tasks);`;
+
+const wranglerExample = `{
+  "name": "core-template-cfw-assets-astro-shadcn",
+  "main": "dist/_worker.js/index.js",
+  "compatibility_date": "2026-05-25",
+  "assets": { "directory": "dist", "binding": "ASSETS" },
+  "d1_databases": [{ "binding": "DB", "database_name": "app" }],
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "CHAT_BROKER", "class_name": "ChatBroker" },
+      { "name": "WORKFLOWS_AGENT", "class_name": "WorkflowsAgent" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ChatBroker", "WorkflowsAgent"] }
+  ]
+}`;
+
+const workerEntryExample = `/** True for paths the Hono API owns (REST + OpenAPI doc surfaces). */
+function isApiPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/") ||
+    pathname === "/openapi.json" ||
+    pathname === "/swagger" ||
+    pathname === "/scalar"
+  );
+}
+
+async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  const url = new URL(request.url);
+
+  if (url.pathname.startsWith("/agents/")) {            // 1. Agents SDK
+    const res = await routeAgentRequest(request, env);
+    if (res) return res;
+  }
+  if (isApiPath(url.pathname)) {                          // 2. Hono REST + docs
+    return honoApp.fetch(request, env, ctx);
+  }
+  return handle(astroManifest, astroApp, request, env, ctx); // 3. Astro SSR
+}`;
+---
+
+<BaseLayout
+  title="Developer Playbook"
+  description="Production blueprint for building stateful edge apps with Astro SSR, Hono, D1/Drizzle, and the Cloudflare Agents SDK on a single Worker"
+>
+  <div class="container mx-auto max-w-6xl px-4 py-16">
+
+    <!-- Hero -->
+    <section class="mb-16">
+      <Badge variant="outline" class="mb-4 font-mono text-[11px]">Documentation</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+        Developer Playbook
+      </h1>
+      <p class="mt-5 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+        A production-grade blueprint for this template: <strong class="text-foreground">Astro SSR</strong> +
+        React islands on the frontend, <strong class="text-foreground">Hono + D1/Drizzle</strong> for the
+        API, and the <strong class="text-foreground">Cloudflare Agents SDK</strong> (Durable Objects with
+        embedded SQLite) for stateful, real-time agents — all served from one Worker.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-2">
+        <Badge variant="secondary">Astro 5</Badge>
+        <Badge variant="secondary">Hono</Badge>
+        <Badge variant="secondary">D1 + Drizzle</Badge>
+        <Badge variant="secondary">Agents SDK</Badge>
+        <Badge variant="secondary">assistant-ui</Badge>
+      </div>
+    </section>
+
+    <!-- Architecture -->
+    <section class="mb-16">
+      <h2 class="mb-2 text-2xl font-bold tracking-tight">Request architecture</h2>
+      <p class="mb-8 max-w-3xl text-sm text-muted-foreground">
+        One Worker handles three concerns in priority order. The entry point routes by path
+        before falling through to Astro SSR (which itself falls back to static assets).
+      </p>
+
+      <Card class="mb-8 bg-card ring-1 ring-border/40">
+        <CardHeader>
+          <CardTitle>The single-Worker routing model</CardTitle>
+          <CardDescription>src/_worker.ts dispatches by pathname</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-5">
+          <ul class="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+            <li class="rounded-lg bg-muted/30 p-4">
+              <p class="mb-1 font-mono text-xs text-foreground">/agents/*</p>
+              WebSocket + HTTP routed to the Agents SDK via <code class="text-primary">routeAgentRequest</code>.
+            </li>
+            <li class="rounded-lg bg-muted/30 p-4">
+              <p class="mb-1 font-mono text-xs text-foreground">/api/* + doc URLs</p>
+              REST + OpenAPI served by the Hono app.
+            </li>
+            <li class="rounded-lg bg-muted/30 p-4">
+              <p class="mb-1 font-mono text-xs text-foreground">everything else</p>
+              Astro SSR, with static-asset fall-through.
+            </li>
+          </ul>
+          <CodeBlock
+            client:visible
+            filename="src/_worker.ts"
+            language="ts"
+            code={workerEntryExample}
+            showLineNumbers
+          />
+        </CardContent>
+      </Card>
+    </section>
+
+    <!-- Agents -->
+    <section class="mb-16">
+      <h2 class="mb-2 text-2xl font-bold tracking-tight">Stateful agents</h2>
+      <p class="mb-8 max-w-3xl text-sm text-muted-foreground">
+        Each agent is a Durable Object with its own embedded SQLite database. The default chat
+        pattern wires <code class="text-primary">useAgentChat</code> over a hibernatable WebSocket —
+        history persists, idle cost is zero, and state changes broadcast to every connected client.
+      </p>
+
+      <CodeBlock
+        client:visible
+        files={[
+          { filename: "src/backend/ai/agents/ChatBroker.ts", language: "ts", code: agentClassExample },
+          { filename: "src/frontend/components/Chat.tsx", language: "tsx", code: agentClientExample },
+        ]}
+        showLineNumbers
+      />
+
+      <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card class="bg-card ring-1 ring-border/40">
+          <CardHeader>
+            <div class="flex items-center gap-2">
+              <Badge variant="secondary">Hook</Badge>
+              <CardTitle class="text-base">useAgentChat surface</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CodeBlock client:visible language="ts" code={useAgentChatExample} hideHeader />
+          </CardContent>
+        </Card>
+
+        <Card class="bg-card ring-1 ring-border/40">
+          <CardHeader>
+            <div class="flex items-center gap-2">
+              <Badge variant="secondary">Pattern</Badge>
+              <CardTitle class="text-base">Server-streamed state</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CodeBlock client:visible language="ts" code={stateSyncExample} hideHeader />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div class="mt-6 rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">
+        <strong class="text-foreground">Auth note.</strong> The Worker DO accepts any
+        <code class="text-primary">name</code>. Always gate it with a real user id and forward the
+        credential via <code class="text-primary">useAgent({`{ query }`})</code> — an unauthenticated
+        request could otherwise read another user's full history.
+      </div>
+    </section>
+
+    <!-- API + DB -->
+    <section class="mb-16">
+      <h2 class="mb-2 text-2xl font-bold tracking-tight">API & data layer</h2>
+      <p class="mb-8 max-w-3xl text-sm text-muted-foreground">
+        Routes are Zod-validated <code class="text-primary">OpenAPIHono</code> handlers; the schema
+        is emitted at <code class="text-primary">/openapi.json</code>. Tables live one-per-file under
+        <code class="text-primary">db/schemas/&lt;domain&gt;/</code> with Drizzle-Zod bridging the two.
+      </p>
+
+      <CodeBlock
+        client:visible
+        files={[
+          { filename: "src/backend/api/routes/tasks.ts", language: "ts", code: honoRouteExample },
+          { filename: "src/backend/db/schemas/tasks/tasks.ts", language: "ts", code: drizzleSchemaExample },
+        ]}
+        showLineNumbers
+      />
+    </section>
+
+    <!-- Config -->
+    <section class="mb-16">
+      <h2 class="mb-2 text-2xl font-bold tracking-tight">Configuration</h2>
+      <p class="mb-8 max-w-3xl text-sm text-muted-foreground">
+        Bindings are declared in <code class="text-primary">wrangler.jsonc</code>. Every agent class
+        needs a Durable Object binding plus a <code class="text-primary">new_sqlite_classes</code>
+        migration entry to enable embedded SQLite storage.
+      </p>
+      <CodeBlock client:visible filename="wrangler.jsonc" language="json" code={wranglerExample} showLineNumbers />
+    </section>
+
+    <!-- Best practices -->
+    <section class="mb-16">
+      <h2 class="mb-8 text-2xl font-bold tracking-tight">Best practices</h2>
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card class="bg-card ring-1 ring-border/40">
+          <CardHeader><CardTitle class="text-base">Do</CardTitle></CardHeader>
+          <CardContent>
+            <ul class="space-y-2 text-sm text-muted-foreground">
+              <li>Use SQLite-backed Durable Objects for all new agents.</li>
+              <li>Validate every endpoint with Zod and surface it in OpenAPI.</li>
+              <li>Gate the agent <code class="text-primary">name</code> with a real user id.</li>
+              <li>Keep tables one-per-file under <code class="text-primary">db/schemas/&lt;domain&gt;/</code>.</li>
+              <li>Use path aliases (<code class="text-primary">@/...</code>) — never relative imports.</li>
+              <li>Pin <code class="text-primary">agents</code> and <code class="text-primary">@cloudflare/ai-chat</code> to exact versions.</li>
+            </ul>
+          </CardContent>
+        </Card>
+        <Card class="bg-card ring-1 ring-border/40">
+          <CardHeader><CardTitle class="text-base">Don't</CardTitle></CardHeader>
+          <CardContent>
+            <ul class="space-y-2 text-sm text-muted-foreground">
+              <li>Don't poll for status — subscribe via <code class="text-primary">onStateUpdate</code>.</li>
+              <li>Don't hand-roll message persistence (AIChatAgent owns it).</li>
+              <li>Don't expose agent endpoints without authentication.</li>
+              <li>Don't store secrets in agent state — use env bindings.</li>
+              <li>Don't use browser <code class="text-primary">alert/confirm</code> — use shadcn dialogs.</li>
+              <li>Don't ship mock data — bind to real <code class="text-primary">/api</code> endpoints.</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+    <!-- Next steps -->
+    <section>
+      <Card class="bg-card ring-1 ring-border/40">
+        <CardContent class="flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
+          <div>
+            <h2 class="text-xl font-bold tracking-tight">Explore the live showcases</h2>
+            <p class="mt-1 max-w-xl text-sm text-muted-foreground">
+              Each showcase is a fully wired, typed surface — code mode, browser HITL, multi-agent
+              orchestration, workflows, MCP tools, and more.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a href="/showcase/features" class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">All showcases</a>
+            <a href="/scalar" class="rounded-lg bg-muted px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted/70">API reference</a>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+
+  </div>
+</BaseLayout>

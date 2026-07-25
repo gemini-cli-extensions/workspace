@@ -1,0 +1,16 @@
+---
+/**
+ * @fileoverview /settings/webhooks — CRUD + test surface for outbound webhooks,
+ * backed by /api/webhooks.
+ */
+
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { WebhooksTable } from "@/components/settings";
+---
+
+<SettingsLayout
+  title="Webhooks"
+  description="Register, edit, test, and remove outbound webhook deliveries."
+>
+  <WebhooksTable client:load />
+</SettingsLayout>

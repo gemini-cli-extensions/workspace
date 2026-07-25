@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1780904458473,
+      "tag": "0000_special_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782806672085,
+      "tag": "0001_old_rafael_vega",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782833472142,
+      "tag": "0002_cool_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1782886961741,
+      "tag": "0003_neat_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1782890288875,
+      "tag": "0004_sticky_exiles",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,252 @@
+{
+  "name": "core-template-cfw-assets-astro-shadcn",
+  "main": "dist/_worker.js/index.js",
+  "compatibility_date": "2026-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true,
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 1,
+    },
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+    "run_worker_first": true,
+    "not_found_handling": "404-page",
+  },
+  "ai": {
+    "binding": "AI",
+    // Workers AI has no local emulation. `remote: true` lets `wrangler dev`
+    // (which runs Durable Objects locally — `--remote` is unsupported for DOs)
+    // proxy AI inference to the real Workers AI service, so the chat agents
+    // stream genuine model output during local development.
+    "remote": true,
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CODE_MODE_AGENT",
+        "class_name": "CodeModeAgent",
+      },
+      {
+        "name": "BROWSER_HITL_AGENT",
+        "class_name": "BrowserHitlAgent",
+      },
+      {
+        "name": "WORKFLOWS_AGENT",
+        "class_name": "WorkflowsAgent",
+      },
+      {
+        "name": "ARTIFACT_AGENT",
+        "class_name": "ArtifactAgent",
+      },
+      {
+        "name": "CHAT_BROKER",
+        "class_name": "ChatBroker",
+      },
+      {
+        "name": "NOTIFICATIONS_AGENT",
+        "class_name": "NotificationsAgent",
+      },
+      {
+        "name": "ORCHESTRATOR_AGENT",
+        "class_name": "OrchestratorAgent",
+      },
+      {
+        "name": "RESEARCHER_AGENT",
+        "class_name": "ResearcherAgent",
+      },
+      {
+        "name": "CODER_AGENT",
+        "class_name": "CoderAgent",
+      },
+      {
+        "name": "MCP_AGENT",
+        "class_name": "McpAgent",
+      },
+      {
+        "name": "THINKING_AGENT",
+        "class_name": "ThinkingAgent",
+      },
+      {
+        "name": "SKILLS_AGENT",
+        "class_name": "SkillsAgent",
+      },
+    ],
+  },
+  "browser": {
+    "binding": "MYBROWSER",
+  },
+  "worker_loaders": [
+    { "binding": "WORKER_LOADERS" }
+  ],
+  "migrations": [
+    // v1 captures the original deployed-class set so wrangler can apply
+    // an additive history. Do NOT rewrite this tag — it is immutable
+    // once a Worker has shipped under it.
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "OrchestratorAgent",
+        "CodeModeAgent",
+        "GoogleDocsAgent",
+        "BrowserHitlAgent",
+        "WorkflowsAgent",
+        "ArtifactAgent",
+      ],
+    },
+    // v2 brings the live Worker in line with the lean template:
+    //   - retire OrchestratorAgent + GoogleDocsAgent (no longer exported)
+    //   - introduce ChatBroker (assistant-ui WebSocket broker)
+    //   - introduce NotificationsAgent (per-session realtime fanout)
+    {
+      "tag": "v2",
+      "deleted_classes": ["OrchestratorAgent", "GoogleDocsAgent"],
+      "new_sqlite_classes": ["ChatBroker", "NotificationsAgent"],
+    },
+    // v3 re-introduces the OrchestratorAgent (re-created additively after v2
+    // retired it) as a live multi-agent coordinator, adds its specialist
+    // sub-agents (ResearcherAgent, CoderAgent), and registers the three new
+    // showcase agents (McpAgent, ThinkingAgent, SkillsAgent). v1/v2 are left
+    // untouched — they are immutable history.
+    {
+      "tag": "v3",
+      "new_sqlite_classes": [
+        "OrchestratorAgent",
+        "ResearcherAgent",
+        "CoderAgent",
+        "McpAgent",
+        "ThinkingAgent",
+        "SkillsAgent",
+      ],
+    },
+  ],
+  // ---------------------------------------------------------------------------
+  // Cloudflare Email Routing (inbound) — the `/inbox` showcase
+  // ---------------------------------------------------------------------------
+  //
+  // RECEIVING email needs NO wrangler binding. The Worker exports an
+  // `email(message, env, ctx)` handler (see src/_worker.ts +
+  // src/backend/email/inbound.ts); Cloudflare invokes it when a Routing Rule
+  // points an incoming address at this Worker. Set that up out-of-band:
+  //
+  //   Dashboard → the zone → Email → Email Routing →
+  //     1. Enable Email Routing for the domain (adds the required MX + TXT/SPF).
+  //     2. Routing Rules → "Send to a Worker" → select this Worker
+  //        (core-template-cfw-assets-astro-shadcn), or use a catch-all rule.
+  //   …or via CLI:
+  //     npx wrangler email routing rules create \
+  //       --match "to=demo@yourdomain.com" --action worker \
+  //       --value core-template-cfw-assets-astro-shadcn
+  //
+  // FORWARDING a copy via `message.forward(INBOX_FORWARD_TO)` is optional. The
+  // destination must be VERIFIED first (Dashboard → Destination addresses, or
+  // `npx wrangler email routing addresses create you@gmail.com`). Leave
+  // INBOX_FORWARD_TO empty to disable forwarding.
+  //
+  // REPLYING/SENDING (not used by this showcase) WOULD need a binding:
+  //   "send_email": [{ "name": "EMAIL" }]
+  // plus `npx wrangler email sending enable yourdomain.com`. Add it only if you
+  // wire an outbound reply flow.
+  "vars": {
+    "AI_GATEWAY_ID": "default-gateway",
+    "MODEL_CHAT": "@cf/openai/gpt-oss-120b",
+    "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",
+    "MODEL_DRAFT": "@cf/openai/gpt-oss-120b",
+    "MODEL_TRANSCRIBE": "@cf/openai/whisper-large-v3-turbo",
+    "DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
+    // Optional verified destination for message.forward() in the email handler.
+    // Empty string = forwarding disabled (the message is stored in D1 only).
+    "INBOX_FORWARD_TO": "",
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "aba8552a49c64335ba4832d34ce9459d",
+      "remote": true,
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "core-template-cfw-assets-astro-shadcn",
+      "database_id": "d555f8ce-77c9-4c82-be80-de95b8d9c003",
+      "migrations_dir": "drizzle",
+    },
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "GITHUB_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GH_TOKEN",
+    },
+    {
+      "binding": "CLOUDFLARE_ACCOUNT_ID",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_ACCOUNT_ID",
+    },
+    {
+      "binding": "CLOUDFLARE_WRANGLER_API_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_WRANGLER_API_TOKEN",
+    },
+    {
+      "binding": "WORKER_API_KEY",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "WORKER_API_KEY",
+    },
+    {
+      "binding": "AI_GATEWAY_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN",
+    },
+    {
+      "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+    },
+    {
+      "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+    },
+    {
+      "binding": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
+    },
+  ],
+  //  wrangler vectorize create core-template-cfw-assets-astro-shadcn-career-memory --preset @cf/baai/bge-large-en-v1.5
+  "vectorize": [
+    {
+      "binding": "VECTORIZE_CAREER_MEMORY",
+      "index_name": "core-template-cfw-assets-astro-shadcn-career-memory",
+      "remote": true,
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2_AUDIO_BUCKET",
+      "bucket_name": "core-template-cfw-assets-astro-shadcn-audio",
+      "remote": true,
+    },
+    {
+      "bucket_name": "core-template-cfw-assets-astro-shadcn-files",
+      "binding": "R2_FILES_BUCKET",
+      "remote": true,
+    },
+  ],
+}

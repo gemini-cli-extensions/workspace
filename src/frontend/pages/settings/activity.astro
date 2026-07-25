@@ -1,0 +1,16 @@
+---
+/**
+ * @fileoverview /settings/activity — filterable audit trail, backed by
+ * /api/activity.
+ */
+
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { ActivityTimeline } from "@/components/settings";
+---
+
+<SettingsLayout
+  title="Activity"
+  description="Search and filter the append-only audit trail of recent actions."
+>
+  <ActivityTimeline client:load />
+</SettingsLayout>

@@ -1,0 +1,30 @@
+---
+/**
+ * Assistant workspace page — the full multi-thread showcase: a thread list
+ * (new / switch / archive / delete) on the left and the enhanced Thread
+ * (markdown, suggestions, generative-UI tool cards) on the right.
+ *
+ * The workspace island is browser-only: it transitively depends on
+ * `agents/react` + PartySocket, so it MUST mount `client:only="react"`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AssistantWorkspace } from "@/components/assistant/AssistantWorkspace";
+---
+
+<BaseLayout
+  title="Assistant"
+  description="Multi-thread AI assistant with markdown, follow-up suggestions, and generative UI, backed by the ChatBroker Durable Object."
+>
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold tracking-tight">Assistant</h1>
+      <p class="mt-1 text-sm text-muted-foreground max-w-2xl">
+        Multiple persistent conversations, each backed by its own ChatBroker
+        Durable Object instance. Rich markdown replies, follow-up suggestions,
+        and inline generative-UI cards (KPI + task draft).
+      </p>
+    </header>
+
+    <AssistantWorkspace client:only="react" />
+  </div>
+</BaseLayout>

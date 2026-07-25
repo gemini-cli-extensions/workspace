@@ -1,0 +1,27 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { ThinkingPanel } from "@/components/showcase/ThinkingPanel";
+---
+
+<BaseLayout
+  title="Thinking"
+  description="Stream a model's reasoning trace before its answer via the thinking-agent"
+>
+  <div class="container mx-auto max-w-5xl px-4 py-12">
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">Thinking</h1>
+        <Badge variant="outline">thinking-agent</Badge>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        The agent emits <code class="text-primary">reasoning</code> parts before its
+        final <code class="text-primary">text</code> answer. We render the reasoning
+        as a distinct, collapsible &ldquo;Thinking&rdquo; block above each response,
+        so you can watch the model work and then read the conclusion cleanly.
+      </p>
+    </header>
+
+    <ThinkingPanel client:only="react" />
+  </div>
+</BaseLayout>

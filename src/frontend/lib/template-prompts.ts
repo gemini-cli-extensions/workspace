@@ -1,0 +1,1 @@
+export const TEMPLATE_FRONTEND_REPLACEMENT_PROMPT = `If you're seeing this page then your worker URL routes are still pointing to template pages. Replace this page with the project's real frontend pages, keep the shared navigation header on all pages, and preserve the default dynamic documentation pointers to /openapi.json, /swagger, and /scaler.`;

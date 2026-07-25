@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": [
+    "*.min.*",
+    "*.map",
+    "**/public",
+    "**/build",
+    "**/dist",
+    "**/out",
+    "**/.github",
+    "**/.next",
+    "**/.astro",
+    "**/.netlify",
+  ],
+  "sortImports": {
+    "groups": [
+      "type-import",
+      ["value-builtin", "value-external"],
+      "type-internal",
+      "value-internal",
+      ["type-parent", "type-sibling", "type-index"],
+      ["value-parent", "value-sibling", "value-index"],
+      "unknown",
+    ],
+  },
+  "sortTailwindcss": {
+    "stylesheet": "./src/styles/global.css",
+    "attributes": ["class", "className"],
+    "functions": ["clsx", "cn", "cva", "tv"],
+  },
+}

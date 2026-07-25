@@ -1,0 +1,31 @@
+---
+/**
+ * Task detail — dynamic route reading the task `id` from the path and mounting
+ * the TaskDetail island. Shows editable title/description, status/priority,
+ * a progress stepper, metadata, and a delete confirmation.
+ *
+ * The site runs in `output: "server"` (SSR) so this dynamic route is rendered
+ * on demand — no `getStaticPaths` is required and we explicitly do NOT
+ * prerender it (prerender = false) so any task id resolves at request time.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { TaskDetail } from "@/components/tasks/TaskDetail";
+
+export const prerender = false;
+
+const { id } = Astro.params;
+
+// A missing id can't render a task; bounce back to the list.
+if (!id) {
+  return Astro.redirect("/tasks");
+}
+---
+
+<BaseLayout
+  title="Task detail"
+  description="View and edit a single task: title, description, status, priority, progress, assignee, labels, due date, and history."
+>
+  <div class="container mx-auto flex max-w-5xl flex-col gap-8 px-4 py-12">
+    <TaskDetail client:load id={id} />
+  </div>
+</BaseLayout>

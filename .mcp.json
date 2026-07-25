@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "cloudflare-docs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://docs.mcp.cloudflare.com/mcp"],
+      "tools": ["search_cloudflare_documentation"]
+    }
+  }
+}

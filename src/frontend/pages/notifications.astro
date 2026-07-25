@@ -1,0 +1,45 @@
+---
+/**
+ * @fileoverview /notifications — realtime notifications page.
+ *
+ * Mounts the existing `<NotificationsFeed />` island, which opens a long-lived
+ * WebSocket to the NotificationsAgent Durable Object and renders the
+ * server-authoritative `{ notifications, unread }` state with no polling.
+ *
+ * Alongside it, `<SendTestNotification />` POSTs to /api/notifications (which
+ * proxies through the same DO), so anything sent here appears in the feed in
+ * realtime — a self-contained demonstration of the live transport.
+ */
+
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { NotificationsFeed } from "@/components/NotificationsFeed";
+import { SendTestNotification } from "@/components/settings";
+---
+
+<BaseLayout
+  title="Notifications"
+  description="Realtime notification feed streamed over a WebSocket from the NotificationsAgent Durable Object."
+>
+  <div class="container mx-auto max-w-6xl px-4 py-10">
+    <header class="mb-8 flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl">🔔</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Notifications</h1>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        This feed streams over a WebSocket to the <code class="text-xs"
+          >NotificationsAgent</code
+        > Durable Object — new events, read-state changes, and clears arrive live
+        with no polling. Send a test notification below to watch it land in
+        realtime.
+      </p>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-[1fr_minmax(0,28rem)]">
+      <NotificationsFeed client:load />
+      <div class="flex flex-col gap-6">
+        <SendTestNotification client:load />
+      </div>
+    </div>
+  </div>
+</BaseLayout>

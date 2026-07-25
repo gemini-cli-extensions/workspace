@@ -1,0 +1,370 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { siteConfig } from "@/lib/config";
+import { AssistantModal } from "@/components/assistant/AssistantModal";
+---
+
+<BaseLayout title="Cloudflare Edge Ecosystem" description="Strategic overview of the Cloudflare edge ecosystem">
+  <div class="container mx-auto px-4 py-12 max-w-7xl">
+
+    <!-- Hero Section -->
+    <section class="mb-16">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-full bg-orange-600 flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="8"/>
+          </svg>
+        </div>
+        <h1 class="text-4xl font-bold tracking-tight">Cloudflare Edge Ecosystem</h1>
+      </div>
+      <p class="text-xl text-muted-foreground max-w-3xl leading-relaxed">
+        Welcome to the interactive synthesis of the 2026 Cloudflare Developer Ecosystem. This showcase provides a high-level view of the architectural paradigm shift from fragmented cloud services to a cohesive, edge-native <strong>Connectivity Cloud</strong>.
+      </p>
+    </section>
+
+    <!-- Explore the Workspace -->
+    <section class="mb-16">
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="text-2xl font-bold">Explore the Workspace</h2>
+        <a href="/dashboard">
+          <Button size="sm" className="bg-orange-600 hover:bg-orange-700">Open Dashboard</Button>
+        </a>
+      </div>
+      <p class="text-lg text-muted-foreground mb-8 max-w-3xl">
+        A real, running reference app ships with the template — D1-backed projects &amp; tasks,
+        a Workers-AI dashboard, settings, and a realtime notifications feed. Extend or delete
+        what you don&apos;t need. New here? Open the dashboard and hit <strong>Seed demo data</strong>.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[
+          { href: "/dashboard", icon: "📊", title: "Admin Dashboard", desc: "KPI cards, every recharts variation, and Workers-AI insights over your live data." },
+          { href: "/projects", icon: "🗂️", title: "Projects", desc: "Searchable, filterable project list with starring and a create dialog." },
+          { href: "/tasks/board", icon: "🧩", title: "Task Board", desc: "Kanban across To Do / In Progress / In Review / Done with status updates." },
+          { href: "/tasks", icon: "✅", title: "Tasks", desc: "Filterable table with inline status & priority editing, plus task detail." },
+          { href: "/notifications", icon: "🔔", title: "Notifications", desc: "Realtime WebSocket feed backed by a NotificationsAgent Durable Object." },
+          { href: "/settings", icon: "⚙️", title: "Settings", desc: "Preferences, notification matrix, webhooks, and an activity log." },
+        ].map((item) => (
+          <a href={item.href} class="block">
+            <Card class="h-full border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+              <CardHeader>
+                <div class="text-3xl mb-2">{item.icon}</div>
+                <CardTitle class="text-base">{item.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription class="text-sm">{item.desc}</CardDescription>
+              </CardContent>
+            </Card>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- Core Principles Grid -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-bold mb-8">Core Ecosystem Principles</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="text-4xl mb-2">🤖</div>
+            <CardTitle>Agent-First Design</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription class="text-muted-foreground">
+              Transitioning from stateless serverless to stateful, actor-model architectures using Durable Objects with embedded SQLite to give every agent persistent memory and identity.
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="text-4xl mb-2">🚀</div>
+            <CardTitle>Framework Synthesis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription class="text-muted-foreground">
+              Unified deployment of React Islands and Worker APIs through Astro SSR on Cloudflare Workers Assets, enabling cohesive full-stack edge applications.
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="text-4xl mb-2">💻</div>
+            <CardTitle>UI Standardization</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CardDescription class="text-muted-foreground">
+              Adoption of assistant-ui as the definitive frontend primitive for Generative UI, tightly coupled with the Cloudflare Agents SDK via zero-latency WebSocket hibernation.
+            </CardDescription>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+    <!-- Unified Stack Visual Map -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-bold mb-8">The Unified Stack</h2>
+      <Card class="border-zinc-800 bg-zinc-950">
+        <CardContent class="p-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+            <!-- Stack Diagram -->
+            <div class="flex flex-col gap-3">
+              <!-- Frontend Layer -->
+              <div class="p-4 rounded-lg border-2 border-blue-600 bg-blue-950/30 hover:bg-blue-950/50 transition-colors cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="font-bold text-blue-400">Frontend: Astro + assistant-ui</h3>
+                  <span class="text-2xl">💻</span>
+                </div>
+                <p class="text-xs text-muted-foreground">React Islands, Generative UI, Shadcn/ui Dark Theme</p>
+              </div>
+
+              <div class="flex justify-center text-muted-foreground text-xl">↓</div>
+
+              <!-- Compute Layer -->
+              <div class="p-4 rounded-lg border-2 border-orange-600 bg-orange-950/30 hover:bg-orange-950/50 transition-colors cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="font-bold text-orange-400">Routing: Workers + Hono</h3>
+                  <span class="text-2xl">⚡</span>
+                </div>
+                <p class="text-xs text-muted-foreground">Worker Static Assets, REST/RPC Routing, Dynamic Worker Executor</p>
+              </div>
+
+              <div class="flex justify-center text-muted-foreground text-xl">↓</div>
+
+              <!-- Agents Layer -->
+              <div class="p-4 rounded-lg border-2 border-purple-600 bg-purple-950/30 hover:bg-purple-950/50 transition-colors cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="font-bold text-purple-400">Logic: Cloudflare Agents SDK</h3>
+                  <span class="text-2xl">🤖</span>
+                </div>
+                <p class="text-xs text-muted-foreground">Durable Objects, WebSocket Hibernation, McpAgent</p>
+              </div>
+
+              <div class="flex justify-center text-muted-foreground text-xl">↓</div>
+
+              <!-- Data Layer -->
+              <div class="p-4 rounded-lg border-2 border-green-600 bg-green-950/30 hover:bg-green-950/50 transition-colors cursor-pointer">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="font-bold text-green-400">Data: D1 + R2 + Artifacts</h3>
+                  <span class="text-2xl">📁</span>
+                </div>
+                <p class="text-xs text-muted-foreground">Embedded SQLite, Git-compatible storage, Vectorize</p>
+              </div>
+            </div>
+
+            <!-- Stack Details -->
+            <div class="bg-zinc-900 rounded-lg p-6 border border-zinc-800">
+              <h3 class="text-xl font-bold mb-4">Architectural Mandate</h3>
+              <div class="space-y-4 text-sm text-muted-foreground">
+                <p>
+                  The modern web development landscape is undergoing a profound architectural paradigm shift. The advent of Cloudflare Worker Static Assets represents a pivotal milestone in the convergence of edge computing, enabling engineers to host entirely unified full-stack applications within a single computing primitive.
+                </p>
+                <div class="flex flex-wrap gap-2 pt-4">
+                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-200 border-zinc-700">Astro SSR</Badge>
+                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-200 border-zinc-700">assistant-ui</Badge>
+                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-200 border-zinc-700">Cloudflare Agents</Badge>
+                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-200 border-zinc-700">Drizzle ORM + D1</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+
+    <!-- Compute Primitives -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-bold mb-8">Compute Primitives</h2>
+      <p class="text-lg text-muted-foreground mb-8 max-w-3xl">
+        To support consumer-scale agents, Cloudflare recognized that traditional containers were too heavy. By replacing Linux containers with lightweight V8 isolates created on the fly, Cloudflare achieved a 100x performance increase, enabling secure, per-tenant code execution in milliseconds.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-orange-500 font-bold text-xl">⚙️</span>
+              <CardTitle class="text-base">Dynamic Workers</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CardDescription class="text-sm">
+              The DynamicWorkerExecutor constructs purpose-built V8 sandboxes with ~15ms cold start latency. Eliminates file system access and explicitly controls outbound fetches for zero-trust code execution.
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-orange-500 font-bold text-xl">🔒</span>
+              <CardTitle class="text-base">Durable Object Facets</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CardDescription class="text-sm">
+              Allows Dynamic Workers to instantiate DOs with isolated SQLite databases. Enables platforms to run persistent, stateful code generated on-the-fly by AI with up to 10GB storage per object.
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-orange-500 font-bold text-xl">📝</span>
+              <CardTitle class="text-base">Code Mode MCP</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <CardDescription class="text-sm">
+              Instead of thousands of discrete MCP tool calls, agents write a single TypeScript execution plan that orchestrates Cloudflare APIs, reducing token context by up to 80%.
+            </CardDescription>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+    <!-- Agents Week Timeline -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-bold mb-8">2026 Agents Week Launches</h2>
+      <p class="text-lg text-muted-foreground mb-8 max-w-3xl">
+        In a single week in 2026, Cloudflare released a platform-wide overhaul spanning compute, storage, networking, and inference tooling. These launches demonstrate how primitives fit together into a cohesive platform for the agentic web.
+      </p>
+
+      <div class="space-y-4">
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">⚙️</span>
+                <div>
+                  <CardTitle class="text-base">Dynamic Workers Beta</CardTitle>
+                  <CardDescription class="text-xs text-orange-500">March 24, 2026</CardDescription>
+                </div>
+              </div>
+              <Badge variant="secondary" className="bg-orange-950 text-orange-400 border-orange-800">Launch</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              V8 isolates generated on the fly in single-digit milliseconds, enabling secure Code Mode execution. Reduced token cost by 80% by letting agents write a single script instead of making hundreds of sequential tool calls.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🧠</span>
+                <div>
+                  <CardTitle class="text-base">Agent Memory</CardTitle>
+                  <CardDescription class="text-xs text-orange-500">April 20, 2026</CardDescription>
+                </div>
+              </div>
+              <Badge variant="secondary" className="bg-orange-950 text-orange-400 border-orange-800">Launch</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Managed persistent memory service utilizing Vectorize and DOs. Coordinates Durable Objects (raw message storage), Vectorize (semantic search), and Workers AI (embeddings).
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🔒</span>
+                <div>
+                  <CardTitle class="text-base">Cloudflare Mesh & Sandboxes GA</CardTitle>
+                  <CardDescription class="text-xs text-orange-500">May 1, 2026</CardDescription>
+                </div>
+              </div>
+              <Badge variant="secondary" className="bg-orange-950 text-orange-400 border-orange-800">GA</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Zero-trust private networking and persistent Linux environments. Mesh eliminated VPN requirements, bridging cloud environments so agents could reach private databases.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">⏱️</span>
+                <div>
+                  <CardTitle class="text-base">Dynamic Workflows</CardTitle>
+                  <CardDescription class="text-xs text-orange-500">May 1, 2026</CardDescription>
+                </div>
+              </div>
+              <Badge variant="secondary" className="bg-orange-950 text-orange-400 border-orange-800">Launch</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Durable execution that follows the tenant, built on Dynamic Workers. Bridged durable execution with dynamic deployment, allowing SaaS platforms and AI agents to define custom, multi-step code plans at runtime.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card class="border-zinc-800 bg-zinc-950 hover:border-orange-600 transition-colors">
+          <CardHeader>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">📁</span>
+                <div>
+                  <CardTitle class="text-base">Cloudflare Artifacts Beta</CardTitle>
+                  <CardDescription class="text-xs text-orange-500">May 8, 2026</CardDescription>
+                </div>
+              </div>
+              <Badge variant="secondary" className="bg-orange-950 text-orange-400 border-orange-800">Beta</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p class="text-sm text-muted-foreground">
+              Git-compatible versioned storage explicitly for AI agents. A Git-native filesystem allowing the creation of tens of millions of repositories instantly, powering assistant-ui's Diff Viewer component.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="text-center">
+      <Card class="border-orange-800 bg-gradient-to-r from-zinc-950 to-orange-950/20">
+        <CardContent class="p-12">
+          <h2 class="text-3xl font-bold mb-4">Explore the Developer Playbook</h2>
+          <p class="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
+            Dive into comprehensive, engineering-grade implementation examples bridging the Agents SDK and assistant-ui
+          </p>
+          <div class="flex gap-4 justify-center">
+            <a href="/playbook">
+              <Button size="lg" className="bg-orange-600 hover:bg-orange-700">
+                View Playbook
+              </Button>
+            </a>
+            <a href="/showcase/code-mode">
+              <Button size="lg" variant="outline" className="border-orange-600 text-orange-600 hover:bg-orange-950/30">
+                Try Showcases
+              </Button>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+
+  </div>
+
+  <!-- Floating "Ask AI" assistant modal (browser-only island). -->
+  <AssistantModal client:only="react" />
+</BaseLayout>

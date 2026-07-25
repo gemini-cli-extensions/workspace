@@ -1,0 +1,29 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { BrowserHitlPanel } from "@/components/showcase/BrowserHitlPanel";
+---
+
+<BaseLayout
+  title="Browser HITL"
+  description="Human-in-the-loop approval gate for an agent that drives a real browser"
+>
+  <div class="container mx-auto max-w-7xl px-4 py-12">
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">Browser HITL</h1>
+        <Badge variant="outline">browser-hitl-agent</Badge>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        The agent can drive a headless browser, but the dangerous actions —
+        <code class="text-amber-400">fillSecureForm</code> and
+        <code class="text-amber-400">clickElement</code> — are gated. When the model
+        requests one, execution pauses and you must Approve or Reject it. Read-only
+        <code class="text-primary">takeScreenshot</code> runs freely. Every action is
+        recorded in the live log from <code class="text-primary">getActionLog()</code>.
+      </p>
+    </header>
+
+    <BrowserHitlPanel client:only="react" />
+  </div>
+</BaseLayout>

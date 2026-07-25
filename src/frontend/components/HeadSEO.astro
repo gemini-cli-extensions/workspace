@@ -1,0 +1,50 @@
+---
+import "@/styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  type?: "website" | "article";
+}
+
+const {
+  title = "Default Site Title",
+  description = "Default description for your website.",
+  ogImage,
+  type = "website",
+} = Astro.props as Props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site).toString();
+const ogImageURL = ogImage
+  ? new URL(ogImage, Astro.site).toString()
+  : new URL("og-image.png", canonicalURL).toString();
+const faviconURL = new URL("favicon.svg", canonicalURL).toString();
+---
+
+<!-- Basic -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="generator" content={Astro.generator} />
+<meta name="robots" content="index, follow" />
+
+<!-- Canonical -->
+<link rel="canonical" href={canonicalURL} />
+<link rel="icon" href={faviconURL} type="image/svg+xml" />
+
+<!-- Title -->
+<title>{title}</title>
+<meta name="description" content={description} />
+
+<!-- Open Graph -->
+<meta property="og:type" content={type} />
+<meta property="og:url" content={canonicalURL} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={ogImageURL} />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImageURL} />

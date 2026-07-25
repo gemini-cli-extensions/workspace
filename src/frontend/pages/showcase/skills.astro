@@ -1,0 +1,28 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { SkillsPanel } from "@/components/showcase/SkillsPanel";
+---
+
+<BaseLayout
+  title="Skills"
+  description="Browse the agent skill registry and watch skill selection in real time"
+>
+  <div class="container mx-auto max-w-7xl px-4 py-12">
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">Skills</h1>
+        <Badge variant="outline">skills-agent</Badge>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        A skills agent keeps a registry of capabilities, each with its own
+        triggers. This page lists them from <code class="text-primary">listSkills()</code>,
+        lets you probe which one matches a prompt via
+        <code class="text-primary">selectSkill(text)</code>, and runs a chat that
+        applies the selected skill per message.
+      </p>
+    </header>
+
+    <SkillsPanel client:only="react" />
+  </div>
+</BaseLayout>

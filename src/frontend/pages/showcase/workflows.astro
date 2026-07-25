@@ -1,0 +1,29 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { WorkflowsPanel } from "@/components/showcase/WorkflowsPanel";
+---
+
+<BaseLayout
+  title="Workflows"
+  description="Drive multi-step workflows and watch live progress stream from the agent"
+>
+  <div class="container mx-auto max-w-7xl px-4 py-12">
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">Workflows</h1>
+        <Badge variant="outline">workflows-agent</Badge>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        Long-running tasks (<code class="text-primary">transcribeAudio</code>,
+        <code class="text-primary">processData</code>) run as durable workflows on the
+        agent. The Durable Object broadcasts
+        <code class="text-primary">{`{ activeWorkflow, lastProgress }`}</code> over the
+        socket, so the progress stepper on the left updates live via
+        <code class="text-primary">onStateUpdate</code> as each step completes.
+      </p>
+    </header>
+
+    <WorkflowsPanel client:only="react" />
+  </div>
+</BaseLayout>

@@ -1,0 +1,227 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { UtilitiesDemo } from "@/components/showcase/UtilitiesDemo";
+import { CodeBlock } from "@/components/ui/code-block";
+
+const REMEDA_REPO = "https://github.com/remeda/remeda";
+const REMEDA_DOCS = "https://remedajs.com/docs";
+
+// Curated re-exports surfaced directly from `@/lib/data` / `@/backend/utils/data`.
+const remedaExports: { name: string; desc: string }[] = [
+  { name: "pipe / piped", desc: "Left-to-right function composition with lazy evaluation." },
+  { name: "unique / uniqueBy", desc: "Dedupe arrays by value or by a key selector." },
+  { name: "groupBy", desc: "Bucket a list into a record of arrays by key." },
+  { name: "partition", desc: "Split into [pass, fail] by a predicate." },
+  { name: "chunk", desc: "Break an array into fixed-size slices." },
+  { name: "difference / intersection", desc: "Set algebra over arrays." },
+  { name: "sortBy", desc: "Stable multi-key sorting with typed projections." },
+  { name: "take / drop / first / last", desc: "Slice off the ends of a list." },
+  { name: "sumBy / meanBy / countBy", desc: "Numeric aggregation over records." },
+  { name: "pick / omit / mapValues", desc: "Reshape objects immutably." },
+  { name: "clone / isDeepEqual", desc: "Deep copy and deep structural equality." },
+  { name: "shuffle / sample / range / zip", desc: "Randomize, sample, generate, and pair." },
+];
+
+// Template-specific helpers added on top of Remeda (the "Remeda doesn't ship this" set).
+const templateHelpers: { name: string; desc: string }[] = [
+  { name: "findWhere(items, shape)", desc: "Find the first item matching a partial object shape." },
+  { name: "diffArrays(prev, next, keyFn?)", desc: "Compute { added, removed, common } between two arrays." },
+  { name: "toggleInArray(items, value, keyFn?)", desc: "Immutably add-if-absent / remove-if-present." },
+  { name: "moveItem(items, from, to)", desc: "Reorder for drag-and-drop, with clamped indices." },
+  { name: "keyBy(items, keyFn)", desc: "Index an array into a record keyed by a selector." },
+  { name: "compact(items)", desc: "Drop null/undefined while keeping other falsy values." },
+  { name: "ensureArray(value)", desc: "Normalize 'one or many' inputs into an array." },
+  { name: "deal(items, buckets)", desc: "Round-robin an array into N evenly-sized buckets." },
+  { name: "truncate(text, max, ellipsis?)", desc: "Length-capped string truncation with an ellipsis." },
+  { name: "tryParseJson(raw, fallback)", desc: "Safe JSON.parse that returns a typed fallback." },
+];
+
+const backendExample = `// Cloudflare Worker / Hono route — @/backend/utils/data
+import { groupBy, diffArrays, keyBy } from "@/backend/utils/data";
+
+// Reconcile incoming rows against what's already in D1.
+const existing = await db.select().from(tasks).all();
+const { added, removed, common } = diffArrays(
+  existing,
+  incoming,
+  (t) => t.id,
+);
+
+// Group for a summary response.
+const byProject = groupBy(common, (t) => t.projectId);
+const index = keyBy(existing, (t) => t.id);`;
+
+const frontendExample = `// React island — @/lib/data
+import { sortBy, toggleInArray, R } from "@/lib/data";
+
+const [selected, setSelected] = useState<string[]>([]);
+
+// Selection state without spread-and-filter boilerplate.
+const onToggle = (id: string) =>
+  setSelected((cur) => toggleInArray(cur, id));
+
+// Sort newest-first, then take a page.
+const page = R.pipe(
+  rows,
+  sortBy((r) => -r.createdAt),
+  R.take(20),
+);`;
+---
+
+<BaseLayout title="Shared Data Utilities" description="Isomorphic TypeScript data toolkit (Remeda) shared across the Worker backend and the Astro/React frontend">
+  <div class="container mx-auto px-4 py-12 max-w-7xl">
+
+    <!-- Hero -->
+    <section class="mb-12">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-5xl">🧰</span>
+        <div>
+          <h1 class="text-4xl font-bold tracking-tight">Shared Data Utilities</h1>
+          <p class="text-muted-foreground mt-2">
+            One isomorphic toolkit — built on <strong>Remeda</strong> — wired into both the Cloudflare Worker backend and the Astro/React frontend.
+          </p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-3 mt-6">
+        <a href={REMEDA_REPO} target="_blank" rel="noopener noreferrer">
+          <Button size="sm" className="bg-orange-600 hover:bg-orange-700">remeda/remeda on GitHub ↗</Button>
+        </a>
+        <a href={REMEDA_DOCS} target="_blank" rel="noopener noreferrer">
+          <Button size="sm" variant="outline">Full Remeda docs ↗</Button>
+        </a>
+      </div>
+    </section>
+
+    <!-- Overview -->
+    <section class="mb-12">
+      <Card class="border-zinc-800 bg-zinc-950">
+        <CardHeader>
+          <CardTitle>Why this exists</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <p class="text-sm text-muted-foreground">
+            Every project re-implements the same fiddly data plumbing: find an item in an array, diff two
+            arrays, group/index records, dedupe, toggle membership, reorder. This template ships those once,
+            in a single isomorphic module powered by
+            <a href={REMEDA_REPO} target="_blank" rel="noopener noreferrer" class="text-orange-400 underline">Remeda</a>
+            — a TypeScript-first, tree-shakeable, data-first utility library that runs unchanged inside a Worker
+            and in the browser bundle.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <Badge className="bg-blue-950 text-blue-400 border-blue-800">Isomorphic</Badge>
+            <Badge className="bg-purple-950 text-purple-400 border-purple-800">TypeScript-first</Badge>
+            <Badge className="bg-green-950 text-green-400 border-green-800">Tree-shakeable</Badge>
+            <Badge className="bg-orange-950 text-orange-400 border-orange-800">Zero-config</Badge>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+              <p class="text-xs font-mono text-zinc-500 mb-1">backend</p>
+              <code class="text-sm text-orange-400">@/backend/utils/data</code>
+            </div>
+            <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+              <p class="text-xs font-mono text-zinc-500 mb-1">frontend</p>
+              <code class="text-sm text-orange-400">@/lib/data</code>
+            </div>
+            <div class="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+              <p class="text-xs font-mono text-zinc-500 mb-1">shared core</p>
+              <code class="text-sm text-orange-400">@/shared/data-utils</code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+
+    <!-- Live demos -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-2">Live demos</h2>
+      <p class="text-sm text-muted-foreground mb-6">
+        Every panel below imports the real helpers from <code class="text-orange-400">@/lib/data</code> and runs
+        them in your browser. Edit the inputs — the output is computed live, not canned.
+      </p>
+      <UtilitiesDemo client:load />
+    </section>
+
+    <!-- Usage -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">Usage</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <CodeBlock
+          client:visible
+          filename="@/backend/utils/data — Worker / Hono / D1"
+          language="ts"
+          code={backendExample}
+          showLineNumbers
+        />
+        <CodeBlock
+          client:visible
+          filename="@/lib/data — React island"
+          language="ts"
+          code={frontendExample}
+          showLineNumbers
+        />
+      </div>
+    </section>
+
+    <!-- Reference -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-6">What's supported</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base">Curated Remeda re-exports</CardTitle>
+            <CardDescription>
+              The high-frequency functions, re-exported by name. The full Remeda surface is on
+              <code class="text-orange-400">R</code> (e.g. <code class="text-orange-400">R.mapToObj</code>).
+            </CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            {remedaExports.map((fn) => (
+              <div class="flex items-start gap-3 text-sm">
+                <code class="shrink-0 text-orange-400 font-mono text-xs pt-0.5">{fn.name}</code>
+                <span class="text-muted-foreground text-xs">{fn.desc}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card class="border-zinc-800 bg-zinc-950">
+          <CardHeader>
+            <CardTitle class="text-base">Template helpers</CardTitle>
+            <CardDescription>Built on Remeda for the things it intentionally doesn't ship.</CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-2">
+            {templateHelpers.map((fn) => (
+              <div class="flex items-start gap-3 text-sm">
+                <code class="shrink-0 text-orange-400 font-mono text-xs pt-0.5">{fn.name}</code>
+                <span class="text-muted-foreground text-xs">{fn.desc}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+
+    <!-- Links -->
+    <section>
+      <Card class="border-zinc-800 bg-zinc-950">
+        <CardContent class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6">
+          <div>
+            <h3 class="text-base font-semibold">Dig deeper</h3>
+            <p class="text-sm text-muted-foreground">Full function catalog, migration guides, and a live REPL.</p>
+          </div>
+          <div class="flex gap-3">
+            <a href={REMEDA_REPO} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" variant="outline">GitHub ↗</Button>
+            </a>
+            <a href={REMEDA_DOCS} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" className="bg-orange-600 hover:bg-orange-700">Docs &amp; REPL ↗</Button>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+
+  </div>
+</BaseLayout>

@@ -1,0 +1,36 @@
+---
+/**
+ * Tasks list — a sortable/filterable table of all tasks from `GET /api/tasks`,
+ * with inline status/priority editing and a filter bar (search, status,
+ * priority, project, assignee, label, sort). An optional `?projectId=` query
+ * param seeds the project filter (used by project deep-links).
+ *
+ * Mounts the TaskList island (client:load). Runs in SSR (output: "server"),
+ * so we can read the query string off `Astro.url`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { TaskList } from "@/components/tasks/TaskList";
+
+const initialProjectId = Astro.url.searchParams.get("projectId") ?? undefined;
+---
+
+<BaseLayout
+  title="Tasks"
+  description="A filterable, sortable table of every task with inline status and priority editing. Search, filter by project / assignee / label, and drill into any task."
+>
+  <div class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">✅</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Tasks</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Every task in one table. Filter by status, priority, project, assignee,
+        or label; sort by due date, priority, or recency; edit status and
+        priority inline without opening the task.
+      </p>
+    </header>
+
+    <TaskList client:load initialProjectId={initialProjectId} />
+  </div>
+</BaseLayout>

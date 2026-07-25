@@ -1,0 +1,16 @@
+---
+/**
+ * @fileoverview /settings/advanced — system info + danger zone, backed by
+ * /api/ping and /api/notifications.
+ */
+
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { AdvancedPanel } from "@/components/settings";
+---
+
+<SettingsLayout
+  title="Advanced"
+  description="Read-only system status plus soft resets and destructive actions."
+>
+  <AdvancedPanel client:load />
+</SettingsLayout>

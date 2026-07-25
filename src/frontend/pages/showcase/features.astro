@@ -1,0 +1,12 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { SpotlightFeatures } from "@/components/showcase/SpotlightFeatures";
+---
+
+<BaseLayout
+  title="Platform Features"
+  description="The Cloudflare developer-platform primitives that power this edge showcase"
+>
+  <!-- Pure presentation: no agents stack, so client:visible is safe & cheap. -->
+  <SpotlightFeatures client:visible />
+</BaseLayout>

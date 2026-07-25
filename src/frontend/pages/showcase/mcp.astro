@@ -1,0 +1,42 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { McpPanel } from "@/components/showcase/McpPanel";
+---
+
+<BaseLayout
+  title="MCP Tools"
+  description="Live MCP-style tool registry and execution via the mcp-agent"
+>
+  <div class="container mx-auto max-w-7xl px-4 py-12">
+    <!-- Explainer header (trimmed doc) -->
+    <header class="mb-8">
+      <div class="mb-3 flex items-center gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">MCP Tools</h1>
+        <Badge variant="outline">mcp-agent</Badge>
+      </div>
+      <p class="max-w-2xl text-sm text-muted-foreground">
+        The Model Context Protocol exposes a typed catalog of tools an agent can
+        call. This page reads the live registry from the agent&rsquo;s
+        <code class="text-primary">listTools()</code> RPC, lets you invoke any tool
+        directly through <code class="text-primary">callTool(name, input)</code>, and
+        runs an assistant-ui chat where the model picks tools
+        (<code class="text-primary">echo</code>,
+        <code class="text-primary">currentTime</code>,
+        <code class="text-primary">dbCount</code>) on its own &mdash; each rendered
+        as a rich tool card.
+      </p>
+      <p class="mt-2 max-w-2xl text-xs text-muted-foreground/80">
+        Built natively on our pinned <code class="text-primary">@assistant-ui/react</code>
+        primitives (welcome screen, suggested prompts, markdown, and
+        <code class="text-primary">makeAssistantToolUI</code> tool cards). We evaluated
+        <code class="text-primary">@assistant-ui/react-mcp</code> but it requires the
+        core <code class="text-primary">0.14+</code> resource architecture plus Radix,
+        so it is incompatible with this codebase &mdash; see the panel source header.
+      </p>
+    </header>
+
+    <!-- Live interactive panel (browser-only agents stack) -->
+    <McpPanel client:only="react" />
+  </div>
+</BaseLayout>
