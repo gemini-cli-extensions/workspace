@@ -122,11 +122,13 @@ app.use("/api/admin/*", authMiddleware);
 // Durable Object gate. `/api/auth/google/oauth/*` stays exempt (pre-auth
 // consent flow) and `/api/agent-session/*` stays exempt (it self-validates —
 // it's how a client becomes authenticated in the first place).
-app.use("/api/threads/*", agentAuthMiddleware);
-app.use("/api/catalog/*", agentAuthMiddleware);
-app.use("/api/agent-tasks/*", agentAuthMiddleware);
-app.use("/api/accounts/*", agentAuthMiddleware);
-app.use("/api/gsuite-health/*", agentAuthMiddleware);
+// Gate BOTH the base path and sub-paths — Hono's `/x/*` matches `/x/y` but not
+// the bare `/x`, so the collection endpoints (e.g. GET /api/threads) need an
+// explicit base-path guard too, or they'd stay wide open.
+for (const base of ["/api/threads", "/api/catalog", "/api/agent-tasks", "/api/accounts", "/api/gsuite-health"]) {
+  app.use(base, agentAuthMiddleware);
+  app.use(`${base}/*`, agentAuthMiddleware);
+}
 
 // ---------------------------------------------------------------------------
 // Domain routers
