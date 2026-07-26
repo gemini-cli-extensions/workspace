@@ -1,8 +1,18 @@
 // @ts-check
+import { fileURLToPath } from "node:url";
+
 import cloudflare from "@astrojs/cloudflare";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
+
+// The `ai` pkg transitively imports @ai-sdk/mcp's stdio transport which needs
+// child_process.spawn — not available in browser/Worker bundles and never
+// used here. Shim it so rollup resolves the named import (ported alongside
+// `agents`/`ai` in Phase 2 of the core-gsuite-tools port).
+const childProcessShim = fileURLToPath(
+  new URL("./src/backend/shims/child_process.ts", import.meta.url),
+);
 
 const site = process.env.SITE ?? "http://localhost:4321";
 const base = process.env.BASE || "/";
@@ -52,11 +62,28 @@ export default defineConfig({
         "McpAgent",
         "ThinkingAgent",
         "SkillsAgent",
+        // Google Workspace specialist agents + RPC entrypoint, ported from
+        // core-gsuite-tools (Phase 2). Must match `wrangler.jsonc`
+        // `durable_objects.bindings` and the exports of `src/_worker.ts`.
+        "GmailAgent",
+        "DocsAgent",
+        "SheetsAgent",
+        "SlidesAgent",
+        "AppsScriptAgent",
+        "DriveAgent",
+        "CalendarAgent",
+        "GsuiteService",
       ],
     },
   }),
   integrations: [react()],
   vite: {
+    resolve: {
+      alias: [
+        { find: /^node:child_process$/, replacement: childProcessShim },
+        { find: /^child_process$/, replacement: childProcessShim },
+      ],
+    },
     plugins: [
       // Cast through the Vite plugin type to work around the current
       // Vite/@tailwindcss-vite HotUpdateOptions mismatch without dropping
@@ -75,6 +102,7 @@ export default defineConfig({
         "node:util",
         "agents",
         "cloudflare:workers",
+        "notebooklm-sdk",
       ],
     },
   },

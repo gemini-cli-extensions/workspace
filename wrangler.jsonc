@@ -27,9 +27,43 @@
     "run_worker_first": true,
     "not_found_handling": "404-page",
   },
+  "ai": {
+    "binding": "AI",
+  },
+  // ---------------------------------------------------------------------------
+  // Durable Object agents — one specialist Agents-SDK agent per Google surface,
+  // plus an orchestrator that routes chat/tasks to the right specialist.
+  // Ported from core-gsuite-tools Phase 2.
+  // ---------------------------------------------------------------------------
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORCHESTRATOR_AGENT", "class_name": "OrchestratorAgent" },
+      { "name": "GMAIL_AGENT", "class_name": "GmailAgent" },
+      { "name": "DOCS_AGENT", "class_name": "DocsAgent" },
+      { "name": "SHEETS_AGENT", "class_name": "SheetsAgent" },
+      { "name": "SLIDES_AGENT", "class_name": "SlidesAgent" },
+      { "name": "APPSSCRIPT_AGENT", "class_name": "AppsScriptAgent" },
+      { "name": "DRIVE_AGENT", "class_name": "DriveAgent" },
+      { "name": "CALENDAR_AGENT", "class_name": "CalendarAgent" },
+    ],
+  },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": [] },
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "OrchestratorAgent",
+        "GmailAgent",
+        "DocsAgent",
+        "SheetsAgent",
+        "SlidesAgent",
+        "AppsScriptAgent",
+        "DriveAgent",
+        "CalendarAgent",
+      ],
+    },
   ],
+  // Worker Loader — required for Agent Skills script execution (agents/skills runner).
+  "worker_loaders": [{ "binding": "WORKER_LOADERS" }],
   "vars": {
     // Optional verified destination for message.forward() in the email handler.
     // Empty string = forwarding disabled (the message is stored in D1 only).
@@ -52,6 +86,12 @@
     "GOOGLE_WORKSPACE_ACCOUNT_EMAIL": "",
     // Email for the consumer/personal Google account (OAuth2, not DWD).
     "GOOGLE_PERSONAL_ACCOUNT_EMAIL": "",
+    // AI Gateway + model defaults (Workers AI via AI Gateway, Phase 2 port).
+    "AI_GATEWAY_ID": "default-gateway",
+    "MODEL_CHAT": "@cf/openai/gpt-oss-120b",
+    "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",
+    "MODEL_DRAFT": "@cf/openai/gpt-oss-120b",
+    "DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
   },
   "kv_namespaces": [
     {
@@ -67,6 +107,16 @@
       "database_id": "32f8b41a-052d-42cb-b12c-9e5dbd28bbd7",
       "migrations_dir": "drizzle",
     },
+  ],
+  // ---------------------------------------------------------------------------
+  // Vectorize — three RAG indexes (emails, docs, general). Bindings only for now
+  // (Env types need them for `ai/rag` to typecheck); indexes are provisioned and
+  // wired up for real in Phase 4. Do NOT `migrate:remote` / provision yet.
+  // ---------------------------------------------------------------------------
+  "vectorize": [
+    { "binding": "VECTORIZE_EMAILS", "index_name": "google-workspace-mcp-rag-emails", "remote": true },
+    { "binding": "VECTORIZE_DOCS", "index_name": "google-workspace-mcp-rag-docs", "remote": true },
+    { "binding": "VECTORIZE_GENERAL", "index_name": "google-workspace-mcp-rag-general", "remote": true },
   ],
   "secrets_store_secrets": [
     {

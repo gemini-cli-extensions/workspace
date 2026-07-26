@@ -38,3 +38,10 @@ export * from "./schemas/workspace-assets";
 export * from "./schemas/template-artifacts";
 export * from "./schemas/drive-notifications";
 export * from "./schemas/google-accounts";
+
+// ---------------------------------------------------------------------------
+// Agents SDK platform tables (ported from core-gsuite-tools, Phase 2)
+// ---------------------------------------------------------------------------
+export * from "./schemas/agents";
+export * from "./schemas/agent-chat";
+export * from "./schemas/google-artifacts";
