@@ -87,3 +87,63 @@ export async function getGitHubWebhookSecret(env: Env): Promise<string> {
   }
   return secret;
 }
+
+// ---------------------------------------------------------------------------
+// Google OAuth / DWD (ported from core-gsuite-tools, Phase 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Default Workspace user impersonated via Domain-Wide Delegation.
+ * Plain `vars` entry (see `wrangler.jsonc`) — not a Secrets Store binding.
+ */
+export function getGoogleUserToImpersonate(env: Env): string {
+  if (!env.GOOGLE_USER_TO_IMPERSONATE) {
+    throw new Error("Missing GOOGLE_USER_TO_IMPERSONATE var");
+  }
+  return env.GOOGLE_USER_TO_IMPERSONATE;
+}
+
+/** Display email for the default Workspace account (plain `vars` entry). */
+export function getGoogleWorkspaceAccountEmail(env: Env): string {
+  return env.GOOGLE_WORKSPACE_ACCOUNT_EMAIL || getGoogleUserToImpersonate(env);
+}
+
+/** Email for the consumer/personal Google account (plain `vars` entry). */
+export function getGooglePersonalAccountEmail(env: Env): string {
+  return env.GOOGLE_PERSONAL_ACCOUNT_EMAIL || "jmbish04@gmail.com";
+}
+
+/**
+ * OAuth client id for the multi-account consent flow.
+ *
+ * Falls back to the `GOOGLE_CLIENT_ID` secret already used by the `/mcp` OAuth
+ * path so both surfaces can share one registered OAuth client without a
+ * separate `GOOGLE_OAUTH_CLIENT_ID` secret having to be provisioned.
+ */
+export async function getGoogleOAuthClientId(env: Env): Promise<string> {
+  const value =
+    (await getSecret(env, "GOOGLE_OAUTH_CLIENT_ID")) ?? (await getSecret(env, "GOOGLE_CLIENT_ID"));
+  if (!value) {
+    throw new Error("Missing GOOGLE_OAUTH_CLIENT_ID (or GOOGLE_CLIENT_ID) secret");
+  }
+  return value;
+}
+
+/** OAuth client secret for the multi-account consent flow — see {@link getGoogleOAuthClientId}. */
+export async function getGoogleOAuthClientSecret(env: Env): Promise<string> {
+  const value =
+    (await getSecret(env, "GOOGLE_OAUTH_CLIENT_SECRET")) ??
+    (await getSecret(env, "GOOGLE_CLIENT_SECRET"));
+  if (!value) {
+    throw new Error("Missing GOOGLE_OAUTH_CLIENT_SECRET (or GOOGLE_CLIENT_SECRET) secret");
+  }
+  return value;
+}
+
+/**
+ * Optional seed refresh token for the personal account, used before the
+ * interactive consent flow has run. Returns undefined if unset.
+ */
+export async function getSeedPersonalRefreshToken(env: Env): Promise<string | undefined> {
+  return getSecret(env, "GOOGLE_PERSONAL_REFRESH_TOKEN");
+}

@@ -37,3 +37,4 @@ export * from "./schemas/chat";
 export * from "./schemas/workspace-assets";
 export * from "./schemas/template-artifacts";
 export * from "./schemas/drive-notifications";
+export * from "./schemas/google-accounts";

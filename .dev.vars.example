@@ -2,3 +2,13 @@
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 PUBLIC_BASE_URL=http://localhost:8787
+
+# Ported multi-account Google auth (src/backend/auth) — optional local overrides
+# for the wrangler.jsonc `vars` of the same name. The OAuth client id/secret
+# reuse GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET above (see src/backend/utils/secrets.ts);
+# set GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET here only if the
+# multi-account flow needs a distinct OAuth client from the /mcp one.
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8787/api/auth/google/oauth/callback
+GOOGLE_USER_TO_IMPERSONATE=
+GOOGLE_WORKSPACE_ACCOUNT_EMAIL=
+GOOGLE_PERSONAL_ACCOUNT_EMAIL=

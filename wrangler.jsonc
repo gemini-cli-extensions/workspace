@@ -37,6 +37,21 @@
     // Deployed Worker URL, used to build the Google OAuth redirect_uri.
     // Empty string = fall back to the incoming request's origin.
     "PUBLIC_BASE_URL": "https://google-workspace-mcp.hacolby.workers.dev",
+    // ---------------------------------------------------------------------
+    // Ported multi-account Google auth (src/backend/auth/provider.ts +
+    // oauth-google.ts) — see docs/superpowers/plans/2026-07-26-port-core-gsuite-tools.md.
+    // Plain vars (not secrets): the OAuth client id/secret reuse the existing
+    // GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET secrets via a fallback in
+    // src/backend/utils/secrets.ts instead of provisioning new ones.
+    // ---------------------------------------------------------------------
+    // Registered OAuth redirect URI for the multi-account consent flow.
+    "GOOGLE_OAUTH_REDIRECT_URI": "https://google-workspace-mcp.hacolby.workers.dev/api/auth/google/oauth/callback",
+    // Default Workspace user impersonated via Domain-Wide Delegation.
+    "GOOGLE_USER_TO_IMPERSONATE": "",
+    // Display email for the default Workspace (DWD) account.
+    "GOOGLE_WORKSPACE_ACCOUNT_EMAIL": "",
+    // Email for the consumer/personal Google account (OAuth2, not DWD).
+    "GOOGLE_PERSONAL_ACCOUNT_EMAIL": "",
   },
   "kv_namespaces": [
     {
