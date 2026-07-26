@@ -31,11 +31,21 @@ type DOBindingDescriptor = {
 /**
  * Canonical list of Durable Object agent bindings the coordinator pings.
  *
- * This Worker has zero Durable Object bindings, so the list is empty — kept
- * as a typed array (rather than deleting `pingAgent`/`DOBindingDescriptor`)
- * so a future binding can be re-added here without touching the run logic.
+ * One specialist Agents-SDK agent per Google surface (see wrangler.jsonc
+ * `durable_objects.bindings`); `pingAgent` hits each one's `/__ping` and
+ * treats any non-5xx response (including 404, if a binding has no such
+ * route) as reachable.
  */
-const AGENT_BINDINGS: DOBindingDescriptor[] = [];
+const AGENT_BINDINGS: DOBindingDescriptor[] = [
+  { binding: "ORCHESTRATOR_AGENT", name: "orchestrator_agent_ping" },
+  { binding: "GMAIL_AGENT", name: "gmail_agent_ping" },
+  { binding: "DOCS_AGENT", name: "docs_agent_ping" },
+  { binding: "SHEETS_AGENT", name: "sheets_agent_ping" },
+  { binding: "SLIDES_AGENT", name: "slides_agent_ping" },
+  { binding: "APPSSCRIPT_AGENT", name: "appsscript_agent_ping" },
+  { binding: "DRIVE_AGENT", name: "drive_agent_ping" },
+  { binding: "CALENDAR_AGENT", name: "calendar_agent_ping" },
+];
 
 const PING_TIMEOUT_MS = 2000;
 

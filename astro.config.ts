@@ -50,18 +50,7 @@ export default defineConfig({
     workerEntryPoint: {
       path: "src/_worker.ts",
       namedExports: [
-        "ChatBroker",
-        "CodeModeAgent",
-        "BrowserHitlAgent",
-        "WorkflowsAgent",
-        "ArtifactAgent",
-        "NotificationsAgent",
         "OrchestratorAgent",
-        "ResearcherAgent",
-        "CoderAgent",
-        "McpAgent",
-        "ThinkingAgent",
-        "SkillsAgent",
         // Google Workspace specialist agents + RPC entrypoint, ported from
         // core-gsuite-tools (Phase 2). Must match `wrangler.jsonc`
         // `durable_objects.bindings` and the exports of `src/_worker.ts`.

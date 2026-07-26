@@ -54,6 +54,7 @@ export const siteConfig: SiteConfig = {
         { href: "/gws/templates", label: "Templates" },
         { href: "/gws/operations", label: "Operations Log" },
         { href: "/gws/assets", label: "Asset Activity" },
+        { href: "/gws/notifications", label: "Notifications" },
       ],
     },
     {
@@ -70,9 +71,11 @@ export const siteConfig: SiteConfig = {
       label: "Agents",
       items: [
         { href: "/chat", label: "Chat" },
-        { href: "/agent-tasks", label: "Scheduled Tasks" },
+        { href: "/agent-tasks", label: "Tasks" },
         { href: "/accounts", label: "Accounts" },
-        { href: "/health", label: "Health" },
+        // Real page is /health (fetches GET /api/gsuite-health) — there is
+        // no page at /gsuite-health itself.
+        { href: "/health", label: "Agent Health" },
       ],
     },
     {

@@ -32,6 +32,7 @@ import { setCookie } from "hono/cookie";
 
 import { readVerifiedSession } from "@/backend/auth/read-session";
 import { mintSessionToken } from "@/backend/auth/session-token";
+import { constantTimeEqual } from "@/backend/lib/crypto";
 import { getWorkerApiKey } from "@/backend/utils/secrets";
 
 /** Cookie name holding the signed session token. Mirrors `read-session.ts`. */
@@ -74,7 +75,7 @@ agentSessionRouter.openapi(
     const { key } = c.req.valid("json");
     const workerKey = await getWorkerApiKey(c.env);
 
-    if (!workerKey || key !== workerKey) {
+    if (!workerKey || !constantTimeEqual(key, workerKey)) {
       return c.json(
         { error: { code: "UNAUTHORIZED", message: "Invalid worker API key." } } as {
           error: { code: string; message: string };

@@ -62,8 +62,32 @@ export function parseMarkdownSlides(markdown: string): ParsedSlide[] {
   return slides;
 }
 
+export interface TextStyleInput {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
+  foregroundColorHex?: string;
+  link?: string;
+}
+
+export interface ShapeStyleInput {
+  backgroundColorHex?: string;
+  outlineColorHex?: string;
+}
+
 export class SlidesService {
   constructor(private env: Env, private sub: string) {}
+
+  /** "#RRGGBB" (or "RRGGBB") -> Slides API rgbColor (0..1 floats). */
+  private hexToRgb(hex: string): { red: number; green: number; blue: number } {
+    const clean = hex.replace(/^#/, "");
+    const red = parseInt(clean.slice(0, 2), 16) / 255;
+    const green = parseInt(clean.slice(2, 4), 16) / 255;
+    const blue = parseInt(clean.slice(4, 6), 16) / 255;
+    return { red, green, blue };
+  }
 
   async create(title: string): Promise<{ presentationId: string; title?: string }> {
     return googleJson<{ presentationId: string; title?: string }>(this.env, this.sub, BASE, {
@@ -186,5 +210,95 @@ export class SlidesService {
       this.sub,
       `${BASE}/${presentationId}/pages/${pageObjectId}/thumbnail`,
     );
+  }
+
+  /** Style all text in a text box/shape (bold/italic/underline/font/color/link) without hand-written batchUpdate JSON. */
+  async styleText(presentationId: string, objectId: string, style: TextStyleInput): Promise<unknown> {
+    const fields: string[] = [];
+    const textStyle: Record<string, unknown> = {};
+
+    if (style.bold !== undefined) {
+      textStyle.bold = style.bold;
+      fields.push("bold");
+    }
+    if (style.italic !== undefined) {
+      textStyle.italic = style.italic;
+      fields.push("italic");
+    }
+    if (style.underline !== undefined) {
+      textStyle.underline = style.underline;
+      fields.push("underline");
+    }
+    if (style.fontSize !== undefined) {
+      textStyle.fontSize = { magnitude: style.fontSize, unit: "PT" };
+      fields.push("fontSize");
+    }
+    if (style.fontFamily !== undefined) {
+      textStyle.fontFamily = style.fontFamily;
+      fields.push("fontFamily");
+    }
+    if (style.foregroundColorHex !== undefined) {
+      textStyle.foregroundColor = { opaqueColor: { rgbColor: this.hexToRgb(style.foregroundColorHex) } };
+      fields.push("foregroundColor");
+    }
+    if (style.link !== undefined) {
+      textStyle.link = { url: style.link };
+      fields.push("link");
+    }
+
+    return this.batchUpdate(presentationId, [
+      {
+        updateTextStyle: {
+          objectId,
+          textRange: { type: "ALL" },
+          style: textStyle,
+          fields: fields.join(","),
+        },
+      },
+    ]);
+  }
+
+  /** Style a shape's fill/outline color without hand-written batchUpdate JSON. */
+  async styleShape(presentationId: string, objectId: string, props: ShapeStyleInput): Promise<unknown> {
+    const fields: string[] = [];
+    const shapeProperties: Record<string, unknown> = {};
+
+    if (props.backgroundColorHex !== undefined) {
+      shapeProperties.shapeBackgroundFill = {
+        solidFill: { color: { rgbColor: this.hexToRgb(props.backgroundColorHex) } },
+      };
+      fields.push("shapeBackgroundFill.solidFill.color");
+    }
+    if (props.outlineColorHex !== undefined) {
+      shapeProperties.outline = {
+        outlineFill: { solidFill: { color: { rgbColor: this.hexToRgb(props.outlineColorHex) } } },
+      };
+      fields.push("outline.outlineFill.solidFill.color");
+    }
+
+    return this.batchUpdate(presentationId, [
+      {
+        updateShapeProperties: {
+          objectId,
+          shapeProperties,
+          fields: fields.join(","),
+        },
+      },
+    ]);
+  }
+
+  /** Set a slide's background to a solid color without hand-written batchUpdate JSON. */
+  async setSlideBackground(presentationId: string, pageObjectId: string, colorHex: string): Promise<unknown> {
+    return this.batchUpdate(presentationId, [
+      {
+        updatePageProperties: {
+          objectId: pageObjectId,
+          pageProperties: {
+            pageBackgroundFill: { solidFill: { color: { rgbColor: this.hexToRgb(colorHex) } } },
+          },
+          fields: "pageBackgroundFill.solidFill.color",
+        },
+      },
+    ]);
   }
 }

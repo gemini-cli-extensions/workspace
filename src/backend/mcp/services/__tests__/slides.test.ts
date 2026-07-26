@@ -137,4 +137,104 @@ describe("SlidesService", () => {
     const url = spy.mock.calls[0][0] as string;
     expect(url).toBe("https://slides.googleapis.com/v1/presentations/p1/pages/s0/thumbnail");
   });
+
+  it("styleText emits an updateTextStyle request over the whole text range with a matching fields mask", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new SlidesService({} as any, "s1").styleText("p1", "box1", {
+      bold: true,
+      italic: false,
+      underline: true,
+      fontSize: 24,
+      fontFamily: "Arial",
+      foregroundColorHex: "#FF0000",
+      link: "http://example.com",
+    });
+    const init = spy.mock.calls[0][1] as RequestInit;
+    const requests = JSON.parse(init.body as string).requests;
+    expect(requests).toEqual([
+      {
+        updateTextStyle: {
+          objectId: "box1",
+          textRange: { type: "ALL" },
+          style: {
+            bold: true,
+            italic: false,
+            underline: true,
+            fontSize: { magnitude: 24, unit: "PT" },
+            fontFamily: "Arial",
+            foregroundColor: { opaqueColor: { rgbColor: { red: 1, green: 0, blue: 0 } } },
+            link: { url: "http://example.com" },
+          },
+          fields: "bold,italic,underline,fontSize,fontFamily,foregroundColor,link",
+        },
+      },
+    ]);
+  });
+
+  it("styleText only sets fields that were provided", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new SlidesService({} as any, "s1").styleText("p1", "box1", { bold: true });
+    const init = spy.mock.calls[0][1] as RequestInit;
+    const requests = JSON.parse(init.body as string).requests;
+    expect(requests).toEqual([
+      {
+        updateTextStyle: {
+          objectId: "box1",
+          textRange: { type: "ALL" },
+          style: { bold: true },
+          fields: "bold",
+        },
+      },
+    ]);
+  });
+
+  it("styleShape emits an updateShapeProperties request for background + outline color", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new SlidesService({} as any, "s1").styleShape("p1", "shape1", {
+      backgroundColorHex: "#00FF00",
+      outlineColorHex: "#0000FF",
+    });
+    const init = spy.mock.calls[0][1] as RequestInit;
+    const requests = JSON.parse(init.body as string).requests;
+    expect(requests).toEqual([
+      {
+        updateShapeProperties: {
+          objectId: "shape1",
+          shapeProperties: {
+            shapeBackgroundFill: { solidFill: { color: { rgbColor: { red: 0, green: 1, blue: 0 } } } },
+            outline: { outlineFill: { solidFill: { color: { rgbColor: { red: 0, green: 0, blue: 1 } } } } },
+          },
+          fields: "shapeBackgroundFill.solidFill.color,outline.outlineFill.solidFill.color",
+        },
+      },
+    ]);
+  });
+
+  it("setSlideBackground emits an updatePageProperties request with a solid color fill", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new SlidesService({} as any, "s1").setSlideBackground("p1", "s0", "#123456");
+    const init = spy.mock.calls[0][1] as RequestInit;
+    const requests = JSON.parse(init.body as string).requests;
+    expect(requests).toEqual([
+      {
+        updatePageProperties: {
+          objectId: "s0",
+          pageProperties: {
+            pageBackgroundFill: {
+              solidFill: {
+                color: {
+                  rgbColor: {
+                    red: 0x12 / 255,
+                    green: 0x34 / 255,
+                    blue: 0x56 / 255,
+                  },
+                },
+              },
+            },
+          },
+          fields: "pageBackgroundFill.solidFill.color",
+        },
+      },
+    ]);
+  });
 });

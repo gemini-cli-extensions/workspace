@@ -38,6 +38,7 @@ import { handleOAuth } from "./backend/mcp/oauth"; // MCP OAuth authorization se
 import { getWorkerApiKey } from "./backend/utils/secrets";
 import { verifySessionToken } from "./backend/auth/session-token";
 import { readVerifiedSession } from "./backend/auth/read-session";
+import { constantTimeEqual } from "./backend/lib/crypto";
 import {
   AppsScriptAgent,
   CalendarAgent,
@@ -83,22 +84,21 @@ function isApiPath(pathname: string): boolean {
  * another's chat history / task state.
  *
  * Accepts either:
- *  - the worker API key or a signed session token as `?token=`/`?AGENT_AUTH=`
- *    query param or `Authorization: Bearer <...>` header (parity with the
- *    `core-gsuite-tools` source), or
+ *  - `Authorization: Bearer <...>` header carrying the worker API key
+ *    (constant-time compare) or a signed session token, or
  *  - the browser's own `gsuite_session` cookie (same-origin WS/HTTP requests
  *    carry it automatically) via `readVerifiedSession`.
+ *
+ * Deliberately does NOT accept a `?token=`/`?AGENT_AUTH=` query param: query
+ * strings are logged by Cloudflare request logging/analytics, land in
+ * `Referer` headers, and persist in browser history — an unacceptable place
+ * to carry the master key (see I2 in the 2026-07-25 security audit).
  */
 async function isAuthorizedAgentRequest(request: Request, env: Env): Promise<boolean> {
-  const url = new URL(request.url);
-  const presented =
-    url.searchParams.get("token") ??
-    url.searchParams.get("AGENT_AUTH") ??
-    request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ??
-    null;
+  const presented = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? null;
   if (presented) {
     const workerKey = await getWorkerApiKey(env);
-    if (workerKey && presented === workerKey) return true;
+    if (workerKey && constantTimeEqual(presented, workerKey)) return true;
     if (await verifySessionToken(env, presented)) return true;
   }
   const { authed } = await readVerifiedSession(env, request);
@@ -147,6 +147,14 @@ function makeHandler(): ExportedHandler<Env> {
         if (!(await isAuthorizedAgentRequest(request, env))) {
           return new Response("Unauthorized", { status: 401 });
         }
+        // SECURITY TODO(multi-tenant): `isAuthorizedAgentRequest` only proves
+        // the caller holds *a* valid credential — the credential carries no
+        // subject/identity, so it does not bind the requested `<name>` path
+        // segment to that caller. Every authenticated session can currently
+        // address every agent DO instance (sessions are interchangeable).
+        // Acceptable for single-tenant deployments only; before serving more
+        // than one principal, derive the permitted instance name(s) from the
+        // token's subject instead of trusting the caller-supplied path.
         const agentResponse = await routeAgentRequest(request as any, env as any);
         if (agentResponse) return agentResponse as unknown as Response;
       }

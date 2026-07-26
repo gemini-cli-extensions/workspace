@@ -31,7 +31,10 @@ export const authGoogleOauthRouter = new OpenAPIHono<{ Bindings: Env }>();
 async function buildSignedState(env: Env, label?: string): Promise<{ state: string; cookie: string }> {
   const nonce = crypto.randomUUID();
   const payload = encodeBase64Url(JSON.stringify({ nonce, label: label ?? null }));
-  const secret = (await getWorkerApiKey(env)) ?? "g-oauth";
+  // Fail closed (matching session-token.ts) rather than falling back to a
+  // hardcoded key: a known signing secret makes the CSRF state forgeable.
+  const secret = await getWorkerApiKey(env);
+  if (!secret) throw new Error("Missing WORKER_API_KEY: cannot sign OAuth state.");
   const sig = await hmacSign(secret, payload);
   // The state sent to Google carries the payload; the cookie carries the signature.
   return { state: payload, cookie: sig };
@@ -44,7 +47,8 @@ async function verifySignedState(
   cookie: string | undefined,
 ): Promise<{ ok: boolean; label: string | null }> {
   if (!state || !cookie) return { ok: false, label: null };
-  const secret = (await getWorkerApiKey(env)) ?? "g-oauth";
+  const secret = await getWorkerApiKey(env);
+  if (!secret) return { ok: false, label: null };
   const expected = await hmacSign(secret, state);
   if (!constantTimeEqual(expected, cookie)) return { ok: false, label: null };
   try {

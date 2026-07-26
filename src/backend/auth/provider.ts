@@ -20,6 +20,18 @@
  *
  * Clients and agents stay account-agnostic — they accept `account?: GoogleAccount`
  * (now `string`) and call {@link getGoogleAccessToken}.
+ *
+ * SECURITY (C2, 2026-07-25 audit): there is NO caller-trust check on the
+ * `account` selector here — any authorized caller (anyone holding a valid
+ * `gsuite_session` cookie or the `WORKER_API_KEY`, per the `agentAuthMiddleware`
+ * gate on `/api/agent-tasks`, `/api/threads`, etc., and the `/agents/*` DO gate)
+ * may impersonate ANY user in the Workspace domain via DWD — rule 3 above
+ * honors an arbitrary `sub` with no per-caller allow-list. That is acceptable
+ * for a single-tenant deployment (one trusted operator, one domain) but is
+ * NOT safe for multi-tenant use: before serving more than one principal,
+ * restrict which `account`/`sub` values a given caller may request (e.g. bind
+ * it to the caller's own authenticated identity) in this shared function, so
+ * both this REST path and the MCP `as_user` path are covered by one guard.
  */
 
 import { getServiceAccountAccessToken } from "@/backend/lib/google-auth";

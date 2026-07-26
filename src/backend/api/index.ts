@@ -20,6 +20,7 @@ import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
+import { agentAuthMiddleware } from "./middleware/agent-auth";
 import { authMiddleware } from "./middleware/auth";
 import { errorHandler } from "./middleware/error";
 import { authRouter } from "./routes/auth";
@@ -30,6 +31,7 @@ import { healthRouter } from "./routes/health";
 import { activityRouter } from "./routes/activity";
 import { dashboardRouter } from "./routes/dashboard";
 import { gwsRouter } from "./routes/gws";
+import { gwsNotificationsRouter } from "./routes/gws-notifications";
 import { gwsTemplatesRouter } from "./routes/gws-templates";
 import { driveWebhookRouter } from "./routes/drive-webhook";
 import { projectsRouter } from "./routes/projects";
@@ -114,6 +116,18 @@ app.get("/api/swagger", swaggerUI({ url: "/api/openapi.json" }));
 // box. Tighten this to `/api/*` once you wire real per-user auth.
 app.use("/api/admin/*", authMiddleware);
 
+// Ported gsuite surfaces (see C1 in the 2026-07-25 security audit): these
+// read chat/thread state, drive Google Workspace actions, and revoke OAuth
+// credentials, so they require the same credential as the `/agents/*`
+// Durable Object gate. `/api/auth/google/oauth/*` stays exempt (pre-auth
+// consent flow) and `/api/agent-session/*` stays exempt (it self-validates —
+// it's how a client becomes authenticated in the first place).
+app.use("/api/threads/*", agentAuthMiddleware);
+app.use("/api/catalog/*", agentAuthMiddleware);
+app.use("/api/agent-tasks/*", agentAuthMiddleware);
+app.use("/api/accounts/*", agentAuthMiddleware);
+app.use("/api/gsuite-health/*", agentAuthMiddleware);
+
 // ---------------------------------------------------------------------------
 // Domain routers
 // ---------------------------------------------------------------------------
@@ -137,6 +151,7 @@ app.route("/api/settings", settingsRouter);
 app.route("/api/activity", activityRouter);
 app.route("/api/dashboard", dashboardRouter);
 app.route("/api/gws", gwsRouter);
+app.route("/api/gws/notifications", gwsNotificationsRouter);
 app.route("/api/gws/templates", gwsTemplatesRouter);
 app.route("/api/gws/drive-webhook", driveWebhookRouter);
 app.route("/api/seed", seedRouter);

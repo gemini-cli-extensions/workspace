@@ -30,6 +30,7 @@ import { ChangesService } from "./services/changes";
 import { WorkspaceEventsService } from "./services/workspaceevents";
 import { PeopleService } from "./services/people";
 import { FormsService } from "./services/forms";
+import { queryCorpus } from "@/backend/ai/rag";
 import type { AssetAction } from "./logging";
 
 export type ToolCtx = { env: Env; sub: string };
@@ -330,6 +331,62 @@ export const TOOLS: ToolDef[] = [
     inputSchema: z.object({ presentationId: z.string(), pageObjectId: z.string(), ...asUser }),
     async run({ env, sub }, a) {
       return { result: await new SlidesService(env, acct(sub, a)).getThumbnail(a.presentationId, a.pageObjectId), asset: { assetType: "slide", googleId: a.presentationId, action: "read" } };
+    },
+  },
+  {
+    name: "slides_style_text",
+    description:
+      "Style all text in a text box/shape (bold, italic, underline, fontSize, fontFamily, foregroundColorHex #RRGGBB, link) without hand-writing an updateTextStyle batchUpdate request.",
+    inputSchema: z.object({
+      presentationId: z.string(),
+      objectId: z.string(),
+      bold: z.boolean().optional(),
+      italic: z.boolean().optional(),
+      underline: z.boolean().optional(),
+      fontSize: z.number().optional(),
+      fontFamily: z.string().optional(),
+      foregroundColorHex: z.string().optional(),
+      link: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const r = await new SlidesService(env, acct(sub, a)).styleText(a.presentationId, a.objectId, {
+        bold: a.bold,
+        italic: a.italic,
+        underline: a.underline,
+        fontSize: a.fontSize,
+        fontFamily: a.fontFamily,
+        foregroundColorHex: a.foregroundColorHex,
+        link: a.link,
+      });
+      return { result: r, asset: { assetType: "slide", googleId: a.presentationId, action: "modify", detail: { objectId: a.objectId } } };
+    },
+  },
+  {
+    name: "slides_style_shape",
+    description: "Style a shape's fill/outline color (backgroundColorHex/outlineColorHex, both #RRGGBB) without hand-writing an updateShapeProperties batchUpdate request.",
+    inputSchema: z.object({
+      presentationId: z.string(),
+      objectId: z.string(),
+      backgroundColorHex: z.string().optional(),
+      outlineColorHex: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const r = await new SlidesService(env, acct(sub, a)).styleShape(a.presentationId, a.objectId, {
+        backgroundColorHex: a.backgroundColorHex,
+        outlineColorHex: a.outlineColorHex,
+      });
+      return { result: r, asset: { assetType: "slide", googleId: a.presentationId, action: "modify", detail: { objectId: a.objectId } } };
+    },
+  },
+  {
+    name: "slides_set_slide_background",
+    description: "Set a slide's background to a solid color (colorHex #RRGGBB) without hand-writing an updatePageProperties batchUpdate request.",
+    inputSchema: z.object({ presentationId: z.string(), pageObjectId: z.string(), colorHex: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new SlidesService(env, acct(sub, a)).setSlideBackground(a.presentationId, a.pageObjectId, a.colorHex);
+      return { result: r, asset: { assetType: "slide", googleId: a.presentationId, action: "modify", detail: { pageObjectId: a.pageObjectId } } };
     },
   },
   // ---- Calendar ----------------------------------------------------------
@@ -708,6 +765,15 @@ export const TOOLS: ToolDef[] = [
     inputSchema: z.object({ name: z.string(), ...asUser }),
     async run({ env, sub }, a) {
       return { result: await new WorkspaceEventsService(env, acct(sub, a)).deleteSubscription(a.name) };
+    },
+  },
+  {
+    name: "rag_query",
+    description:
+      "Semantic search over an indexed RAG corpus (emails | docs | general) via Vectorize embeddings. Returns the top matching chunks. Content must have been indexed by the agents first.",
+    inputSchema: z.object({ corpus: z.enum(["emails", "docs", "general"]), query: z.string(), topK: z.number().int().min(1).max(20).optional() }),
+    async run({ env }, a) {
+      return { result: await queryCorpus(env, a.corpus, a.query, a.topK ?? 5) };
     },
   },
   {
