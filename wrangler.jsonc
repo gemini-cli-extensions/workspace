@@ -48,8 +48,12 @@
     ],
   },
   "migrations": [
+    // v1 shipped earlier with NO Durable Objects (the stateless MCP worker).
+    // Migration tags are immutable once deployed, so the agent DO classes are
+    // introduced under a new v2 tag — NOT by editing v1.
+    { "tag": "v1", "new_sqlite_classes": [] },
     {
-      "tag": "v1",
+      "tag": "v2",
       "new_sqlite_classes": [
         "OrchestratorAgent",
         "GmailAgent",
