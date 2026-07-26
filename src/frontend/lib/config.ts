@@ -40,12 +40,14 @@ export const siteConfig: SiteConfig = {
   },
   navItems: [
     { href: "/gws", label: "Overview" },
+    { href: "/docs", label: "Docs" },
     { href: "/gws/operations", label: "Operations" },
   ],
   navGroups: [
     {
       label: "Google Workspace",
       items: [
+        { href: "/docs/google-config", label: "Google Cloud Config" },
         { href: "/gws/setup", label: "Setup & Deploy" },
         { href: "/gws/tools", label: "MCP Tools" },
         { href: "/gws/operations", label: "Operations Log" },
@@ -66,7 +68,6 @@ export const siteConfig: SiteConfig = {
       label: "System",
       items: [
         { href: "/settings", label: "Settings" },
-        { href: "/docs", label: "Documentation" },
         { href: "/openapi.json", label: "OpenAPI" },
         { href: "/swagger", label: "Swagger" },
         { href: "/scalar", label: "Scalar" },

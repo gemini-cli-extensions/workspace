@@ -27,7 +27,8 @@
     "deploy:preview": "pnpm run build && cp .assetsignore dist/.assetsignore && npx wrangler versions upload",
     "cf-typegen": "wrangler types",
     "deps:lockfile": "corepack pnpm install --no-frozen-lockfile && wrangler types",
-    "deps:update": "corepack pnpm update --latest && corepack pnpm install --no-frozen-lockfile && wrangler types"
+    "deps:update": "corepack pnpm update --latest && corepack pnpm install --no-frozen-lockfile && wrangler types",
+    "secrets": "node scripts/create-worker-secrets.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.176",

@@ -36,7 +36,7 @@
     "INBOX_FORWARD_TO": "",
     // Deployed Worker URL, used to build the Google OAuth redirect_uri.
     // Empty string = fall back to the incoming request's origin.
-    "PUBLIC_BASE_URL": "",
+    "PUBLIC_BASE_URL": "https://google-workspace-mcp.hacolby.workers.dev",
   },
   "kv_namespaces": [
     {
