@@ -25,4 +25,24 @@ describe("DocsService", () => {
     const url = fetchSpy.mock.calls[0][0] as string;
     expect(url).toContain(":batchUpdate");
   });
+
+  it("replaceText posts replaceAllText request", async () => {
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new DocsService({} as any, "s1").replaceText("d1", "foo", "bar");
+    const url = fetchSpy.mock.calls[0][0] as string;
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(url).toContain(":batchUpdate");
+    const body = JSON.parse(init.body as string);
+    expect(body.requests[0].replaceAllText.containsText.text).toBe("foo");
+    expect(body.requests[0].replaceAllText.replaceText).toBe("bar");
+  });
+
+  it("insertImage posts insertInlineImage request", async () => {
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new DocsService({} as any, "s1").insertImage("d1", "https://example.com/img.png");
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(init.body as string);
+    expect(body.requests[0].insertInlineImage.uri).toBe("https://example.com/img.png");
+    expect(body.requests[0].insertInlineImage.location.index).toBe(1);
+  });
 });

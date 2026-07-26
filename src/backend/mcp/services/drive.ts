@@ -92,4 +92,36 @@ export class DriveService {
     const fields = "permissions(id,type,role,emailAddress,displayName)";
     return googleJson<{ permissions: DrivePermission[] }>(this.env, this.sub, `${BASE}/files/${fileId}/permissions?fields=${encodeURIComponent(fields)}`);
   }
+
+  async share(
+    fileId: string,
+    role: string,
+    type: string,
+    emailAddress?: string,
+    sendNotificationEmail = false,
+  ): Promise<DrivePermission> {
+    const params = new URLSearchParams({ fields: "id,role,type", sendNotificationEmail: String(sendNotificationEmail) });
+    return googleJson<DrivePermission>(this.env, this.sub, `${BASE}/files/${fileId}/permissions?${params}`, {
+      method: "POST",
+      body: JSON.stringify({ role, type, ...(emailAddress ? { emailAddress } : {}) }),
+    });
+  }
+
+  async updateFile(
+    fileId: string,
+    opts: { name?: string; addParents?: string; removeParents?: string },
+  ): Promise<DriveFile> {
+    const params = new URLSearchParams({ fields: "id,name,parents" });
+    if (opts.addParents) params.set("addParents", opts.addParents);
+    if (opts.removeParents) params.set("removeParents", opts.removeParents);
+    return googleJson<DriveFile>(this.env, this.sub, `${BASE}/files/${fileId}?${params}`, {
+      method: "PATCH",
+      body: JSON.stringify(opts.name !== undefined ? { name: opts.name } : {}),
+    });
+  }
+
+  async exportFile(fileId: string, mimeType: string): Promise<{ content: string; mimeType: string }> {
+    const res = await googleFetch(this.env, this.sub, `${BASE}/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}`);
+    return { content: await res.text(), mimeType };
+  }
 }

@@ -59,4 +59,22 @@ export class SheetsService {
       }
     );
   }
+
+  async getMetadata(
+    spreadsheetId: string
+  ): Promise<{ spreadsheetId: string; properties: { title: string }; sheets: { properties: { sheetId: number; title: string; index: number } }[] }> {
+    const fields = "spreadsheetId,properties.title,sheets(properties(sheetId,title,index))";
+    return googleJson(this.env, this.sub, `${BASE}/${spreadsheetId}?fields=${encodeURIComponent(fields)}`);
+  }
+
+  async batchUpdate(spreadsheetId: string, requests: unknown[]): Promise<void> {
+    await googleJson(this.env, this.sub, `${BASE}/${spreadsheetId}:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ requests }),
+    });
+  }
+
+  async addSheet(spreadsheetId: string, title: string): Promise<void> {
+    await this.batchUpdate(spreadsheetId, [{ addSheet: { properties: { title } } }]);
+  }
 }

@@ -28,6 +28,8 @@ import { AppsScriptService } from "./services/appsscript";
 import { CommentsService } from "./services/comments";
 import { ChangesService } from "./services/changes";
 import { WorkspaceEventsService } from "./services/workspaceevents";
+import { PeopleService } from "./services/people";
+import { FormsService } from "./services/forms";
 import type { AssetAction } from "./logging";
 
 export type ToolCtx = { env: Env; sub: string };
@@ -142,6 +144,39 @@ export const TOOLS: ToolDef[] = [
       return { result: f, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "create", detail: { name: a.name } } };
     },
   },
+  {
+    name: "share_file",
+    description: "Share a Drive file: grant a role (reader/commenter/writer/owner) to a type (user/group/domain/anyone), optionally an emailAddress.",
+    inputSchema: z.object({
+      fileId: z.string(),
+      role: z.enum(["reader", "commenter", "writer", "owner"]),
+      type: z.enum(["user", "group", "domain", "anyone"]),
+      emailAddress: z.string().email().optional(),
+      sendNotificationEmail: z.boolean().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const r = await new DriveService(env, acct(sub, a)).share(a.fileId, a.role, a.type, a.emailAddress, a.sendNotificationEmail ?? false);
+      return { result: r, asset: { assetType: "drive", googleId: a.fileId, action: "modify", detail: { role: a.role, type: a.type } } };
+    },
+  },
+  {
+    name: "update_file",
+    description: "Rename and/or move a Drive file (name, addParents, removeParents).",
+    inputSchema: z.object({ fileId: z.string(), name: z.string().optional(), addParents: z.string().optional(), removeParents: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const f = await new DriveService(env, acct(sub, a)).updateFile(a.fileId, { name: a.name, addParents: a.addParents, removeParents: a.removeParents });
+      return { result: f, asset: { assetType: "drive", googleId: a.fileId, title: a.name, action: "update" } };
+    },
+  },
+  {
+    name: "export_file",
+    description: "Export a Google-native file to a given mimeType (e.g. application/pdf, text/plain, text/csv) and return the content.",
+    inputSchema: z.object({ fileId: z.string(), mimeType: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new DriveService(env, acct(sub, a)).exportFile(a.fileId, a.mimeType), asset: { assetType: "drive", googleId: a.fileId, action: "read", detail: { export: a.mimeType } } };
+    },
+  },
   // ---- Docs --------------------------------------------------------------
   {
     name: "docs_get",
@@ -168,6 +203,24 @@ export const TOOLS: ToolDef[] = [
     async run({ env, sub }, a) {
       await new DocsService(env, acct(sub, a)).insertText(a.documentId, a.text, a.index);
       return { result: { ok: true }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { inserted: a.text.length } } };
+    },
+  },
+  {
+    name: "docs_replace_text",
+    description: "Replace all occurrences of a string in a Google Doc.",
+    inputSchema: z.object({ documentId: z.string(), find: z.string(), replace: z.string(), matchCase: z.boolean().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      await new DocsService(env, acct(sub, a)).replaceText(a.documentId, a.find, a.replace, a.matchCase);
+      return { result: { ok: true }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { replace: a.find } } };
+    },
+  },
+  {
+    name: "docs_insert_image",
+    description: "Insert an inline image (by public URL) into a Google Doc at an index (default 1).",
+    inputSchema: z.object({ documentId: z.string(), uri: z.string().url(), index: z.number().int().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      await new DocsService(env, acct(sub, a)).insertImage(a.documentId, a.uri, a.index);
+      return { result: { ok: true }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { image: true } } };
     },
   },
   // ---- Sheets ------------------------------------------------------------
@@ -198,6 +251,32 @@ export const TOOLS: ToolDef[] = [
       return { result: { ok: true }, asset: { assetType: "sheet", googleId: a.spreadsheetId, action: "update", detail: { rows: a.values.length } } };
     },
   },
+  {
+    name: "sheets_get_metadata",
+    description: "Get a spreadsheet's metadata: title + the list of tabs (sheetId, title, index).",
+    inputSchema: z.object({ spreadsheetId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new SheetsService(env, acct(sub, a)).getMetadata(a.spreadsheetId), asset: { assetType: "sheet", googleId: a.spreadsheetId, action: "read" } };
+    },
+  },
+  {
+    name: "sheets_add_sheet",
+    description: "Add a new tab (sheet) to a spreadsheet.",
+    inputSchema: z.object({ spreadsheetId: z.string(), title: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      await new SheetsService(env, acct(sub, a)).addSheet(a.spreadsheetId, a.title);
+      return { result: { ok: true }, asset: { assetType: "sheet", googleId: a.spreadsheetId, action: "modify", detail: { addSheet: a.title } } };
+    },
+  },
+  {
+    name: "sheets_batch_update",
+    description: "Apply raw Sheets API batchUpdate requests (formatting, addSheet, updateCells, conditional formats, etc.).",
+    inputSchema: z.object({ spreadsheetId: z.string(), requests: z.array(z.record(z.string(), z.any())), ...asUser }),
+    async run({ env, sub }, a) {
+      await new SheetsService(env, acct(sub, a)).batchUpdate(a.spreadsheetId, a.requests);
+      return { result: { ok: true }, asset: { assetType: "sheet", googleId: a.spreadsheetId, action: "modify", detail: { requests: a.requests.length } } };
+    },
+  },
   // ---- Slides ------------------------------------------------------------
   {
     name: "slides_create",
@@ -224,6 +303,33 @@ export const TOOLS: ToolDef[] = [
     async run({ env, sub }, a) {
       const r = await new SlidesService(env, acct(sub, a)).batchUpdate(a.presentationId, a.requests);
       return { result: r, asset: { assetType: "slide", googleId: a.presentationId, action: "modify", detail: { requests: a.requests.length } } };
+    },
+  },
+  {
+    name: "slides_create_from_markdown",
+    description:
+      "Create a Slides presentation FROM MARKDOWN (--- separates slides; '# '/'## ' = title; '- ' = bullets; '![](url)' = image). Returns the presentationId and a map of deterministic object IDs per slide (slideObjectId/titleId/bodyId/imageId) so you can then style each element with slides_batch_update. This is one way to build slides — slides_create + slides_batch_update remain for full control.",
+    inputSchema: z.object({ title: z.string(), markdown: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const out = await new SlidesService(env, acct(sub, a)).createFromMarkdown(a.title, a.markdown);
+      return { result: out, asset: { assetType: "slide", googleId: out.presentationId, title: a.title, action: "create", detail: { slides: out.slides.length, fromMarkdown: true } } };
+    },
+  },
+  {
+    name: "slides_replace_all_text",
+    description: "Replace all occurrences of text across a presentation (great for filling a template). replacements = [{find, replace, matchCase?}].",
+    inputSchema: z.object({ presentationId: z.string(), replacements: z.array(z.object({ find: z.string(), replace: z.string(), matchCase: z.boolean().optional() })), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new SlidesService(env, acct(sub, a)).replaceAllText(a.presentationId, a.replacements);
+      return { result: r, asset: { assetType: "slide", googleId: a.presentationId, action: "modify", detail: { replacements: a.replacements.length } } };
+    },
+  },
+  {
+    name: "slides_get_thumbnail",
+    description: "Get a rendered thumbnail image URL for a slide/page — lets you SEE a slide before styling it.",
+    inputSchema: z.object({ presentationId: z.string(), pageObjectId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new SlidesService(env, acct(sub, a)).getThumbnail(a.presentationId, a.pageObjectId), asset: { assetType: "slide", googleId: a.presentationId, action: "read" } };
     },
   },
   // ---- Calendar ----------------------------------------------------------
@@ -281,6 +387,41 @@ export const TOOLS: ToolDef[] = [
       return { result: e, asset: { assetType: "calendar", googleId: e.id, title: a.summary, url: e.htmlLink, action: "create" } };
     },
   },
+  {
+    name: "calendar_update_event",
+    description: "Patch/update fields of an existing calendar event.",
+    inputSchema: z.object({ calendarId: z.string().optional(), eventId: z.string(), patch: z.record(z.string(), z.any()), ...asUser }),
+    async run({ env, sub }, a) {
+      const e = await new CalendarService(env, acct(sub, a)).updateEvent(a.calendarId ?? "primary", a.eventId, a.patch);
+      return { result: e, asset: { assetType: "calendar", googleId: a.eventId, action: "update" } };
+    },
+  },
+  {
+    name: "calendar_delete_event",
+    description: "Delete a calendar event.",
+    inputSchema: z.object({ calendarId: z.string().optional(), eventId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new CalendarService(env, acct(sub, a)).deleteEvent(a.calendarId ?? "primary", a.eventId);
+      return { result: r, asset: { assetType: "calendar", googleId: a.eventId, action: "delete" } };
+    },
+  },
+  {
+    name: "calendar_quick_add",
+    description: "Create an event from natural-language text (e.g. 'Lunch with Sam tomorrow 12pm').",
+    inputSchema: z.object({ calendarId: z.string().optional(), text: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const e = await new CalendarService(env, acct(sub, a)).quickAdd(a.calendarId ?? "primary", a.text);
+      return { result: e, asset: { assetType: "calendar", googleId: e.id, title: e.summary, url: e.htmlLink, action: "create" } };
+    },
+  },
+  {
+    name: "calendar_list_calendars",
+    description: "List the calendars on the user's calendar list.",
+    inputSchema: z.object({ ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new CalendarService(env, acct(sub, a)).listCalendars() };
+    },
+  },
   // ---- Gmail -------------------------------------------------------------
   {
     name: "gmail_list",
@@ -322,6 +463,48 @@ export const TOOLS: ToolDef[] = [
     async run({ env, sub }, a) {
       const sent = await new GmailService(env, acct(sub, a)).send(a.to, a.subject, a.body);
       return { result: sent, asset: { assetType: "gmail", googleId: sent.id, title: a.subject, action: "create", detail: { to: a.to } } };
+    },
+  },
+  {
+    name: "gmail_get_thread",
+    description: "Get a full Gmail thread (all messages) by threadId — best for feeding conversation context to the model.",
+    inputSchema: z.object({ threadId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new GmailService(env, acct(sub, a)).getThread(a.threadId) };
+    },
+  },
+  {
+    name: "gmail_list_labels",
+    description: "List Gmail labels (id + name).",
+    inputSchema: z.object({ ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new GmailService(env, acct(sub, a)).listLabels() };
+    },
+  },
+  {
+    name: "gmail_create_label",
+    description: "Create a Gmail label.",
+    inputSchema: z.object({ name: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new GmailService(env, acct(sub, a)).createLabel(a.name) };
+    },
+  },
+  {
+    name: "gmail_modify_labels",
+    description: "Add and/or remove labels on a Gmail message (e.g. archive by removing INBOX, mark read by removing UNREAD).",
+    inputSchema: z.object({ id: z.string(), addLabelIds: z.array(z.string()).optional(), removeLabelIds: z.array(z.string()).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const m = await new GmailService(env, acct(sub, a)).modifyMessageLabels(a.id, a.addLabelIds ?? [], a.removeLabelIds ?? []);
+      return { result: m, asset: { assetType: "gmail", googleId: a.id, action: "modify" } };
+    },
+  },
+  {
+    name: "gmail_trash_message",
+    description: "Move a Gmail message to Trash.",
+    inputSchema: z.object({ id: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const m = await new GmailService(env, acct(sub, a)).trashMessage(a.id);
+      return { result: m, asset: { assetType: "gmail", googleId: a.id, action: "delete" } };
     },
   },
   // ---- Apps Script (escape hatch) ---------------------------------------
@@ -536,6 +719,97 @@ export const TOOLS: ToolDef[] = [
       const db = getDb(env);
       const rows = await db.select().from(driveNotifications).orderBy(desc(driveNotifications.receivedAt)).limit(a.limit ?? 50);
       return { result: { notifications: rows } };
+    },
+  },
+  // ---- People (contacts + directory) -------------------------------------
+  {
+    name: "people_get_contact",
+    description: "Get a person by resourceName ('people/me' or 'people/c123'). personFields defaults to names,emails,phones,orgs.",
+    inputSchema: z.object({ resourceName: z.string(), personFields: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new PeopleService(env, acct(sub, a)).getContact(a.resourceName, a.personFields) };
+    },
+  },
+  {
+    name: "people_list_connections",
+    description: "List the user's contacts (connections), most-recently-modified first.",
+    inputSchema: z.object({ pageSize: z.number().int().min(1).max(1000).optional(), personFields: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new PeopleService(env, acct(sub, a)).listConnections(a.pageSize, a.personFields) };
+    },
+  },
+  {
+    name: "people_search_contacts",
+    description: "Search the user's own contacts by name/email/phone.",
+    inputSchema: z.object({ query: z.string(), readMask: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new PeopleService(env, acct(sub, a)).searchContacts(a.query, a.readMask) };
+    },
+  },
+  {
+    name: "people_search_directory",
+    description: "Search the Workspace domain directory for people (requires directory access).",
+    inputSchema: z.object({ query: z.string(), readMask: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new PeopleService(env, acct(sub, a)).searchDirectory(a.query, a.readMask) };
+    },
+  },
+  {
+    name: "people_create_contact",
+    description: "Create a new contact (names, emailAddresses, phoneNumbers).",
+    inputSchema: z.object({
+      names: z.array(z.object({ givenName: z.string().optional(), familyName: z.string().optional() })).optional(),
+      emailAddresses: z.array(z.object({ value: z.string() })).optional(),
+      phoneNumbers: z.array(z.object({ value: z.string() })).optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const p = await new PeopleService(env, acct(sub, a)).createContact({ names: a.names, emailAddresses: a.emailAddresses, phoneNumbers: a.phoneNumbers });
+      return { result: p, asset: { assetType: "contact", googleId: p.resourceName, action: "create" } };
+    },
+  },
+  // ---- Forms -------------------------------------------------------------
+  {
+    name: "forms_create",
+    description: "Create a Google Form with a title.",
+    inputSchema: z.object({ title: z.string(), documentTitle: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const f = await new FormsService(env, acct(sub, a)).create(a.title, a.documentTitle);
+      return { result: f, asset: { assetType: "form", googleId: f.formId, title: a.title, url: f.responderUri, action: "create" } };
+    },
+  },
+  {
+    name: "forms_get",
+    description: "Get a Google Form (its items/questions + metadata).",
+    inputSchema: z.object({ formId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new FormsService(env, acct(sub, a)).get(a.formId), asset: { assetType: "form", googleId: a.formId, action: "read" } };
+    },
+  },
+  {
+    name: "forms_add_question",
+    description: "Add a question to a Form. No options → a text question; with options → a multiple-choice (RADIO) question.",
+    inputSchema: z.object({ formId: z.string(), title: z.string(), options: z.array(z.string()).optional(), required: z.boolean().optional(), index: z.number().int().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new FormsService(env, acct(sub, a)).addQuestion(a.formId, a.title, a.options, a.required ?? false, a.index ?? 0);
+      return { result: r, asset: { assetType: "form", googleId: a.formId, action: "modify", detail: { question: a.title } } };
+    },
+  },
+  {
+    name: "forms_batch_update",
+    description: "Apply raw Forms API batchUpdate requests (add/move/delete items, update settings).",
+    inputSchema: z.object({ formId: z.string(), requests: z.array(z.record(z.string(), z.any())), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new FormsService(env, acct(sub, a)).batchUpdate(a.formId, a.requests);
+      return { result: r, asset: { assetType: "form", googleId: a.formId, action: "modify", detail: { requests: a.requests.length } } };
+    },
+  },
+  {
+    name: "forms_list_responses",
+    description: "List the responses submitted to a Google Form.",
+    inputSchema: z.object({ formId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new FormsService(env, acct(sub, a)).listResponses(a.formId), asset: { assetType: "form", googleId: a.formId, action: "read" } };
     },
   },
   // ---- Template registry (reference library for agents) ------------------

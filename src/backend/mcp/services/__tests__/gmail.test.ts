@@ -98,4 +98,46 @@ describe("GmailService", () => {
     expect(mime).toContain("To: x@y.com");
     expect(mime).not.toContain("alice@x.com");
   });
+
+  it("listLabels fetches users/me/labels", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ labels: [{ id: "l1", name: "Work" }] }), { status: 200 }));
+    const out = await new GmailService({} as any, "s1").listLabels();
+    expect(out.labels).toEqual([{ id: "l1", name: "Work" }]);
+    const url = spy.mock.calls[0][0] as string;
+    expect(url).toBe("https://gmail.googleapis.com/gmail/v1/users/me/labels");
+  });
+
+  it("createLabel posts name with visibility defaults", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "l2", name: "Urgent" }), { status: 200 }));
+    const out = await new GmailService({} as any, "s1").createLabel("Urgent");
+    expect(out.id).toBe("l2");
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toEqual({ name: "Urgent", labelListVisibility: "labelShow", messageListVisibility: "show" });
+  });
+
+  it("modifyMessageLabels posts add/remove label ids", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "m1" }), { status: 200 }));
+    await new GmailService({} as any, "s1").modifyMessageLabels("m1", ["LABEL_A"], ["LABEL_B"]);
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(url).toBe("https://gmail.googleapis.com/gmail/v1/users/me/messages/m1/modify");
+    expect(JSON.parse(init.body as string)).toEqual({ addLabelIds: ["LABEL_A"], removeLabelIds: ["LABEL_B"] });
+  });
+
+  it("getThread fetches thread with format=full", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "t1", messages: [] }), { status: 200 }));
+    const out = await new GmailService({} as any, "s1").getThread("t1");
+    expect(out.id).toBe("t1");
+    const url = spy.mock.calls[0][0] as string;
+    expect(url).toBe("https://gmail.googleapis.com/gmail/v1/users/me/threads/t1?format=full");
+  });
+
+  it("trashMessage posts to messages/{id}/trash", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "m1" }), { status: 200 }));
+    await new GmailService({} as any, "s1").trashMessage("m1");
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(url).toBe("https://gmail.googleapis.com/gmail/v1/users/me/messages/m1/trash");
+    expect(init.method).toBe("POST");
+  });
 });

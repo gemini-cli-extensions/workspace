@@ -17,6 +17,10 @@ export const API_SCOPES: string[] = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/script.projects",
   "https://www.googleapis.com/auth/script.processes",
+  "https://www.googleapis.com/auth/forms.body",
+  "https://www.googleapis.com/auth/forms.responses.readonly",
+  "https://www.googleapis.com/auth/contacts",
+  "https://www.googleapis.com/auth/directory.readonly",
 ];
 
 // Interactive OAuth scopes = identity + the API scopes above.

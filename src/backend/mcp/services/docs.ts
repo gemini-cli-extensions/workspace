@@ -26,4 +26,22 @@ export class DocsService {
       }),
     });
   }
+
+  async replaceText(documentId: string, find: string, replace: string, matchCase = false): Promise<void> {
+    await googleJson(this.env, this.sub, `${BASE}/${documentId}:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({
+        requests: [{ replaceAllText: { containsText: { text: find, matchCase }, replaceText: replace } }],
+      }),
+    });
+  }
+
+  async insertImage(documentId: string, uri: string, index = 1): Promise<void> {
+    await googleJson(this.env, this.sub, `${BASE}/${documentId}:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({
+        requests: [{ insertInlineImage: { uri, location: { index } } }],
+      }),
+    });
+  }
 }

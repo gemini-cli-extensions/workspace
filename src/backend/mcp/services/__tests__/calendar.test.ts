@@ -48,4 +48,43 @@ describe("CalendarService", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual(event);
   });
+
+  it("updateEvent patches the event with the given fields", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "e1", summary: "Updated" }), { status: 200 }));
+    const out = await new CalendarService({} as any, "s1").updateEvent("primary", "e1", { summary: "Updated" });
+    expect(out.summary).toBe("Updated");
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(url).toBe("https://www.googleapis.com/calendar/v3/calendars/primary/events/e1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ summary: "Updated" });
+  });
+
+  it("deleteEvent issues a DELETE and returns ok", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+    const out = await new CalendarService({} as any, "s1").deleteEvent("primary", "e1");
+    expect(out).toEqual({ ok: true });
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(url).toBe("https://www.googleapis.com/calendar/v3/calendars/primary/events/e1");
+    expect(init.method).toBe("DELETE");
+  });
+
+  it("quickAdd posts text as query param", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "e3" }), { status: 200 }));
+    const out = await new CalendarService({} as any, "s1").quickAdd("primary", "Lunch Friday 1pm");
+    expect(out.id).toBe("e3");
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(decodeURIComponent(url)).toContain("/events/quickAdd?text=Lunch Friday 1pm");
+    expect(init.method).toBe("POST");
+  });
+
+  it("listCalendars fetches the user's calendarList", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ items: [{ id: "primary" }] }), { status: 200 }));
+    const out = await new CalendarService({} as any, "s1").listCalendars();
+    expect(out.items).toEqual([{ id: "primary" }]);
+    const url = spy.mock.calls[0][0] as string;
+    expect(url).toBe("https://www.googleapis.com/calendar/v3/users/me/calendarList");
+  });
 });

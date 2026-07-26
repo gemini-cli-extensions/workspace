@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { SlidesService } from "../slides";
+import { SlidesService, parseMarkdownSlides } from "../slides";
 vi.mock("../../tokenProvider", () => ({ getAccessToken: vi.fn(async () => "at") }));
 
 describe("SlidesService", () => {
@@ -39,5 +39,102 @@ describe("SlidesService", () => {
     expect(url).toBe("https://slides.googleapis.com/v1/presentations/p1:batchUpdate");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ requests });
+  });
+
+  it("parseMarkdownSlides splits on --- and extracts heading/bullets/image", () => {
+    const md = "# A\n- one\n- two\n---\n## B\n![x](http://img)";
+    const slides = parseMarkdownSlides(md);
+    expect(slides).toHaveLength(2);
+    expect(slides[0]).toEqual({ heading: "A", bullets: ["one", "two"], imageUrl: undefined });
+    expect(slides[1]).toEqual({ heading: "B", bullets: [], imageUrl: "http://img" });
+  });
+
+  it("createFromMarkdown deletes the default slide and builds slides with known objectIds", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      const u = String(url);
+      if (u === "https://slides.googleapis.com/v1/presentations") {
+        return new Response(JSON.stringify({ presentationId: "p1" }), { status: 200 });
+      }
+      if (u === "https://slides.googleapis.com/v1/presentations/p1") {
+        return new Response(JSON.stringify({ presentationId: "p1", slides: [{ objectId: "default0" }] }), {
+          status: 200,
+        });
+      }
+      if (u === "https://slides.googleapis.com/v1/presentations/p1:batchUpdate") {
+        return new Response(JSON.stringify({}), { status: 200 });
+      }
+      throw new Error(`unexpected url ${u}`);
+    });
+
+    const md = "# A\n- one\n---\n## B\n- two\n![x](http://img)";
+    const out = await new SlidesService({} as any, "s1").createFromMarkdown("Deck", md);
+
+    expect(out.presentationId).toBe("p1");
+    expect(out.slides).toEqual([
+      { slideObjectId: "s0", titleId: "s0_title", bodyId: "s0_body", imageId: undefined, heading: "A" },
+      { slideObjectId: "s1", titleId: "s1_title", bodyId: "s1_body", imageId: "s1_img", heading: "B" },
+    ]);
+
+    const batchCall = fetchSpy.mock.calls.find(
+      (c) => String(c[0]) === "https://slides.googleapis.com/v1/presentations/p1:batchUpdate",
+    );
+    expect(batchCall).toBeDefined();
+    const requests = JSON.parse((batchCall![1] as RequestInit).body as string).requests;
+
+    expect(requests[0]).toEqual({ deleteObject: { objectId: "default0" } });
+
+    expect(requests).toContainEqual({
+      createSlide: {
+        objectId: "s0",
+        slideLayoutReference: { predefinedLayout: "TITLE_AND_BODY" },
+        placeholderIdMappings: [
+          { layoutPlaceholder: { type: "TITLE", index: 0 }, objectId: "s0_title" },
+          { layoutPlaceholder: { type: "BODY", index: 0 }, objectId: "s0_body" },
+        ],
+      },
+    });
+    expect(requests).toContainEqual({ insertText: { objectId: "s0_title", text: "A" } });
+    expect(requests).toContainEqual({ insertText: { objectId: "s0_body", text: "one" } });
+
+    const s0SlideIdx = requests.findIndex((r: any) => r.createSlide?.objectId === "s0");
+    const s0TitleIdx = requests.findIndex((r: any) => r.insertText?.objectId === "s0_title");
+    expect(s0SlideIdx).toBeLessThan(s0TitleIdx);
+
+    expect(requests).toContainEqual({
+      createImage: {
+        objectId: "s1_img",
+        url: "http://img",
+        elementProperties: {
+          pageObjectId: "s1",
+          size: { width: { magnitude: 3000000, unit: "EMU" }, height: { magnitude: 2000000, unit: "EMU" } },
+          transform: { scaleX: 1, scaleY: 1, translateX: 4000000, translateY: 2500000, unit: "EMU" },
+        },
+      },
+    });
+  });
+
+  it("replaceAllText posts a replaceAllText request per replacement", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    await new SlidesService({} as any, "s1").replaceAllText("p1", [
+      { find: "{{name}}", replace: "Justin" },
+      { find: "{{Date}}", replace: "2026", matchCase: true },
+    ]);
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(url).toBe("https://slides.googleapis.com/v1/presentations/p1:batchUpdate");
+    expect(JSON.parse(init.body as string).requests).toEqual([
+      { replaceAllText: { containsText: { text: "{{name}}", matchCase: false }, replaceText: "Justin" } },
+      { replaceAllText: { containsText: { text: "{{Date}}", matchCase: true }, replaceText: "2026" } },
+    ]);
+  });
+
+  it("getThumbnail fetches the page thumbnail endpoint", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ contentUrl: "http://thumb", width: 200, height: 150 }), { status: 200 }),
+    );
+    const out = await new SlidesService({} as any, "s1").getThumbnail("p1", "s0");
+    expect(out.contentUrl).toBe("http://thumb");
+    const url = spy.mock.calls[0][0] as string;
+    expect(url).toBe("https://slides.googleapis.com/v1/presentations/p1/pages/s0/thumbnail");
   });
 });

@@ -116,4 +116,31 @@ export class GmailService {
       body: JSON.stringify({ message: { raw: base64Url(mime), threadId } }),
     });
   }
+
+  async listLabels(): Promise<{ labels: unknown[] }> {
+    const out = await googleJson<{ labels?: unknown[] }>(this.env, this.sub, `${BASE}/labels`);
+    return { labels: out.labels ?? [] };
+  }
+
+  async createLabel(name: string): Promise<{ id: string; name: string }> {
+    return googleJson<{ id: string; name: string }>(this.env, this.sub, `${BASE}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ name, labelListVisibility: "labelShow", messageListVisibility: "show" }),
+    });
+  }
+
+  async modifyMessageLabels(id: string, addLabelIds: string[], removeLabelIds: string[]): Promise<GmailMessage> {
+    return googleJson<GmailMessage>(this.env, this.sub, `${BASE}/messages/${id}/modify`, {
+      method: "POST",
+      body: JSON.stringify({ addLabelIds, removeLabelIds }),
+    });
+  }
+
+  async getThread(threadId: string): Promise<{ id: string; messages: GmailMessage[] }> {
+    return googleJson(this.env, this.sub, `${BASE}/threads/${threadId}?format=full`);
+  }
+
+  async trashMessage(id: string): Promise<GmailMessage> {
+    return googleJson<GmailMessage>(this.env, this.sub, `${BASE}/messages/${id}/trash`, { method: "POST" });
+  }
 }

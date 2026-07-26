@@ -116,3 +116,49 @@ describe("DriveService.getPermissions", () => {
     expect(decodeURIComponent(url)).toContain("permissions(id,type,role,emailAddress,displayName)");
   });
 });
+
+describe("DriveService.share", () => {
+  it("posts a permission to files/{id}/permissions", async () => {
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ id: "p2", role: "writer", type: "user" }), { status: 200 }));
+    const svc = new DriveService({} as any, "s1");
+    const out = await svc.share("f1", "writer", "user", "a@b.com");
+    expect(out.id).toBe("p2");
+    const call = fetchSpy.mock.calls[fetchSpy.mock.calls.length - 1];
+    const url = call[0] as string;
+    const init = call[1] as RequestInit;
+    expect(url).toContain("/files/f1/permissions");
+    expect(decodeURIComponent(url)).toContain("sendNotificationEmail=false");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string);
+    expect(body).toEqual({ role: "writer", type: "user", emailAddress: "a@b.com" });
+  });
+});
+
+describe("DriveService.updateFile", () => {
+  it("patches name and addParents/removeParents", async () => {
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ id: "f1", name: "Renamed" }), { status: 200 }));
+    const svc = new DriveService({} as any, "s1");
+    const out = await svc.updateFile("f1", { name: "Renamed", addParents: "p2", removeParents: "p1" });
+    expect(out.name).toBe("Renamed");
+    const call = fetchSpy.mock.calls[fetchSpy.mock.calls.length - 1];
+    const url = call[0] as string;
+    const init = call[1] as RequestInit;
+    expect(url).toContain("/files/f1?");
+    expect(url).toContain("addParents=p2");
+    expect(url).toContain("removeParents=p1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ name: "Renamed" });
+  });
+});
+
+describe("DriveService.exportFile", () => {
+  it("exports a file to the requested mimeType", async () => {
+    fetchSpy.mockResolvedValue(new Response("exported content", { status: 200 }));
+    const svc = new DriveService({} as any, "s1");
+    const out = await svc.exportFile("f1", "application/pdf");
+    expect(out.content).toBe("exported content");
+    expect(out.mimeType).toBe("application/pdf");
+    const url = fetchSpy.mock.calls[fetchSpy.mock.calls.length - 1][0] as string;
+    expect(decodeURIComponent(url)).toContain("/files/f1/export?mimeType=application/pdf");
+  });
+});
