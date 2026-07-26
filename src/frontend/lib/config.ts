@@ -67,6 +67,15 @@ export const siteConfig: SiteConfig = {
       ],
     },
     {
+      label: "Agents",
+      items: [
+        { href: "/chat", label: "Chat" },
+        { href: "/agent-tasks", label: "Scheduled Tasks" },
+        { href: "/accounts", label: "Accounts" },
+        { href: "/health", label: "Health" },
+      ],
+    },
+    {
       label: "System",
       items: [
         { href: "/settings", label: "Settings" },

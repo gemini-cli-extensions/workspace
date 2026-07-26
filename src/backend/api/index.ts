@@ -39,6 +39,13 @@ import { taskDetailRouter } from "./routes/task-detail";
 import { taskHierarchyRouter } from "./routes/task-hierarchy";
 import { tasksRouter } from "./routes/tasks";
 import { teamNotesRouter } from "./routes/team-notes";
+import { threadsRouter } from "./routes/gsuite/threads";
+import { catalogRouter } from "./routes/gsuite/catalog";
+import { agentTasksRouter } from "./routes/gsuite/agent-tasks";
+import { accountsRouter } from "./routes/gsuite/accounts";
+import { authGoogleOauthRouter } from "./routes/gsuite/auth-google-oauth";
+import { agentSessionRouter } from "./routes/gsuite/agent-session";
+import { gsuiteHealthRouter } from "./routes/gsuite/gsuite-health";
 
 // ---------------------------------------------------------------------------
 // App type — shared by all routers
@@ -133,6 +140,22 @@ app.route("/api/gws", gwsRouter);
 app.route("/api/gws/templates", gwsTemplatesRouter);
 app.route("/api/gws/drive-webhook", driveWebhookRouter);
 app.route("/api/seed", seedRouter);
+
+// Ported chat/tasks-scheduler surfaces (core-gsuite-tools Phase 3). Open —
+// same "feature APIs" convention as above — except the OAuth consent routes,
+// which are inherently pre-auth.
+app.route("/api/threads", threadsRouter);
+app.route("/api/catalog", catalogRouter);
+// Distinct prefix from the existing project-management `/api/tasks`: this is
+// the Workspace-automation scheduled-task domain ported from core-gsuite-tools.
+app.route("/api/agent-tasks", agentTasksRouter);
+app.route("/api/accounts", accountsRouter);
+app.route("/api/auth/google/oauth", authGoogleOauthRouter);
+// Distinct prefix from the existing `/api/auth` (cr_session admin login):
+// mints the gsuite_session cookie the /agents/* Durable Object gate accepts.
+app.route("/api/agent-session", agentSessionRouter);
+// Distinct prefix from the existing `/api/health` (different response shape).
+app.route("/api/gsuite-health", gsuiteHealthRouter);
 
 app.route("/api/__client-error", clientErrorRouter);
 

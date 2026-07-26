@@ -1,0 +1,19 @@
+---
+/**
+ * Service Health — the ported gsuite hub health dashboard. Distinct from
+ * `/dashboard` (this Worker's own admin dashboard): probes D1, KV, secrets,
+ * and env vars via `/api/gsuite-health` (see
+ * `src/backend/api/routes/gsuite/gsuite-health.ts`).
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AuthGate } from "@/components/gsuite-agents/AuthGate";
+import { HealthPanel } from "@/components/gsuite-agents/HealthPanel";
+---
+
+<BaseLayout
+  title="Service Health"
+  description="Live health dashboard for the Workspace hub — D1, KV, secrets, and environment probes with on-demand re-runs and a copy-for-agent fix prompt."
+>
+  <AuthGate authed={false} client:load />
+  <HealthPanel client:load />
+</BaseLayout>

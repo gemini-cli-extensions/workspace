@@ -1,0 +1,19 @@
+---
+/**
+ * Scheduled Tasks — the ported gsuite tasks-scheduler wizard. Distinct route
+ * from this Worker's own `/tasks` (an unrelated project-management task
+ * board) — see `src/backend/api/routes/gsuite/agent-tasks.ts` for why this
+ * domain is mounted at `/api/agent-tasks` instead of `/api/tasks`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AuthGate } from "@/components/gsuite-agents/AuthGate";
+import { TasksPage } from "@/components/gsuite-agents/tasks/TasksPage";
+---
+
+<BaseLayout
+  title="Scheduled Tasks — Google Workspace Hub"
+  description="Schedule Workspace actions: pick accounts, an action, a frequency, and let the agent run it."
+>
+  <AuthGate authed={false} client:load />
+  <TasksPage client:load />
+</BaseLayout>
