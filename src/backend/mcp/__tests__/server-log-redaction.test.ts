@@ -30,7 +30,11 @@ vi.mock("../tools", () => ({
 
 const { handleMcpRequest } = await import("../server");
 
-const env = { SESSIONS: { get: async () => "test-key-please-change" } } as unknown as Env;
+// Return the signing key only for its key; null for oauthtok:* lookups so
+// resolveAccessToken falls through to the session-cookie bearer.
+const env = {
+  SESSIONS: { get: async (k: string) => (k === "COOKIE_SIGNING_KEY" ? "test-key-please-change" : null) },
+} as unknown as Env;
 const ctx = {} as ExecutionContext;
 
 async function bearerFor(sub: string): Promise<string> {

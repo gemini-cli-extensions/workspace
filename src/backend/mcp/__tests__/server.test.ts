@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createSessionCookie } from "@/backend/lib/cookies";
 import { handleMcpRequest } from "../server";
 
-// ponytail: getCookieSigningKey(env) reads env.SESSIONS.get("COOKIE_SIGNING_KEY")
-// (a KV binding), not a plain env var — mock the KV shape (matches cookies.test.ts).
+// ponytail: SESSIONS is a KV binding. getCookieSigningKey reads the
+// COOKIE_SIGNING_KEY key; the OAuth token lookup reads oauthtok:* — return the
+// signing key only for its key, null otherwise (a naive "return X for all keys"
+// mock breaks resolveAccessToken's JSON.parse).
 const env = {
-  SESSIONS: { get: async () => "test-key-please-change" },
+  SESSIONS: {
+    get: async (k: string) => (k === "COOKIE_SIGNING_KEY" ? "test-key-please-change" : null),
+  },
 } as unknown as Env;
 
 const ctx = {} as ExecutionContext;
@@ -24,6 +28,11 @@ function rpc(body: unknown, headers: Record<string, string> = {}): Request {
   });
 }
 
+/** An authenticated /mcp request (session-cookie value as bearer). */
+async function authed(body: unknown, sub = "s1"): Promise<Request> {
+  return rpc(body, { authorization: `Bearer ${await bearerFor(sub)}` });
+}
+
 type RpcBody = { result?: any; error?: { code: number; message: string } };
 
 async function rpcJson(res: Response): Promise<RpcBody> {
@@ -35,16 +44,37 @@ beforeEach(() => {
 });
 
 describe("handleMcpRequest", () => {
-  it("initialize returns protocolVersion + serverInfo without auth", async () => {
+  it("unauthenticated POST returns HTTP 401 with a WWW-Authenticate resource pointer", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
     const res = await handleMcpRequest(rpc({ jsonrpc: "2.0", id: 1, method: "initialize" }), env, ctx);
+    expect(res.status).toBe(401);
+    const www = res.headers.get("WWW-Authenticate") ?? "";
+    expect(www).toContain("Bearer");
+    expect(www).toContain("resource_metadata=");
+    expect(www).toContain("/.well-known/oauth-protected-resource");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("OPTIONS preflight returns 204 with CORS headers", async () => {
+    const res = await handleMcpRequest(
+      new Request("https://example.workers.dev/mcp", { method: "OPTIONS" }),
+      env,
+      ctx,
+    );
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("initialize (authed) returns protocolVersion + serverInfo", async () => {
+    const res = await handleMcpRequest(await authed({ jsonrpc: "2.0", id: 1, method: "initialize" }), env, ctx);
     expect(res.status).toBe(200);
     const body = await rpcJson(res);
     expect(body.result.protocolVersion).toBe("2024-11-05");
     expect(body.result.serverInfo).toEqual({ name: "google-workspace-mcp", version: "1.0.0" });
   });
 
-  it("tools/list returns the catalog with JSON Schema input shapes, no auth required", async () => {
-    const res = await handleMcpRequest(rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }), env, ctx);
+  it("tools/list (authed) returns the catalog with JSON Schema input shapes", async () => {
+    const res = await handleMcpRequest(await authed({ jsonrpc: "2.0", id: 2, method: "tools/list" }), env, ctx);
     expect(res.status).toBe(200);
     const body = await rpcJson(res);
     const names = body.result.tools.map((t: any) => t.name);
@@ -55,29 +85,10 @@ describe("handleMcpRequest", () => {
     }
   });
 
-  it("tools/call with no auth returns a JSON-RPC error and never executes the tool", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const res = await handleMcpRequest(
-      rpc({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "drive_search", arguments: {} } }),
-      env,
-      ctx,
-    );
-    expect(res.status).toBe(200);
-    const body = await rpcJson(res);
-    expect(body.result).toBeUndefined();
-    expect(body.error).toBeDefined();
-    expect(body.error!.code).toBe(-32001);
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
   it("tools/call with auth but an unknown tool name returns -32602 and never hits the network", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const token = await bearerFor("s1");
     const res = await handleMcpRequest(
-      rpc(
-        { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "not_a_real_tool", arguments: {} } },
-        { authorization: `Bearer ${token}` },
-      ),
+      await authed({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "not_a_real_tool", arguments: {} } }),
       env,
       ctx,
     );
@@ -89,13 +100,8 @@ describe("handleMcpRequest", () => {
 
   it("tools/call with auth but invalid arguments returns -32602 and never hits the network", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const token = await bearerFor("s1");
     const res = await handleMcpRequest(
-      rpc(
-        // gmail_send requires to/subject/body; send nothing.
-        { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "gmail_send", arguments: {} } },
-        { authorization: `Bearer ${token}` },
-      ),
+      await authed({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "gmail_send", arguments: {} } }),
       env,
       ctx,
     );
@@ -105,15 +111,15 @@ describe("handleMcpRequest", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("notifications/* return HTTP 202 with no JSON-RPC body", async () => {
-    const res = await handleMcpRequest(rpc({ jsonrpc: "2.0", method: "notifications/initialized" }), env, ctx);
+  it("notifications/* (authed) return HTTP 202 with no JSON-RPC body", async () => {
+    const res = await handleMcpRequest(await authed({ jsonrpc: "2.0", method: "notifications/initialized" }), env, ctx);
     expect(res.status).toBe(202);
     const text = await res.text();
     expect(text).toBe("");
   });
 
-  it("unknown method returns -32601", async () => {
-    const res = await handleMcpRequest(rpc({ jsonrpc: "2.0", id: 6, method: "bogus/method" }), env, ctx);
+  it("unknown method (authed) returns -32601", async () => {
+    const res = await handleMcpRequest(await authed({ jsonrpc: "2.0", id: 6, method: "bogus/method" }), env, ctx);
     const body = await rpcJson(res);
     expect(body.error!.code).toBe(-32601);
   });
@@ -123,9 +129,9 @@ describe("handleMcpRequest", () => {
     expect(res.status).toBe(405);
   });
 
-  it("a request missing `method` degrades to -32600 instead of throwing", async () => {
+  it("a request missing `method` (authed) degrades to -32600 instead of throwing", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const res = await handleMcpRequest(rpc({ jsonrpc: "2.0", id: 1 }), env, ctx);
+    const res = await handleMcpRequest(await authed({ jsonrpc: "2.0", id: 1 }), env, ctx);
     expect(res.status).toBe(200);
     const body = await rpcJson(res);
     expect(body.error).toBeDefined();
@@ -133,7 +139,7 @@ describe("handleMcpRequest", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("a non-JSON body degrades to a parse error instead of throwing", async () => {
+  it("a non-JSON body degrades to a parse error before auth", async () => {
     const res = await handleMcpRequest(
       new Request("https://example.workers.dev/mcp", {
         method: "POST",

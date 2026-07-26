@@ -154,12 +154,13 @@ const steps = [
 
         <div class="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
           <p>
-            <strong class="text-foreground">Which Claude?</strong> Claude Code and Claude Desktop
-            connect over HTTP with the <code class="text-primary">Authorization</code> header above —
-            works today with the token from <a href="/gws/connect" class="text-primary hover:underline">/gws/connect</a>.
-            The <strong>claude.ai</strong> web “custom connector” instead requires a full OAuth
-            handshake (dynamic client registration); that flow is not enabled yet — use Claude Code
-            or Desktop for now.
+            <strong class="text-foreground">Which Claude?</strong> Claude Code and Claude Desktop use
+            the <code class="text-primary">Authorization</code> header above with the token from
+            <a href="/gws/connect" class="text-primary hover:underline">/gws/connect</a>. The
+            <strong>claude.ai</strong> web “custom connector” is also supported — this server
+            implements the MCP OAuth flow (discovery + dynamic client registration + PKCE), so you
+            just paste <code class="text-primary">{`${BASE}/mcp`}</code> as a custom connector and
+            Claude runs the Google sign-in itself.
           </p>
         </div>
       </div>

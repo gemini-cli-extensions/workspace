@@ -17,6 +17,7 @@ import { SCOPE_STRING } from "@/backend/mcp/scopes";
 import { getSecret } from "@/backend/utils/secrets";
 import { saveUser } from "@/backend/mcp/tokenProvider";
 import { createSessionCookie, readCookie } from "@/backend/lib/cookies";
+import { completeMcpAuthorize } from "@/backend/mcp/oauth";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -43,6 +44,56 @@ async function requireSecret(env: Env, key: string): Promise<string> {
   const value = await getSecret(env, key);
   if (!value) throw new Error(`Missing ${key} secret — set it before using /auth/google`);
   return value;
+}
+
+/**
+ * Exchange a Google authorization `code`, persist the user's refresh token, and
+ * return the identity. Shared by the normal browser login and the MCP OAuth
+ * authorize completion. Returns an error `Response` (never throws for HTTP
+ * failures) so callers can short-circuit.
+ */
+async function exchangeGoogleCode(
+  env: Env,
+  request: Request,
+  code: string,
+): Promise<{ ok: true; sub: string; email?: string } | { ok: false; response: Response }> {
+  const clientId = await requireSecret(env, "GOOGLE_CLIENT_ID");
+  const clientSecret = await requireSecret(env, "GOOGLE_CLIENT_SECRET");
+  const res = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri(env, request),
+      grant_type: "authorization_code",
+    }),
+  });
+  if (!res.ok) {
+    return { ok: false, response: new Response(`Token exchange failed: ${res.status}`, { status: 502 }) };
+  }
+  const tok = (await res.json()) as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+    id_token: string;
+  };
+  if (!tok.refresh_token) {
+    return {
+      ok: false,
+      response: new Response("No refresh_token returned; revoke app access and retry.", { status: 400 }),
+    };
+  }
+  const { sub, email } = decodeJwtPayload(tok.id_token);
+  await saveUser(env, {
+    sub,
+    email,
+    refreshToken: tok.refresh_token,
+    scopes: SCOPE_STRING.split(" "),
+    updatedAt: Math.floor(Date.now() / 1000),
+  });
+  return { ok: true, sub, email };
 }
 
 export async function handleGoogleAuth(request: Request, env: Env): Promise<Response> {
@@ -72,52 +123,36 @@ export async function handleGoogleAuth(request: Request, env: Env): Promise<Resp
 
   if (url.pathname === "/auth/google/callback") {
     const state = url.searchParams.get("state");
+    const code = url.searchParams.get("code");
+
+    // --- MCP OAuth authorize completion (state = "mcp:<reqId>") -------------
+    // These arrive from oauth.ts's /authorize, which carries the pending
+    // request id through Google's `state`. CSRF is covered by the reqId being
+    // server-generated + single-use in KV, so the cookie check doesn't apply.
+    if (state?.startsWith("mcp:")) {
+      if (!code) return new Response("Missing code", { status: 400 });
+      const ex = await exchangeGoogleCode(env, request, code);
+      if (!ex.ok) return ex.response;
+      const redirectTo = await completeMcpAuthorize(env, state.slice(4), ex.sub);
+      if (!redirectTo) return new Response("Authorization request expired — please retry.", { status: 400 });
+      // Also set the browser session so /gws works after connecting.
+      const sessionCookie = await createSessionCookie(env, { sub: ex.sub, email: ex.email });
+      const headers = new Headers({ location: redirectTo });
+      headers.append("set-cookie", sessionCookie);
+      return new Response(null, { status: 302, headers });
+    }
+
+    // --- Normal browser login (cookie-CSRF-checked) ------------------------
     const cookieState = readCookie(request.headers.get("cookie"), STATE_COOKIE);
     if (!state || !cookieState || state !== cookieState) {
       return new Response("Invalid OAuth state", { status: 400 });
     }
-
-    const code = url.searchParams.get("code");
     if (!code) return new Response("Missing code", { status: 400 });
 
-    const clientId = await requireSecret(env, "GOOGLE_CLIENT_ID");
-    const clientSecret = await requireSecret(env, "GOOGLE_CLIENT_SECRET");
-    const res = await fetch(TOKEN_URL, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri(env, request),
-        grant_type: "authorization_code",
-      }),
-    });
-    if (!res.ok) return new Response(`Token exchange failed: ${res.status}`, { status: 502 });
+    const ex = await exchangeGoogleCode(env, request, code);
+    if (!ex.ok) return ex.response;
 
-    const tok = (await res.json()) as {
-      access_token: string;
-      refresh_token?: string;
-      expires_in: number;
-      id_token: string;
-    };
-    if (!tok.refresh_token) {
-      // Google only returns refresh_token on first consent; prompt=consent forces it.
-      return new Response("No refresh_token returned; revoke app access and retry.", {
-        status: 400,
-      });
-    }
-
-    const { sub, email } = decodeJwtPayload(tok.id_token);
-    await saveUser(env, {
-      sub,
-      email,
-      refreshToken: tok.refresh_token,
-      scopes: SCOPE_STRING.split(" "),
-      updatedAt: Math.floor(Date.now() / 1000),
-    });
-
-    const sessionCookie = await createSessionCookie(env, { sub, email });
+    const sessionCookie = await createSessionCookie(env, { sub: ex.sub, email: ex.email });
     const headers = new Headers({ location: "/gws/connect" });
     headers.append("set-cookie", sessionCookie);
     headers.append("set-cookie", `${STATE_COOKIE}=; Max-Age=0; Path=/auth/google`);

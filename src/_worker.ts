@@ -27,6 +27,7 @@ import type { ExportedHandler } from "@cloudflare/workers-types";
 import { app as honoApp } from "./backend/api/index";
 import { handleMcpRequest } from "./backend/mcp/server"; // added in Task 14
 import { handleGoogleAuth } from "./backend/api/routes/auth-google"; // added in Task 6
+import { handleOAuth } from "./backend/mcp/oauth"; // MCP OAuth authorization server
 
 /** True for paths the Hono API owns (REST + OpenAPI doc surfaces). */
 function isApiPath(pathname: string): boolean {
@@ -69,6 +70,10 @@ function makeHandler(): ExportedHandler<Env> {
       if (url.pathname.startsWith("/auth/google")) {
         return handleGoogleAuth(request as any, env);
       }
+      // MCP OAuth authorization server: /.well-known/oauth-*, /register,
+      // /authorize, /token. Returns null for any non-OAuth path.
+      const oauthResponse = await handleOAuth(request as any, env);
+      if (oauthResponse) return oauthResponse;
       if (isApiPath(url.pathname)) {
         return honoApp.fetch(request as any, env, ctx);
       }

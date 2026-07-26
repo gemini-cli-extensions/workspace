@@ -15,18 +15,34 @@ import { z } from "zod";
 
 import { verifySessionCookie } from "@/backend/lib/cookies";
 import { logOperation, logAssetTouch } from "./logging";
+import { resolveAccessToken, oauthBaseUrl } from "./oauth";
 import { TOOLS } from "./tools";
 
 type JsonRpcRequest = { jsonrpc?: string; id?: string | number | null; method: string; params?: any };
 type JsonRpcResponse = { jsonrpc: "2.0"; id: string | number | null; result?: unknown; error?: { code: number; message: string } };
 
-const JSON_HEADERS = { "content-type": "application/json" };
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, MCP-Protocol-Version",
+  "Access-Control-Expose-Headers": "WWW-Authenticate",
+  "Access-Control-Max-Age": "86400",
+};
+const JSON_HEADERS = { "content-type": "application/json", ...CORS_HEADERS };
 
-/** Resolves the authenticated Google `sub` from a bearer token or session cookie. */
+/**
+ * Resolves the authenticated Google `sub` from either:
+ *   1. an OAuth access token we issued (the claude.ai web-connector flow), or
+ *   2. a session-cookie value passed as a bearer (Claude Code / Desktop), or
+ *   3. the browser session cookie itself.
+ */
 async function resolveSub(request: Request, env: Env): Promise<string | null> {
   const auth = request.headers.get("authorization");
   if (auth?.startsWith("Bearer ")) {
-    const payload = await verifySessionCookie(env, `cr_session=${auth.slice(7)}`);
+    const token = auth.slice(7);
+    const oauthSub = await resolveAccessToken(env, token);
+    if (oauthSub) return oauthSub;
+    const payload = await verifySessionCookie(env, `cr_session=${token}`);
     if (payload) return payload.sub;
   }
   const payload = await verifySessionCookie(env, request.headers.get("cookie"));
@@ -155,6 +171,10 @@ async function dispatch(req: JsonRpcRequest, env: Env, sub: string | null): Prom
 }
 
 export async function handleMcpRequest(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  // CORS preflight for browser-based MCP clients (e.g. claude.ai).
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed. POST JSON-RPC 2.0 requests to /mcp." }), {
       status: 405,
@@ -173,6 +193,19 @@ export async function handleMcpRequest(request: Request, env: Env, _ctx: Executi
   }
 
   const sub = await resolveSub(request, env);
+
+  // Unauthenticated → real HTTP 401 with the resource-metadata pointer so
+  // spec-compliant clients (claude.ai) discover the OAuth server and authorize.
+  if (!sub) {
+    const base = oauthBaseUrl(env, request);
+    return new Response(JSON.stringify(rpcError(extractId(body), -32001, "Unauthorized")), {
+      status: 401,
+      headers: {
+        ...JSON_HEADERS,
+        "WWW-Authenticate": `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`,
+      },
+    });
+  }
 
   if (Array.isArray(body)) {
     const responses = (await Promise.all(body.map((r) => safeDispatch(r, env, sub)))).filter(
