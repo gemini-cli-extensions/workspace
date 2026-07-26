@@ -1,0 +1,135 @@
+---
+/**
+ * `/gws/connect` — after signing in, shows the user their MCP Bearer token
+ * (the signed cr_session cookie value) plus copy-paste commands to add this
+ * server to Claude Code / Claude Desktop. If not signed in, shows a CTA.
+ *
+ * The token is read server-side from the request cookie (HttpOnly, so client
+ * JS can't reach it) and rendered once for the authenticated owner to copy.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+
+const BASE = Astro.url.origin;
+
+function readCookie(raw: string | null, name: string): string | null {
+  if (!raw) return null;
+  const prefix = `${name}=`;
+  const hit = raw.split(";").map((s) => s.trim()).find((s) => s.startsWith(prefix));
+  return hit ? hit.slice(prefix.length) : null;
+}
+
+function decodePayload(token: string): { email?: string; sub?: string; exp?: number } | null {
+  try {
+    const enc = token.split(".")[0];
+    const json = new TextDecoder().decode(
+      Uint8Array.from(atob(enc.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)),
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+const token = readCookie(Astro.request.headers.get("cookie"), "cr_session");
+const payload = token ? decodePayload(token) : null;
+const signedIn = Boolean(token && payload?.sub);
+const expiresAt = payload?.exp ? new Date(payload.exp * 1000).toLocaleDateString() : null;
+
+const claudeCodeCmd = token
+  ? `claude mcp add --transport http google-workspace \\\n  ${BASE}/mcp \\\n  --header "Authorization: Bearer ${token}"`
+  : "";
+
+const desktopConfig = token
+  ? JSON.stringify(
+      {
+        mcpServers: {
+          "google-workspace": {
+            url: `${BASE}/mcp`,
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        },
+      },
+      null,
+      2,
+    )
+  : "";
+---
+
+<BaseLayout title="Connect Claude" description="Get your MCP Bearer token and connect Claude to this server.">
+  <div class="container mx-auto max-w-3xl px-4 py-16">
+    <Badge variant="outline" class="mb-4 font-mono text-[11px]">Connect</Badge>
+    <h1 class="text-balance text-4xl font-bold tracking-tight">Connect Claude</h1>
+
+    {!signedIn && (
+      <div class="mt-8 rounded-xl border border-border/60 bg-card p-8 text-center">
+        <p class="text-muted-foreground">You're not signed in yet. Sign in with Google to get your access token.</p>
+        <a
+          href="/auth/google"
+          class="mt-5 inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Sign in with Google
+        </a>
+      </div>
+    )}
+
+    {signedIn && (
+      <div class="mt-8 space-y-8">
+        <p class="text-muted-foreground">
+          Signed in{payload?.email ? <> as <strong class="text-foreground">{payload.email}</strong></> : null}.
+          Below is your <strong>Bearer token</strong> — treat it like a password.
+          {expiresAt && <> It's valid until {expiresAt}.</>}
+        </p>
+
+        <!-- Token -->
+        <section class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground/70">Your token</h2>
+            <button data-copy="token" class="rounded-md border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/50">Copy</button>
+          </div>
+          <code id="token" class="block overflow-x-auto rounded-lg bg-muted/40 p-3 font-mono text-xs break-all">{token}</code>
+        </section>
+
+        <!-- Claude Code -->
+        <section class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground/70">Claude Code</h2>
+            <button data-copy="cc" class="rounded-md border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/50">Copy</button>
+          </div>
+          <pre id="cc" class="overflow-x-auto rounded-lg bg-muted/40 p-3 font-mono text-xs">{claudeCodeCmd}</pre>
+        </section>
+
+        <!-- Claude Desktop -->
+        <section class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground/70">Claude Desktop / other MCP clients</h2>
+            <button data-copy="cfg" class="rounded-md border px-3 py-1 text-xs font-medium transition-colors hover:bg-muted/50">Copy</button>
+          </div>
+          <pre id="cfg" class="overflow-x-auto rounded-lg bg-muted/40 p-3 font-mono text-xs">{desktopConfig}</pre>
+        </section>
+
+        <div class="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+          The <strong>claude.ai</strong> web “custom connector” needs a full OAuth handshake that
+          isn't enabled yet — use Claude Code or Desktop with the token above. Signing in again any
+          time re-issues the same session. To revoke access, revoke this app in your
+          <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Google account</a>.
+        </div>
+      </div>
+    )}
+  </div>
+
+  <script is:inline>
+    document.querySelectorAll("button[data-copy]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const el = document.getElementById(btn.getAttribute("data-copy"));
+        if (!el) return;
+        try {
+          await navigator.clipboard.writeText(el.textContent || "");
+          const prev = btn.textContent;
+          btn.textContent = "Copied";
+          setTimeout(() => (btn.textContent = prev), 1200);
+        } catch {}
+      });
+    });
+  </script>
+</BaseLayout>

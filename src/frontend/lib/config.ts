@@ -49,6 +49,7 @@ export const siteConfig: SiteConfig = {
       items: [
         { href: "/docs/google-config", label: "Google Cloud Config" },
         { href: "/gws/setup", label: "Setup & Deploy" },
+        { href: "/gws/connect", label: "Connect Claude" },
         { href: "/gws/tools", label: "MCP Tools" },
         { href: "/gws/operations", label: "Operations Log" },
         { href: "/gws/assets", label: "Asset Activity" },

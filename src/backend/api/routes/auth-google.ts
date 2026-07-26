@@ -118,7 +118,7 @@ export async function handleGoogleAuth(request: Request, env: Env): Promise<Resp
     });
 
     const sessionCookie = await createSessionCookie(env, { sub, email });
-    const headers = new Headers({ location: "/gws" });
+    const headers = new Headers({ location: "/gws/connect" });
     headers.append("set-cookie", sessionCookie);
     headers.append("set-cookie", `${STATE_COOKIE}=; Max-Age=0; Path=/auth/google`);
     return new Response(null, { status: 302, headers });
