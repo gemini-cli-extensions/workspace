@@ -30,6 +30,7 @@ import { healthRouter } from "./routes/health";
 import { activityRouter } from "./routes/activity";
 import { dashboardRouter } from "./routes/dashboard";
 import { gwsRouter } from "./routes/gws";
+import { gwsTemplatesRouter } from "./routes/gws-templates";
 import { projectsRouter } from "./routes/projects";
 import { seedRouter } from "./routes/seed";
 import { settingsRouter } from "./routes/settings";
@@ -128,6 +129,7 @@ app.route("/api/settings", settingsRouter);
 app.route("/api/activity", activityRouter);
 app.route("/api/dashboard", dashboardRouter);
 app.route("/api/gws", gwsRouter);
+app.route("/api/gws/templates", gwsTemplatesRouter);
 app.route("/api/seed", seedRouter);
 
 app.route("/api/__client-error", clientErrorRouter);

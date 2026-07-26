@@ -101,6 +101,9 @@ importers:
       hono:
         specifier: ^4.12.16
         version: 4.12.23
+      jose:
+        specifier: ^6.2.4
+        version: 6.2.4
       lucide-react:
         specifier: ^0.575.0
         version: 0.575.0(react@19.2.6)
@@ -4729,8 +4732,8 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  jose@6.2.3:
-    resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==}
+  jose@6.2.4:
+    resolution: {integrity: sha512-N8acGzVsQy6M/fjFcxtysNc4Q379TcM5dM/qKkNtsHFji88yANnXTr7BLeP75iPnFwBfQzM/jg2BZ9+HZrHCZA==}
 
   jotai-optics@0.4.0:
     resolution: {integrity: sha512-osbEt9AgS55hC4YTZDew2urXKZkaiLmLqkTS/wfW5/l0ib8bmmQ7kBXSFaosV6jDDWSp00IipITcJARFHdp42g==}
@@ -7819,7 +7822,7 @@ snapshots:
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
       hono: 4.12.23
-      jose: 6.2.3
+      jose: 6.2.4
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -7843,7 +7846,7 @@ snapshots:
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
       hono: 4.12.23
-      jose: 6.2.3
+      jose: 6.2.4
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
@@ -10718,7 +10721,7 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  jose@6.2.3: {}
+  jose@6.2.4: {}
 
   jotai-optics@0.4.0(jotai@2.8.4(@types/react@19.2.15)(react@19.2.6))(optics-ts@2.4.1):
     dependencies:

@@ -62,6 +62,7 @@
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "0.8.3",
     "hono": "^4.12.16",
+    "jose": "^6.2.4",
     "lucide-react": "^0.575.0",
     "mind-elixir": "5.13.0",
     "platejs": "53.2.4",

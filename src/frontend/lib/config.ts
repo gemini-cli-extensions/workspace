@@ -51,6 +51,7 @@ export const siteConfig: SiteConfig = {
         { href: "/gws/setup", label: "Setup & Deploy" },
         { href: "/gws/connect", label: "Connect Claude" },
         { href: "/gws/tools", label: "MCP Tools" },
+        { href: "/gws/templates", label: "Templates" },
         { href: "/gws/operations", label: "Operations Log" },
         { href: "/gws/assets", label: "Asset Activity" },
       ],

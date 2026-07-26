@@ -107,6 +107,15 @@ const steps = [
   },
 ];
 
+const dwdScopes = `https://www.googleapis.com/auth/drive
+https://www.googleapis.com/auth/documents
+https://www.googleapis.com/auth/spreadsheets
+https://www.googleapis.com/auth/presentations
+https://www.googleapis.com/auth/calendar
+https://www.googleapis.com/auth/gmail.modify
+https://www.googleapis.com/auth/script.projects
+https://www.googleapis.com/auth/script.processes`;
+
 const troubleshooting = [
   { err: "redirect_uri_mismatch", fix: "The redirect URI in the console must exactly match ${BASE}/auth/google/callback (scheme, host, path — no trailing slash). Add both prod and localhost variants." },
   { err: "No refresh_token returned", fix: "Google only returns a refresh token on first consent. Revoke the app at myaccount.google.com → Security → Third-party access, then sign in again (this server already sends prompt=consent to force it)." },
@@ -155,6 +164,33 @@ const troubleshooting = [
       <h2 class="mb-3 text-lg font-semibold">Setting secrets by hand</h2>
       <p class="mb-4 text-sm text-muted-foreground">Prefer not to run the script? Set the two secrets directly:</p>
       <CodeBlock client:visible filename="terminal" language="bash" code={manualSecrets} />
+    </section>
+
+    <!-- Domain-Wide Delegation (headless / impersonation) -->
+    <section class="mt-14 space-y-4">
+      <div class="flex items-baseline gap-3">
+        <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">DWD</span>
+        <h2 class="text-2xl font-bold tracking-tight">Domain-Wide Delegation (optional, headless)</h2>
+      </div>
+      <p class="text-sm leading-relaxed text-muted-foreground">
+        The steps above set up per-user OAuth (the default). To let agents act <em>headlessly</em>
+        as any user in a Google Workspace domain — no interactive login — configure a service
+        account with Domain-Wide Delegation. Then any tool call can pass
+        <code class="text-primary">as_user: "someone@yourdomain.com"</code> to impersonate that
+        user; omit it to use the signed-in account.
+      </p>
+      <ol class="space-y-3 pl-1 text-sm text-muted-foreground">
+        <li><strong class="text-foreground">1.</strong> In Google Cloud → IAM &amp; Admin → Service Accounts, create a service account and download its JSON key.</li>
+        <li><strong class="text-foreground">2.</strong> Store the key as Worker secrets: <code class="text-primary">GOOGLE_CREDS_SA_CLIENT_EMAIL</code> and the PKCS8 private key split across <code class="text-primary">GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1</code> + <code class="text-primary">GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2</code> (already declared in wrangler.jsonc's Secrets Store).</li>
+        <li><strong class="text-foreground">3.</strong> In the Workspace Admin console → Security → API controls → Domain-wide delegation, add the service account's <strong>client ID</strong> and authorize exactly the API scopes below.</li>
+      </ol>
+      <CodeBlock client:visible filename="DWD scopes to authorize" language="text" code={dwdScopes} />
+      <div class="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+        <strong class="text-foreground">Note:</strong> DWD is powerful — a caller passing
+        <code class="text-primary">as_user</code> acts as that user with full scope. Only expose
+        this server to trusted operators, or drop the service-account secrets to disable DWD
+        entirely (the OAuth path keeps working).
+      </div>
     </section>
 
     <!-- Troubleshooting -->

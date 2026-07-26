@@ -20,4 +20,16 @@ describe("GmailService", () => {
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(typeof body.raw).toBe("string");
   });
+
+  it("createDraft posts message.raw to drafts", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ id: "draft1" }), { status: 200 }));
+    const out = await new GmailService({} as any, "s1").createDraft("a@b.com", "Hi", "Body");
+    expect(out.id).toBe("draft1");
+    const url = spy.mock.calls[0][0] as string;
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(url).toContain("/drafts");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string);
+    expect(typeof body.message.raw).toBe("string");
+  });
 });

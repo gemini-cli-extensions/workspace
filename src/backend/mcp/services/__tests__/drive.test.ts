@@ -19,3 +19,22 @@ describe("DriveService.search", () => {
     expect(decodeURIComponent(url)).toContain("name contains 'Doc'");
   });
 });
+
+describe("DriveService.copy", () => {
+  it("posts to files/{id}/copy with name and parents", async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ id: "f2", name: "Doc copy", mimeType: "application/vnd.google-apps.document" }), { status: 200 }),
+    );
+    const svc = new DriveService({} as any, "s1");
+    const out = await svc.copy("f1", "Doc copy", "parent1");
+    expect(out.id).toBe("f2");
+    const lastCall = fetchSpy.mock.calls[fetchSpy.mock.calls.length - 1];
+    const url = lastCall[0] as string;
+    const init = lastCall[1] as RequestInit;
+    expect(url).toContain("https://www.googleapis.com/drive/v3/files/f1/copy");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body as string);
+    expect(body.name).toBe("Doc copy");
+    expect(body.parents).toEqual(["parent1"]);
+  });
+});

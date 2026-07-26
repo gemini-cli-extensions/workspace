@@ -6,6 +6,7 @@
  * via Google's token endpoint when the cached token is missing or expiring.
  */
 import { getSecret } from "../utils/secrets";
+import { getDwdAccessToken } from "./dwd";
 
 export type GwsUser = {
   sub: string;
@@ -29,6 +30,13 @@ export async function getUser(env: Env, sub: string): Promise<GwsUser | null> {
 }
 
 export async function getAccessToken(env: Env, sub: string): Promise<string> {
+  // Domain-wide delegation: a `dwd:<email>` account ref impersonates that user
+  // via the service account instead of an OAuth refresh token. Tools default to
+  // the OAuth caller's sub; passing `as_user` switches to this path.
+  if (sub.startsWith("dwd:")) {
+    return getDwdAccessToken(env, sub.slice(4));
+  }
+
   const cached = await env.SESSIONS.get(TOK_PREFIX + sub);
   if (cached) {
     const { access_token, exp } = JSON.parse(cached) as { access_token: string; exp: number };

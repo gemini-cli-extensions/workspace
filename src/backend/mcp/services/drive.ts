@@ -31,4 +31,11 @@ export class DriveService {
       body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: parentId ? [parentId] : undefined }),
     });
   }
+
+  async copy(fileId: string, name: string, parentId?: string): Promise<DriveFile> {
+    return googleJson<DriveFile>(this.env, this.sub, `${BASE}/files/${fileId}/copy?fields=id,name,mimeType,webViewLink`, {
+      method: "POST",
+      body: JSON.stringify({ name, parents: parentId ? [parentId] : undefined }),
+    });
+  }
 }

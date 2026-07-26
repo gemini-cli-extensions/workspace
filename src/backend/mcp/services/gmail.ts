@@ -29,4 +29,12 @@ export class GmailService {
       body: JSON.stringify({ raw: base64Url(mime) }),
     });
   }
+
+  async createDraft(to: string, subject: string, body: string): Promise<{ id: string; message?: { id: string } }> {
+    const mime = [`To: ${to}`, `Subject: ${subject}`, "Content-Type: text/plain; charset=UTF-8", "", body].join("\r\n");
+    return googleJson<{ id: string; message?: { id: string } }>(this.env, this.sub, `${BASE}/drafts`, {
+      method: "POST",
+      body: JSON.stringify({ message: { raw: base64Url(mime) } }),
+    });
+  }
 }

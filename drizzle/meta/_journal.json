@@ -43,6 +43,13 @@
       "when": 1785002539026,
       "tag": "0005_glossy_blue_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785079427666,
+      "tag": "0006_acoustic_kylun",
+      "breakpoints": true
     }
   ]
 }

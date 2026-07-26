@@ -21,21 +21,13 @@
 
 import { toBase64Url } from "../lib/crypto";
 import { getSecret } from "../utils/secrets";
+import { SCOPES as SCOPES_SUPPORTED } from "./scopes";
 
 const ACCESS_TTL = 3600; // 1 hour
 const REFRESH_TTL = 60 * 60 * 24 * 30; // 30 days
 const CODE_TTL = 300; // 5 minutes
 const REQ_TTL = 600; // 10 minutes
 
-const SCOPES_SUPPORTED = [
-  "openid",
-  "email",
-  "profile",
-  "https://www.googleapis.com/auth/drive",
-  "https://www.googleapis.com/auth/documents",
-  "https://www.googleapis.com/auth/spreadsheets",
-  "https://www.googleapis.com/auth/gmail.modify",
-];
 
 // ---------------------------------------------------------------------------
 // Small helpers
