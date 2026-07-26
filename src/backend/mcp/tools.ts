@@ -17,7 +17,7 @@ import { z } from "zod";
 import { eq, desc } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { templateArtifacts } from "@db/schemas";
+import { templateArtifacts, driveNotifications } from "@db/schemas";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -25,6 +25,9 @@ import { GmailService } from "./services/gmail";
 import { SlidesService } from "./services/slides";
 import { CalendarService } from "./services/calendar";
 import { AppsScriptService } from "./services/appsscript";
+import { CommentsService } from "./services/comments";
+import { ChangesService } from "./services/changes";
+import { WorkspaceEventsService } from "./services/workspaceevents";
 import type { AssetAction } from "./logging";
 
 export type ToolCtx = { env: Env; sub: string };
@@ -62,11 +65,72 @@ function acct(sub: string, a: { as_user?: string }): string {
 export const TOOLS: ToolDef[] = [
   // ---- Drive -------------------------------------------------------------
   {
-    name: "drive_search",
-    description: "Search Google Drive files. Optional query in Drive query syntax.",
+    name: "search_files",
+    description: "Search Google Drive files. Optional query in Drive query syntax (e.g. \"name contains 'report'\").",
     inputSchema: z.object({ query: z.string().optional(), pageSize: z.number().int().min(1).max(100).optional(), ...asUser }),
     async run({ env, sub }, a) {
       return { result: await new DriveService(env, acct(sub, a)).search(a.query, a.pageSize) };
+    },
+  },
+  {
+    name: "list_recent_files",
+    description: "List the most recently modified Drive files.",
+    inputSchema: z.object({ pageSize: z.number().int().min(1).max(100).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new DriveService(env, acct(sub, a)).listRecent(a.pageSize) };
+    },
+  },
+  {
+    name: "get_file_metadata",
+    description: "Get a Drive file's metadata (id, name, mimeType, link) by id.",
+    inputSchema: z.object({ fileId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const f = await new DriveService(env, acct(sub, a)).get(a.fileId);
+      return { result: f, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "read" } };
+    },
+  },
+  {
+    name: "get_file_permissions",
+    description: "List the permissions (who has access, and what role) on a Drive file.",
+    inputSchema: z.object({ fileId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new DriveService(env, acct(sub, a)).getPermissions(a.fileId), asset: { assetType: "drive", googleId: a.fileId, action: "read" } };
+    },
+  },
+  {
+    name: "read_file_content",
+    description:
+      "Read a Drive file's content as text. Google Docs/Sheets/Slides are exported (to text/csv); other files are read directly. Best for feeding file content to the model.",
+    inputSchema: z.object({ fileId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const out = await new DriveService(env, acct(sub, a)).readContent(a.fileId);
+      return { result: out, asset: { assetType: "drive", googleId: a.fileId, action: "read", detail: { exported: out.exported } } };
+    },
+  },
+  {
+    name: "download_file_content",
+    description: "Download a Drive file's raw media content as text (alt=media). For binary files prefer read_file_content.",
+    inputSchema: z.object({ fileId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new DriveService(env, acct(sub, a)).downloadContent(a.fileId), asset: { assetType: "drive", googleId: a.fileId, action: "read" } };
+    },
+  },
+  {
+    name: "create_file",
+    description: "Create a Drive file with text content and an explicit mimeType (e.g. text/plain, text/markdown, text/csv).",
+    inputSchema: z.object({ name: z.string(), mimeType: z.string(), content: z.string(), parentId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const f = await new DriveService(env, acct(sub, a)).createFile(a.name, a.mimeType, a.content, a.parentId);
+      return { result: f, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "create", detail: { mimeType: a.mimeType } } };
+    },
+  },
+  {
+    name: "copy_file",
+    description: "Copy a Drive file to a new file (optionally into a target folder).",
+    inputSchema: z.object({ fileId: z.string(), name: z.string(), targetFolderId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const f = await new DriveService(env, acct(sub, a)).copy(a.fileId, a.name, a.targetFolderId);
+      return { result: f, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "create", detail: { copiedFrom: a.fileId } } };
     },
   },
   {
@@ -236,6 +300,22 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "gmail_create_reply_draft",
+    description:
+      "Create a DRAFT reply to an existing message (same thread, proper In-Reply-To/References). Defaults to REPLY-ALL (original sender + all To/Cc, minus you). Pass `to` to reply to specific addresses only, or replyAll:false to reply to the sender only. Draft, not sent — for human review.",
+    inputSchema: z.object({
+      messageId: z.string(),
+      body: z.string(),
+      to: z.array(z.string().email()).optional(),
+      replyAll: z.boolean().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const d = await new GmailService(env, acct(sub, a)).createReplyDraft(a.messageId, a.body, { to: a.to, replyAll: a.replyAll });
+      return { result: d, asset: { assetType: "gmail", googleId: d.id, action: "create", detail: { replyTo: a.messageId, draft: true } } };
+    },
+  },
+  {
     name: "gmail_send",
     description: "Send a plain-text email immediately. Prefer gmail_create_draft when a human should review first.",
     inputSchema: z.object({ to: z.string().email(), subject: z.string(), body: z.string(), ...asUser }),
@@ -294,6 +374,168 @@ export const TOOLS: ToolDef[] = [
     inputSchema: z.object({ ...asUser }),
     async run({ env, sub }, a) {
       return { result: await new AppsScriptService(env, acct(sub, a)).listProcesses() };
+    },
+  },
+  // ---- Drive comments (agent collaboration) ------------------------------
+  {
+    name: "comments_list",
+    description: "List comments on a Drive file (with replies). Includes resolved/anchored info.",
+    inputSchema: z.object({ fileId: z.string(), includeDeleted: z.boolean().optional(), pageSize: z.number().int().min(1).max(100).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new CommentsService(env, acct(sub, a)).list(a.fileId, { includeDeleted: a.includeDeleted, pageSize: a.pageSize }), asset: { assetType: "drive", googleId: a.fileId, action: "read" } };
+    },
+  },
+  {
+    name: "comments_find_mentions",
+    description:
+      "Find comments/replies on a file that mention a tag (e.g. '#colby') so an agent can pick up work it was tagged in. Case-insensitive substring match on comment content.",
+    inputSchema: z.object({ fileId: z.string(), tag: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new CommentsService(env, acct(sub, a)).findMentions(a.fileId, a.tag), asset: { assetType: "drive", googleId: a.fileId, action: "read" } };
+    },
+  },
+  {
+    name: "comments_get",
+    description: "Get a single comment (with replies) on a Drive file.",
+    inputSchema: z.object({ fileId: z.string(), commentId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new CommentsService(env, acct(sub, a)).get(a.fileId, a.commentId) };
+    },
+  },
+  {
+    name: "comments_create",
+    description: "Create a comment on a Drive file. Optional `anchor` (JSON string) to anchor it to a region; omit for an unanchored comment.",
+    inputSchema: z.object({ fileId: z.string(), content: z.string(), anchor: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const c = await new CommentsService(env, acct(sub, a)).create(a.fileId, a.content, a.anchor);
+      return { result: c, asset: { assetType: "drive", googleId: a.fileId, action: "modify", detail: { commentId: c.id } } };
+    },
+  },
+  {
+    name: "comments_reply",
+    description: "Reply to a comment on a Drive file.",
+    inputSchema: z.object({ fileId: z.string(), commentId: z.string(), content: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new CommentsService(env, acct(sub, a)).reply(a.fileId, a.commentId, a.content);
+      return { result: r, asset: { assetType: "drive", googleId: a.fileId, action: "modify", detail: { commentId: a.commentId, reply: true } } };
+    },
+  },
+  {
+    name: "comments_resolve",
+    description: "Resolve (close) a comment on a Drive file by posting a resolving reply.",
+    inputSchema: z.object({ fileId: z.string(), commentId: z.string(), content: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const r = await new CommentsService(env, acct(sub, a)).resolve(a.fileId, a.commentId, a.content);
+      return { result: r, asset: { assetType: "drive", googleId: a.fileId, action: "modify", detail: { commentId: a.commentId, resolved: true } } };
+    },
+  },
+  // ---- Drive changes (classic watch/list) --------------------------------
+  {
+    name: "changes_get_start_page_token",
+    description: "Get a Drive changes start page token — the cursor to begin tracking changes from now.",
+    inputSchema: z.object({ driveId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new ChangesService(env, acct(sub, a)).getStartPageToken(a.driveId) };
+    },
+  },
+  {
+    name: "changes_list",
+    description: "List Drive changes since a page token. Returns changes + a newStartPageToken to persist for the next poll.",
+    inputSchema: z.object({
+      pageToken: z.string(),
+      includeRemoved: z.boolean().optional(),
+      includeItemsFromAllDrives: z.boolean().optional(),
+      restrictToMyDrive: z.boolean().optional(),
+      pageSize: z.number().int().min(1).max(1000).optional(),
+      driveId: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      return {
+        result: await new ChangesService(env, acct(sub, a)).list(a.pageToken, {
+          includeRemoved: a.includeRemoved,
+          includeItemsFromAllDrives: a.includeItemsFromAllDrives,
+          restrictToMyDrive: a.restrictToMyDrive,
+          pageSize: a.pageSize,
+          driveId: a.driveId,
+        }),
+      };
+    },
+  },
+  {
+    name: "changes_watch",
+    description:
+      "Subscribe to Drive changes via a push channel. `address` is the HTTPS webhook (e.g. this worker's /api/gws/drive-webhook). Returns the channel (id + resourceId) — keep them to stop the watch.",
+    inputSchema: z.object({
+      pageToken: z.string(),
+      channelId: z.string(),
+      address: z.string().url(),
+      token: z.string().optional(),
+      expiration: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      return { result: await new ChangesService(env, acct(sub, a)).watch(a.pageToken, { id: a.channelId, address: a.address, token: a.token, expiration: a.expiration }) };
+    },
+  },
+  {
+    name: "changes_stop",
+    description: "Stop a Drive changes push channel (from changes_watch).",
+    inputSchema: z.object({ channelId: z.string(), resourceId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new ChangesService(env, acct(sub, a)).stop(a.channelId, a.resourceId) };
+    },
+  },
+  // ---- Workspace Events API (fine-grained subscriptions) -----------------
+  {
+    name: "events_create_subscription",
+    description:
+      "Create a Workspace Events subscription for a Drive target (file: '//drive.googleapis.com/files/ID' or shared drive: '//drive.googleapis.com/drives/ID') and CloudEvents event types (e.g. 'google.workspace.drive.comment.v3.created'). Events (incl. comment mentions/assignees) are delivered to a Cloud Pub/Sub topic 'projects/P/topics/T'.",
+    inputSchema: z.object({
+      targetResource: z.string(),
+      eventTypes: z.array(z.string()).min(1),
+      pubsubTopic: z.string(),
+      includeResource: z.boolean().optional(),
+      includeDescendants: z.boolean().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      return { result: await new WorkspaceEventsService(env, acct(sub, a)).createSubscription(a.targetResource, a.eventTypes, a.pubsubTopic, { includeResource: a.includeResource, includeDescendants: a.includeDescendants }) };
+    },
+  },
+  {
+    name: "events_list_subscriptions",
+    description: "List Workspace Events subscriptions. `filter` is required, e.g. event_types:\"google.workspace.drive.file.v3.contentChanged\".",
+    inputSchema: z.object({ filter: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new WorkspaceEventsService(env, acct(sub, a)).listSubscriptions(a.filter) };
+    },
+  },
+  {
+    name: "events_get_subscription",
+    description: "Get a Workspace Events subscription by resource name (subscriptions/ID).",
+    inputSchema: z.object({ name: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new WorkspaceEventsService(env, acct(sub, a)).getSubscription(a.name) };
+    },
+  },
+  {
+    name: "events_delete_subscription",
+    description: "Delete a Workspace Events subscription by resource name (subscriptions/ID).",
+    inputSchema: z.object({ name: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new WorkspaceEventsService(env, acct(sub, a)).deleteSubscription(a.name) };
+    },
+  },
+  {
+    name: "list_notifications",
+    description:
+      "List recent push notifications received at the Drive webhook (from changes_watch channels or Workspace Events Pub/Sub push). Poll this to react to file/comment changes.",
+    inputSchema: z.object({ limit: z.number().int().min(1).max(200).optional() }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const rows = await db.select().from(driveNotifications).orderBy(desc(driveNotifications.receivedAt)).limit(a.limit ?? 50);
+      return { result: { notifications: rows } };
     },
   },
   // ---- Template registry (reference library for agents) ------------------

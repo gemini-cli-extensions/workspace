@@ -32,4 +32,70 @@ describe("GmailService", () => {
     const body = JSON.parse(init.body as string);
     expect(typeof body.message.raw).toBe("string");
   });
+
+  function mockHeadersAndProfile(spy: ReturnType<typeof vi.spyOn>) {
+    spy.mockImplementation(async (url: any) => {
+      const u = String(url);
+      if (u.includes("/profile")) {
+        return new Response(JSON.stringify({ emailAddress: "me@self.com" }), { status: 200 });
+      }
+      if (u.includes("/messages/")) {
+        return new Response(
+          JSON.stringify({
+            threadId: "thread1",
+            payload: {
+              headers: [
+                { name: "From", value: "Alice <alice@x.com>" },
+                { name: "To", value: "me@self.com, Bob <bob@y.com>" },
+                { name: "Cc", value: "carol@z.com" },
+                { name: "Subject", value: "Hello" },
+                { name: "Message-ID", value: "<orig-id@mail.gmail.com>" },
+                { name: "References", value: "<prev@mail.gmail.com>" },
+              ],
+            },
+          }),
+          { status: 200 },
+        );
+      }
+      // drafts POST
+      return new Response(JSON.stringify({ id: "draft2", message: { id: "m2", threadId: "thread1" } }), { status: 200 });
+    });
+  }
+
+  it("createReplyDraft defaults to reply-all in the same thread", async () => {
+    const spy = vi.spyOn(globalThis, "fetch");
+    mockHeadersAndProfile(spy);
+    const out = await new GmailService({} as any, "s1").createReplyDraft("msg1", "Thanks!");
+    expect(out.id).toBe("draft2");
+
+    const draftCall = spy.mock.calls.find((c: any[]) => String(c[0]).includes("/drafts"))!;
+    const draftInit = draftCall[1] as RequestInit;
+    expect(draftInit.method).toBe("POST");
+    const draftBody = JSON.parse(draftInit.body as string);
+    expect(draftBody.message.threadId).toBe("thread1");
+
+    const raw = draftBody.message.raw as string;
+    const mime = decodeURIComponent(escape(atob(raw.replace(/-/g, "+").replace(/_/g, "/"))));
+    expect(mime).toContain("In-Reply-To: <orig-id@mail.gmail.com>");
+    expect(mime).toContain("References: <prev@mail.gmail.com> <orig-id@mail.gmail.com>");
+    expect(mime).toContain("Subject: Re: Hello");
+    expect(mime).toContain("alice@x.com");
+    expect(mime).toContain("bob@y.com");
+    expect(mime).toContain("carol@z.com");
+    expect(mime).not.toContain("me@self.com");
+  });
+
+  it("createReplyDraft honors opts.to override", async () => {
+    const spy = vi.spyOn(globalThis, "fetch");
+    mockHeadersAndProfile(spy);
+    await new GmailService({} as any, "s1").createReplyDraft("msg1", "Thanks!", { to: ["x@y.com"] });
+
+    const draftCall = spy.mock.calls.find((c: any[]) => String(c[0]).includes("/drafts"))!;
+    const draftInit = draftCall[1] as RequestInit;
+    const draftBody = JSON.parse(draftInit.body as string);
+    const raw = draftBody.message.raw as string;
+    const mime = decodeURIComponent(escape(atob(raw.replace(/-/g, "+").replace(/_/g, "/"))));
+    expect(mime).toContain("To: x@y.com");
+    expect(mime).not.toContain("alice@x.com");
+  });
 });

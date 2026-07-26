@@ -8,6 +8,19 @@ function base64Url(input: string): string {
   return btoa(unescape(encodeURIComponent(input))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+// Extracts bare email addresses from a comma-separated header value, handling "Name <a@b.com>" forms.
+function extractEmails(headerValue: string | undefined): string[] {
+  if (!headerValue) return [];
+  return headerValue
+    .split(",")
+    .map((part) => {
+      const trimmed = part.trim();
+      const match = trimmed.match(/<([^>]+)>/);
+      return (match ? match[1] : trimmed).trim();
+    })
+    .filter(Boolean);
+}
+
 export class GmailService {
   constructor(private env: Env, private sub: string) {}
 
@@ -35,6 +48,72 @@ export class GmailService {
     return googleJson<{ id: string; message?: { id: string } }>(this.env, this.sub, `${BASE}/drafts`, {
       method: "POST",
       body: JSON.stringify({ message: { raw: base64Url(mime) } }),
+    });
+  }
+
+  async getProfile(): Promise<{ emailAddress: string }> {
+    return googleJson<{ emailAddress: string }>(this.env, this.sub, `${BASE}/profile`);
+  }
+
+  async getMessageHeaders(messageId: string): Promise<{ headers: Record<string, string>; threadId: string }> {
+    const params = new URLSearchParams({ format: "metadata" });
+    for (const name of ["From", "To", "Cc", "Subject", "Message-ID", "References"]) {
+      params.append("metadataHeaders", name);
+    }
+    const out = await googleJson<{ threadId: string; payload?: { headers?: { name: string; value: string }[] } }>(
+      this.env,
+      this.sub,
+      `${BASE}/messages/${messageId}?${params}`,
+    );
+    const headers: Record<string, string> = {};
+    for (const h of out.payload?.headers ?? []) {
+      headers[h.name.toLowerCase()] = h.value;
+    }
+    return { headers, threadId: out.threadId };
+  }
+
+  async createReplyDraft(
+    messageId: string,
+    body: string,
+    opts?: { to?: string[]; replyAll?: boolean },
+  ): Promise<{ id: string; message?: { id: string; threadId?: string } }> {
+    const [{ headers, threadId }, profile] = await Promise.all([this.getMessageHeaders(messageId), this.getProfile()]);
+    const self = profile.emailAddress.toLowerCase();
+
+    let recipients: string[];
+    if (opts?.to && opts.to.length > 0) {
+      recipients = opts.to;
+    } else if (opts?.replyAll === false) {
+      recipients = extractEmails(headers["from"]);
+    } else {
+      const seen = new Set<string>();
+      recipients = [];
+      for (const addr of [...extractEmails(headers["from"]), ...extractEmails(headers["to"]), ...extractEmails(headers["cc"])]) {
+        const key = addr.toLowerCase();
+        if (key === self || seen.has(key)) continue;
+        seen.add(key);
+        recipients.push(addr);
+      }
+    }
+
+    const originalSubject = headers["subject"] ?? "";
+    const subject = /^re:/i.test(originalSubject.trim()) ? originalSubject : `Re: ${originalSubject}`;
+    const messageIdHeader = headers["message-id"] ?? "";
+    const references = [headers["references"], messageIdHeader].filter(Boolean).join(" ").trim();
+
+    const mime = [
+      `To: ${recipients.join(", ")}`,
+      `Subject: ${subject}`,
+      `In-Reply-To: ${messageIdHeader}`,
+      `References: ${references}`,
+      "Content-Type: text/plain; charset=UTF-8",
+      "",
+      body,
+    ].join("\r\n");
+
+    return googleJson<{ id: string; message?: { id: string; threadId?: string } }>(this.env, this.sub, `${BASE}/drafts`, {
+      method: "POST",
+      body: JSON.stringify({ message: { raw: base64Url(mime), threadId } }),
     });
   }
 }

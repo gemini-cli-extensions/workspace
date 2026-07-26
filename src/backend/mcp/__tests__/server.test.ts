@@ -78,7 +78,7 @@ describe("handleMcpRequest", () => {
     expect(res.status).toBe(200);
     const body = await rpcJson(res);
     const names = body.result.tools.map((t: any) => t.name);
-    expect(names).toEqual(expect.arrayContaining(["drive_search", "docs_create", "sheets_get_values", "gmail_send"]));
+    expect(names).toEqual(expect.arrayContaining(["search_files", "docs_create", "sheets_get_values", "gmail_send"]));
     for (const t of body.result.tools) {
       expect(typeof t.inputSchema).toBe("object");
       expect(t.inputSchema).not.toBeNull();

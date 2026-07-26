@@ -50,6 +50,13 @@
       "when": 1785079427666,
       "tag": "0006_acoustic_kylun",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1785086725429,
+      "tag": "0007_curious_korath",
+      "breakpoints": true
     }
   ]
 }
