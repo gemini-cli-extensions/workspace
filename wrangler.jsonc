@@ -41,15 +41,15 @@
   "kv_namespaces": [
     {
       "binding": "SESSIONS",
-      "id": "aba8552a49c64335ba4832d34ce9459d",
+      "id": "6d9d062da8424b47bf1131d41c84a60c",
       "remote": true,
     },
   ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "core-template-cfw-assets-astro-shadcn",
-      "database_id": "d555f8ce-77c9-4c82-be80-de95b8d9c003",
+      "database_name": "google-workspace-mcp",
+      "database_id": "32f8b41a-052d-42cb-b12c-9e5dbd28bbd7",
       "migrations_dir": "drizzle",
     },
   ],
