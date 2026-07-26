@@ -135,11 +135,13 @@ export async function handleGoogleAuth(request: Request, env: Env): Promise<Resp
       if (!ex.ok) return ex.response;
       const redirectTo = await completeMcpAuthorize(env, state.slice(4), ex.sub);
       if (!redirectTo) return new Response("Authorization request expired — please retry.", { status: 400 });
-      // Also set the browser session so /gws works after connecting.
-      const sessionCookie = await createSessionCookie(env, { sub: ex.sub, email: ex.email });
-      const headers = new Headers({ location: redirectTo });
-      headers.append("set-cookie", sessionCookie);
-      return new Response(null, { status: 302, headers });
+      // Do NOT set a browser session cookie here. The MCP token flow's only
+      // output is the auth code handed to the OAuth client; issuing a browser
+      // session as a side effect of a link-triggered callback would be a
+      // login-CSRF (a crafted callback could sign a victim's browser into the
+      // attacker's account). The reqId protects the AS↔client binding, not the
+      // browser session.
+      return new Response(null, { status: 302, headers: { location: redirectTo } });
     }
 
     // --- Normal browser login (cookie-CSRF-checked) ------------------------

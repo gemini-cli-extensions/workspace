@@ -114,7 +114,10 @@ export async function completeMcpAuthorize(env: Env, reqId: string, sub: string)
     redirectUri: req.redirectUri,
     codeChallenge: req.codeChallenge,
     sub,
-    scope: req.scope,
+    // The token grants the full Google scope set regardless of what the client
+    // requested (tools enforce no per-scope subset), so advertise the real
+    // granted scope rather than echoing a narrower request back (scope-confusion).
+    scope: SCOPES_SUPPORTED.join(" "),
   };
   await kv(env).put(`oauthcode:${code}`, JSON.stringify(rec), { expirationTtl: CODE_TTL });
 
@@ -280,6 +283,11 @@ export async function handleOAuth(request: Request, env: Env): Promise<Response 
       const refreshToken = form.get("refresh_token") ?? "";
       const rec = await getJson<TokRec>(env, `oauthrt:${refreshToken}`);
       if (!rec) return oauthError("invalid_grant", "Unknown or expired refresh_token");
+      // OAuth 2.1 §4.3.1: the refresh token must have been issued to the
+      // requesting client. Reject cross-client replay.
+      if (rec.clientId !== (form.get("client_id") ?? "")) {
+        return oauthError("invalid_grant", "refresh_token was not issued to this client");
+      }
       return issueTokens(env, rec.sub, rec.scope, rec.clientId, refreshToken);
     }
 

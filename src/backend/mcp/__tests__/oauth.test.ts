@@ -167,6 +167,42 @@ describe("MCP OAuth full flow", () => {
     expect(((await tokRes!.json()) as any).error).toBe("invalid_grant");
   });
 
+  it("rejects a refresh_token replayed by a different client", async () => {
+    const redirectUri = "https://claude.ai/api/mcp/auth_callback";
+    const clientA = await registerClient(redirectUri);
+    const clientB = await registerClient(redirectUri);
+    const verifier = "verifier-cccccccccccccccccccccccccccccccccccccccc";
+    const challenge = await challengeFor(verifier);
+    const authRes = await handleOAuth(
+      req(
+        `/authorize?response_type=code&client_id=${clientA}&redirect_uri=${encodeURIComponent(redirectUri)}` +
+          `&code_challenge=${challenge}&code_challenge_method=S256&state=s`,
+      ),
+      env,
+    );
+    const reqId = new URL(authRes!.headers.get("location")!).searchParams.get("state")!.slice(4);
+    const code = new URL((await completeMcpAuthorize(env, reqId, "sub-1"))!).searchParams.get("code")!;
+    const tok = (await (await handleOAuth(
+      req("/token", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: redirectUri, client_id: clientA, code_verifier: verifier }).toString(),
+      }),
+      env,
+    ))!.json()) as any;
+    // clientB tries to use clientA's refresh token
+    const bad = (await handleOAuth(
+      req("/token", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: tok.refresh_token, client_id: clientB }).toString(),
+      }),
+      env,
+    ))!;
+    expect(bad.status).toBe(400);
+    expect(((await bad.json()) as any).error).toBe("invalid_grant");
+  });
+
   it("rejects /authorize with an unregistered redirect_uri", async () => {
     const clientId = await registerClient("https://claude.ai/api/mcp/auth_callback");
     const res = await handleOAuth(
