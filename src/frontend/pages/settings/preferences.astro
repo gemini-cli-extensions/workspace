@@ -1,0 +1,16 @@
+---
+/**
+ * @fileoverview /settings/preferences — Appearance, Language & Region, and
+ * Accessibility preferences, backed by /api/settings/preferences.
+ */
+
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { PreferencesForm } from "@/components/settings";
+---
+
+<SettingsLayout
+  title="Preferences"
+  description="Tune appearance, locale, and accessibility for your workspace."
+>
+  <PreferencesForm client:load />
+</SettingsLayout>

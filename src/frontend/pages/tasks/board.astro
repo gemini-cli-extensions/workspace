@@ -1,0 +1,30 @@
+---
+/**
+ * Task board — kanban view grouped into To Do / In Progress / In Review / Done
+ * columns from `GET /api/tasks/board`. Drag-drop or per-card Move buttons issue
+ * `PATCH /api/tasks/{id}`. Mounts the TaskBoard island (client:load).
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { TaskBoard } from "@/components/tasks/TaskBoard";
+---
+
+<BaseLayout
+  title="Task Board"
+  description="Kanban board across four workflow columns. Drag cards between columns or use the move controls; every change patches the task status in real time."
+>
+  <div class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">🗂️</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Task Board</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Visual kanban across To Do, In Progress, In Review, and Done. Move work
+        forward by dragging a card or using its move controls — each transition
+        is persisted immediately.
+      </p>
+    </header>
+
+    <TaskBoard client:load />
+  </div>
+</BaseLayout>

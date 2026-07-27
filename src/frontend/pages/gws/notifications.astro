@@ -1,0 +1,89 @@
+---
+/**
+ * `/gws/notifications` — Drive/Workspace Events push-notification log,
+ * SSR-fetched from `GET /api/gws/notifications` (Task 15). Same self-fetch
+ * pattern as `/gws/operations`: `/api/*` is served by this same Worker.
+ *
+ * `/api/gws/notifications` requires a session (Finding 1), so the loopback
+ * fetch forwards the incoming request's cookie. Any error or non-ok response
+ * (401 when signed out) falls back to a "sign in to view" state instead of a
+ * 500.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { shortDate } from "@/lib/format";
+
+type Notification = {
+  id: string;
+  source: string;
+  channelId: string | null;
+  resourceState: string | null;
+  receivedAt: string | number;
+};
+
+let notifications: Notification[] = [];
+let signedIn = true;
+try {
+  const res = await fetch(new URL("/api/gws/notifications?limit=100", Astro.url), {
+    headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
+  });
+  if (res.status === 401) {
+    signedIn = false;
+  } else if (res.ok) {
+    ({ notifications } = (await res.json()) as { notifications: Notification[] });
+  }
+} catch {
+  signedIn = false;
+}
+---
+
+<BaseLayout
+  title="Notifications"
+  description="Recent Google Drive push notifications — source, resource state, channel, and timestamps"
+>
+  <div class="container mx-auto max-w-5xl px-4 py-16">
+    <section class="mb-10 space-y-4">
+      <Badge variant="outline" class="font-mono text-[11px]">{notifications.length} events</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight">Notifications</h1>
+      <p class="max-w-2xl text-base text-muted-foreground">
+        Every Drive change/events push notification received at <code class="text-primary">/api/gws/drive-webhook</code>,
+        newest first. Loaded live from <code class="text-primary">GET /api/gws/notifications</code>.
+      </p>
+    </section>
+
+    {!signedIn ? (
+      <p class="rounded-xl bg-card p-8 text-center text-sm text-muted-foreground ring-1 ring-border/40">
+        <a href="/auth/google" class="text-primary hover:underline">Sign in</a> to view your activity.
+      </p>
+    ) : notifications.length === 0 ? (
+      <p class="rounded-xl bg-card p-8 text-center text-sm text-muted-foreground ring-1 ring-border/40">
+        No notifications received yet. Subscribe a Drive watch channel to see events here.
+      </p>
+    ) : (
+      <div class="overflow-hidden rounded-xl bg-card ring-1 ring-border/40">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-muted-foreground">
+              <th class="px-5 py-3 font-medium">Source</th>
+              <th class="px-5 py-3 font-medium">Resource State</th>
+              <th class="px-5 py-3 font-medium">Channel</th>
+              <th class="px-5 py-3 font-medium">Received</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border/40">
+            {notifications.map((n) => (
+              <tr>
+                <td class="px-5 py-3">
+                  <Badge variant="secondary" class="font-mono text-[10px]">{n.source}</Badge>
+                </td>
+                <td class="px-5 py-3 text-foreground">{n.resourceState ?? "—"}</td>
+                <td class="px-5 py-3 font-mono text-xs text-muted-foreground">{n.channelId ?? "—"}</td>
+                <td class="px-5 py-3 text-muted-foreground" title={String(n.receivedAt)}>{shortDate(n.receivedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</BaseLayout>

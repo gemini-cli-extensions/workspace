@@ -1,0 +1,123 @@
+---
+/**
+ * `/docs/agents` — the agent platform: the Orchestrator + 7 Google Workspace
+ * specialist agents, `/chat`, the `/agent-tasks` scheduler, and how they sit
+ * on top of the same Google auth layer used by the MCP tools. Static content,
+ * consistent with `/docs/google-config`.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+
+const specialists = [
+  { name: "GmailAgent", scope: "Search, read, send, draft, and label Gmail messages/threads." },
+  { name: "DocsAgent", scope: "Create, read, and edit Google Docs content." },
+  { name: "SheetsAgent", scope: "Read and write Google Sheets ranges and values." },
+  { name: "SlidesAgent", scope: "Build and edit Google Slides presentations." },
+  { name: "AppsScriptAgent", scope: "Create and run Apps Script projects bound to Workspace files." },
+  { name: "DriveAgent", scope: "Search, organize, and share Drive files and folders." },
+  { name: "CalendarAgent", scope: "Read and manage Calendar events." },
+];
+
+const surfaces = [
+  {
+    href: "/chat",
+    title: "/chat",
+    desc: "Talk to the Orchestrator directly. It plans the request and delegates to the specialist agent(s) that own the relevant Workspace surface.",
+  },
+  {
+    href: "/agent-tasks",
+    title: "/agent-tasks",
+    desc: "The scheduled-task runner: recurring or one-off agent jobs (e.g. \"summarize inbox every morning\"), tracked with status and history per task.",
+  },
+  {
+    href: "/accounts",
+    title: "/accounts",
+    desc: "The Google accounts an agent run can act as — connect, inspect, and revoke per-account OAuth grants.",
+  },
+  {
+    href: "/health",
+    title: "/health",
+    desc: "Live binding health probe (D1, KV, secrets, env vars) for the agent platform's runtime, with a copy-for-agent fix prompt on failures.",
+  },
+];
+---
+
+<BaseLayout
+  title="Agent Platform"
+  description="The Orchestrator + Google Workspace specialist agents, the chat and scheduler surfaces, and how they share the Google auth layer."
+>
+  <div class="container mx-auto max-w-5xl px-4 py-16">
+    <section class="mb-12">
+      <Badge variant="outline" class="mb-4 font-mono text-[11px]">Docs</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight sm:text-5xl">Agent Platform</h1>
+      <p class="mt-5 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+        Eight Cloudflare Agents SDK Durable Object classes: one <strong>Orchestrator</strong> that
+        plans and delegates, and seven <strong>specialist</strong> agents that each own one Google
+        Workspace surface. Every agent reuses the same Google auth layer as the MCP tool server —
+        no separate credential path.
+      </p>
+    </section>
+
+    <!-- Orchestrator + specialists -->
+    <section class="mb-14">
+      <h2 class="mb-4 text-2xl font-bold tracking-tight">Orchestrator + specialists</h2>
+      <p class="mb-6 max-w-3xl text-sm text-muted-foreground">
+        <code class="text-primary">OrchestratorAgent</code> receives the user's request, breaks it
+        into steps, and routes each step to the specialist agent that owns that Workspace surface.
+        Specialists call the same Google API client the MCP tools use, so behavior stays identical
+        whether a call comes from <code class="text-primary">/mcp</code> or from an agent run.
+      </p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {specialists.map((a) => (
+          <div class="rounded-xl bg-card p-5 ring-1 ring-border/40">
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <h3 class="font-semibold">{a.name}</h3>
+              <Badge variant="outline" class="font-mono text-[10px]">DO</Badge>
+            </div>
+            <p class="mt-1 text-sm text-muted-foreground">{a.scope}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Auth: shared Google layer + DWD -->
+    <section class="mb-14">
+      <h2 class="mb-4 text-2xl font-bold tracking-tight">Shared auth: user OAuth + Domain-Wide Delegation</h2>
+      <p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        Agents authenticate through the same Google layer as the rest of this Worker: the signed-in
+        user's OAuth refresh token (KV-backed, minted at <code class="text-primary">/auth/google</code>),
+        or — for headless/service runs acting on behalf of a Workspace user — Domain-Wide Delegation
+        (DWD) service-account impersonation, which mints short-lived, per-user access tokens without
+        a stored user refresh token. No agent maintains its own credential store.
+      </p>
+    </section>
+
+    <!-- Session gate -->
+    <section class="mb-14">
+      <h2 class="mb-4 text-2xl font-bold tracking-tight">Session-gated <code class="font-mono text-2xl text-primary">/agents/*</code></h2>
+      <p class="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        The Worker entry point routes <code class="text-primary">/agents/*</code> (and any WebSocket
+        upgrade) to the Agents SDK's <code class="text-primary">routeAgentRequest</code> — but only
+        after checking the caller is authorized: either a worker API key / signed session token
+        presented as <code class="text-primary">?token=</code>, <code class="text-primary">?AGENT_AUTH=</code>,
+        or an <code class="text-primary">Authorization: Bearer</code> header, or the browser's own
+        <code class="text-primary">gsuite_session</code> cookie on same-origin requests. Unauthorized
+        callers get a 401 before ever reaching an agent instance — one caller can't read or drive
+        another's chat history or task state.
+      </p>
+    </section>
+
+    <!-- Surfaces -->
+    <section class="mb-4">
+      <h2 class="mb-6 text-2xl font-bold tracking-tight">Surfaces</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {surfaces.map((s) => (
+          <a href={s.href} class="group flex flex-col rounded-xl bg-card p-5 ring-1 ring-border/40 transition-colors hover:ring-border/70">
+            <h3 class="font-semibold group-hover:underline">{s.title}</h3>
+            <p class="mt-1 text-sm text-muted-foreground">{s.desc}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,203 @@
+{
+  "name": "google-workspace-mcp",
+  "main": "dist/_worker.js/index.js",
+  "compatibility_date": "2026-05-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true,
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true,
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 1,
+    },
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+    "run_worker_first": true,
+    "not_found_handling": "404-page",
+  },
+  "ai": {
+    "binding": "AI",
+  },
+  // ---------------------------------------------------------------------------
+  // Durable Object agents — one specialist Agents-SDK agent per Google surface,
+  // plus an orchestrator that routes chat/tasks to the right specialist.
+  // Ported from core-gsuite-tools Phase 2.
+  // ---------------------------------------------------------------------------
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORCHESTRATOR_AGENT", "class_name": "OrchestratorAgent" },
+      { "name": "GMAIL_AGENT", "class_name": "GmailAgent" },
+      { "name": "DOCS_AGENT", "class_name": "DocsAgent" },
+      { "name": "SHEETS_AGENT", "class_name": "SheetsAgent" },
+      { "name": "SLIDES_AGENT", "class_name": "SlidesAgent" },
+      { "name": "APPSSCRIPT_AGENT", "class_name": "AppsScriptAgent" },
+      { "name": "DRIVE_AGENT", "class_name": "DriveAgent" },
+      { "name": "CALENDAR_AGENT", "class_name": "CalendarAgent" },
+      // Billing circuit breaker — single global kill-switch DO (see
+      // src/backend/circuit-breaker.ts).
+      { "name": "CIRCUIT_BREAKER", "class_name": "CircuitBreaker" },
+    ],
+  },
+  "migrations": [
+    // v1 shipped earlier with NO Durable Objects (the stateless MCP worker).
+    // Migration tags are immutable once deployed, so the agent DO classes are
+    // introduced under a new v2 tag — NOT by editing v1.
+    { "tag": "v1", "new_sqlite_classes": [] },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "OrchestratorAgent",
+        "GmailAgent",
+        "DocsAgent",
+        "SheetsAgent",
+        "SlidesAgent",
+        "AppsScriptAgent",
+        "DriveAgent",
+        "CalendarAgent",
+      ],
+    },
+    // v3 — billing circuit breaker DO. New tag; v1/v2 are immutable once deployed.
+    { "tag": "v3", "new_sqlite_classes": ["CircuitBreaker"] },
+  ],
+  // Worker Loader — required for Agent Skills script execution (agents/skills runner).
+  "worker_loaders": [{ "binding": "WORKER_LOADERS" }],
+  "vars": {
+    // Optional verified destination for message.forward() in the email handler.
+    // Empty string = forwarding disabled (the message is stored in D1 only).
+    "INBOX_FORWARD_TO": "",
+    // Deployed Worker URL, used to build the Google OAuth redirect_uri.
+    // Empty string = fall back to the incoming request's origin.
+    "PUBLIC_BASE_URL": "https://google-workspace-mcp.hacolby.workers.dev",
+    // ---------------------------------------------------------------------
+    // Ported multi-account Google auth (src/backend/auth/provider.ts +
+    // oauth-google.ts) — see docs/superpowers/plans/2026-07-26-port-core-gsuite-tools.md.
+    // Plain vars (not secrets): the OAuth client id/secret reuse the existing
+    // GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET secrets via a fallback in
+    // src/backend/utils/secrets.ts instead of provisioning new ones.
+    // ---------------------------------------------------------------------
+    // Registered OAuth redirect URI for the multi-account consent flow.
+    "GOOGLE_OAUTH_REDIRECT_URI": "https://google-workspace-mcp.hacolby.workers.dev/api/auth/google/oauth/callback",
+    // Default Workspace user impersonated via Domain-Wide Delegation.
+    "GOOGLE_USER_TO_IMPERSONATE": "",
+    // Display email for the default Workspace (DWD) account.
+    "GOOGLE_WORKSPACE_ACCOUNT_EMAIL": "",
+    // Email for the consumer/personal Google account (OAuth2, not DWD).
+    "GOOGLE_PERSONAL_ACCOUNT_EMAIL": "",
+    // AI Gateway + model defaults (Workers AI via AI Gateway, Phase 2 port).
+    "AI_GATEWAY_ID": "default-gateway",
+    "MODEL_CHAT": "@cf/openai/gpt-oss-120b",
+    "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",
+    "MODEL_DRAFT": "@cf/openai/gpt-oss-120b",
+    "DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
+    // ---------------------------------------------------------------------
+    // Billing circuit breaker thresholds — requests/agent-calls/AI calls/tool
+    // calls allowed per rolling minute before CircuitBreaker auto-trips.
+    // Read as Number() in src/backend/circuit-breaker.ts; these strings are
+    // the fallback if unset or non-numeric.
+    // ---------------------------------------------------------------------
+    "CIRCUIT_MAX_REQ_PER_MIN": "3000",
+    "CIRCUIT_MAX_AGENT_PER_MIN": "300",
+    "CIRCUIT_MAX_AI_PER_MIN": "500",
+    "CIRCUIT_MAX_TOOL_PER_MIN": "1000",
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "6d9d062da8424b47bf1131d41c84a60c",
+      "remote": true,
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "google-workspace-mcp",
+      "database_id": "32f8b41a-052d-42cb-b12c-9e5dbd28bbd7",
+      "migrations_dir": "drizzle",
+    },
+  ],
+  // ---------------------------------------------------------------------------
+  // Vectorize — three RAG indexes (emails, docs, general). Bindings only for now
+  // (Env types need them for `ai/rag` to typecheck); indexes are provisioned and
+  // wired up for real in Phase 4. Do NOT `migrate:remote` / provision yet.
+  // ---------------------------------------------------------------------------
+  "vectorize": [
+    { "binding": "VECTORIZE_EMAILS", "index_name": "google-workspace-mcp-rag-emails", "remote": true },
+    { "binding": "VECTORIZE_DOCS", "index_name": "google-workspace-mcp-rag-docs", "remote": true },
+    { "binding": "VECTORIZE_GENERAL", "index_name": "google-workspace-mcp-rag-general", "remote": true },
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "GITHUB_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GH_TOKEN",
+    },
+    {
+      "binding": "CLOUDFLARE_ACCOUNT_ID",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_ACCOUNT_ID",
+    },
+    {
+      "binding": "CLOUDFLARE_WRANGLER_API_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_WRANGLER_API_TOKEN",
+    },
+    {
+      "binding": "WORKER_API_KEY",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "WORKER_API_KEY",
+    },
+    {
+      "binding": "AI_GATEWAY_TOKEN",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "CLOUDFLARE_AI_GATEWAY_TOKEN",
+    },
+    {
+      "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1",
+    },
+    {
+      "binding": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2",
+    },
+    {
+      "binding": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
+    },
+    {
+      // The Workspace user the service account impersonates via DWD (the
+      // default "workspace" account). Same store + naming pattern as the SA
+      // creds above. Distinct from GOOGLE_CREDS_SA_CLIENT_EMAIL (the SA's own
+      // address, used as the JWT issuer).
+      "binding": "GOOGLE_CREDS_SA_EMAIL",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_EMAIL",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2_AUDIO_BUCKET",
+      "bucket_name": "core-template-cfw-assets-astro-shadcn-audio",
+      "remote": true,
+    },
+    {
+      "bucket_name": "core-template-cfw-assets-astro-shadcn-files",
+      "binding": "R2_FILES_BUCKET",
+      "remote": true,
+    },
+  ],
+}

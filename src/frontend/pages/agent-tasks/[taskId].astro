@@ -1,0 +1,31 @@
+---
+/**
+ * Scheduled-task detail — dynamic route reading the task `taskId` from the
+ * path and mounting the ported `TaskDetail` island.
+ *
+ * The site runs in `output: "server"` (SSR) so this dynamic route is rendered
+ * on demand — no `getStaticPaths` is required and we explicitly do NOT
+ * prerender it (prerender = false) so any task id resolves at request time.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AuthGate } from "@/components/gsuite-agents/AuthGate";
+import { TaskDetail } from "@/components/gsuite-agents/tasks/TaskDetail";
+
+export const prerender = false;
+
+const { taskId } = Astro.params;
+---
+
+<BaseLayout
+  title={`Task ${taskId} — Google Workspace Hub`}
+  description="Scheduled task: definition, run history, and the latest Google file preview."
+>
+  <AuthGate authed={false} client:load />
+  {
+    taskId ? (
+      <TaskDetail taskId={taskId} client:load />
+    ) : (
+      <div class="p-8 text-sm text-muted-foreground">Missing task id.</div>
+    )
+  }
+</BaseLayout>

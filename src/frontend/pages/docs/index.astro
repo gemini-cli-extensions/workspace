@@ -1,0 +1,126 @@
+---
+/**
+ * `/docs` — documentation suite overview for the Google Workspace MCP Worker.
+ * Static index that routes to the individual guides. No islands / mock data.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+
+type DocCard = { href: string; title: string; desc: string; tag: string };
+
+const guides: DocCard[] = [
+  {
+    href: "/docs/google-config",
+    title: "Google Cloud Config",
+    desc: "Create the OAuth client, configure the consent screen + scopes, download the creds JSON, set the redirect URI, and test your first login.",
+    tag: "Start here",
+  },
+  {
+    href: "/gws/setup",
+    title: "Setup & Deploy",
+    desc: "Set Worker secrets, PUBLIC_BASE_URL, KV + D1 bindings, run migrations, deploy, and connect an MCP client to /mcp.",
+    tag: "Deploy",
+  },
+  {
+    href: "/gws/tools",
+    title: "MCP Tools",
+    desc: "The catalog of tools this server exposes (Drive, Docs, Sheets, Gmail) with their input schemas.",
+    tag: "Reference",
+  },
+  {
+    href: "/gws/operations",
+    title: "Operations Log",
+    desc: "Every MCP tool invocation logged to D1 — tool, status, latency, and time.",
+    tag: "Observability",
+  },
+  {
+    href: "/gws/assets",
+    title: "Asset Activity",
+    desc: "Workspace assets your account has touched (docs, sheets, files, mail) with a per-asset event timeline.",
+    tag: "Observability",
+  },
+  {
+    href: "/docs/agents",
+    title: "Agent Platform",
+    desc: "The Orchestrator + 7 Google Workspace specialist agents, /chat, the /agent-tasks scheduler, and how they share the Google auth layer.",
+    tag: "Agents",
+  },
+];
+
+const apiSurfaces: { href: string; label: string; desc: string }[] = [
+  { href: "/openapi.json", label: "openapi.json", desc: "Raw OpenAPI 3.1 document for the whole API." },
+  { href: "/scalar", label: "Scalar", desc: "Interactive, modern API reference UI." },
+  { href: "/swagger", label: "Swagger UI", desc: "Classic try-it-out request explorer." },
+];
+
+const flow = [
+  { step: "1", label: "Google Cloud Config", href: "/docs/google-config", note: "OAuth client + consent + creds" },
+  { step: "2", label: "Setup & Deploy", href: "/gws/setup", note: "secrets, migrate, deploy" },
+  { step: "3", label: "Sign in", href: "/auth/google", note: "first login → /gws" },
+  { step: "4", label: "Connect a client", href: "/gws/tools", note: "point MCP client at /mcp" },
+];
+---
+
+<BaseLayout
+  title="Documentation"
+  description="Documentation suite for the Google Workspace MCP Worker — Google Cloud config, deploy, tools, and activity."
+>
+  <div class="container mx-auto max-w-5xl px-4 py-16">
+    <!-- Hero -->
+    <section class="mb-12">
+      <Badge variant="outline" class="mb-4 font-mono text-[11px]">Docs</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight sm:text-5xl">Documentation</h1>
+      <p class="mt-5 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+        A remote MCP server on Cloudflare Workers exposing Google Drive, Docs, Sheets, and Gmail
+        as tools, with Google OAuth, KV-backed tokens, and D1 activity logging. Start with the
+        Google Cloud config, then deploy and connect a client.
+      </p>
+    </section>
+
+    <!-- Path -->
+    <section class="mb-14">
+      <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground/70">Get running</h2>
+      <ol class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {flow.map((f) => (
+          <li>
+            <a href={f.href} class="block h-full rounded-xl bg-card p-4 ring-1 ring-border/40 transition-colors hover:ring-border/70">
+              <div class="font-mono text-xs text-muted-foreground/70">Step {f.step}</div>
+              <div class="mt-1 font-medium">{f.label}</div>
+              <div class="mt-1 text-sm text-muted-foreground">{f.note}</div>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <!-- Guides -->
+    <section class="mb-14">
+      <h2 class="mb-6 text-2xl font-bold tracking-tight">Guides</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {guides.map((g) => (
+          <a href={g.href} class="group flex flex-col rounded-xl bg-card p-5 ring-1 ring-border/40 transition-colors hover:ring-border/70">
+            <div class="mb-1 flex items-center justify-between gap-2">
+              <h3 class="font-semibold group-hover:underline">{g.title}</h3>
+              <Badge variant="outline" class="text-[11px]">{g.tag}</Badge>
+            </div>
+            <p class="mt-1 text-sm text-muted-foreground">{g.desc}</p>
+            <span aria-hidden class="mt-3 text-sm text-primary transition-transform group-hover:translate-x-0.5">Open →</span>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <!-- API references -->
+    <section class="mb-4">
+      <h2 class="mb-6 text-2xl font-bold tracking-tight">API references</h2>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {apiSurfaces.map((a) => (
+          <a href={a.href} class="flex flex-col rounded-xl bg-card p-4 ring-1 ring-border/40 transition-colors hover:ring-border/70">
+            <span class="font-mono text-sm text-foreground">{a.label}</span>
+            <span class="mt-1 text-sm text-muted-foreground">{a.desc}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+</BaseLayout>

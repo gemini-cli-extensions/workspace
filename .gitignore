@@ -1,46 +1,23 @@
-# macOS
-.DS_Store
+# build output
+dist/
+# generated types
+.astro/
+.wrangler/
 
-# logs
-logs
-
-# Dependencies
+# dependencies
 node_modules/
 
-# Build outputs
-dist/
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Environment files
+
+# environment variables
 .env
-.env.local
+.env.production
+.dev.vars
 
-# Logs
-*.log
-
-# Coverage
-coverage/
-
-# Editor files
-*.swp
-*.swo
-*~
-.idea/
-.vscode/
-
-# Auth tokens
-token.json
-gemini-cli-workspace-token.json
-.gemini-cli-workspace-master-key
-
-commit_message.txt
-
-# Release directory
-release/
-
-# Configuration and Local Settings
-.mcp.json
-.claude/
-
-# VitePress
-docs/.vitepress/dist
-docs/.vitepress/cache
+# macOS-specific files
+.DS_Store

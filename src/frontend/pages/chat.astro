@@ -1,0 +1,17 @@
+---
+/**
+ * AI Assistant Chat — the ported gsuite agent platform's chat surface.
+ * Bound to the OrchestratorAgent Durable Object (Phase 2) over /agents/*.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AuthGate } from "@/components/gsuite-agents/AuthGate";
+import { ChatLanding } from "@/components/gsuite-agents/ChatLanding";
+---
+
+<BaseLayout
+  title="AI Assistant Chat"
+  description="Chat with Google Workspace agents powered by Cloudflare Agents SDK and Workers AI"
+>
+  <AuthGate authed={false} client:load />
+  <ChatLanding client:only="react" />
+</BaseLayout>

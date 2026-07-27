@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The 2026 Cloudflare Agentic Ecosystem - Developer Playbook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fafaf9;
+            color: #1c1917;
+        }
+        pre, code {
+            font-family: 'Fira Code', monospace;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .nav-active {
+            background-color: #ffedd5;
+            color: #c2410c;
+            border-right: 4px solid #ea580c;
+            font-weight: 600;
+        }
+        .tab-active {
+            background-color: #1c1917;
+            color: #ffffff;
+            border-bottom: 2px solid #ea580c;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f5f5f4; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e; 
+        }
+    </style>
+</head>
+<body class="antialiased flex h-screen overflow-hidden">
+
+    <!-- Chosen Palette: Warm Neutrals with Cloudflare Orange Accents (Stone-50 background, Stone-900 text, Orange-500/600 highlights, Slate-900 dark frames) -->
+    
+    <!-- Application Structure Plan: To expand upon the original overview, this updated dashboard maps out the "Developer Playbook" for a multi-page Cloudflare Worker. Users can traverse through architectural overviews, performance benchmarks, timeline releases, and deep-dive code specifications. The playbook is presented using an interactive tabbed view (Backend, Frontend, Config) for each of the 5 cutting-edge showcases, giving builders the precise code needed to launch their own stateful edge instances. -->
+    
+    <!-- Visualization & Content Choices: 
+         1. Interactive Showcase Navigator -> Goal: Organize -> Viz: Side-by-side split screen view -> Interaction: Category switching with automatic code rendering -> Justification: Breaks down monolithic setup files into digestable components.
+         2. Performance Latency comparison -> Goal: Compare -> Viz: Chart.js Bar Chart (Logarithmic scale) -> Interaction: Interactive tooltips -> Justification: Directly demonstrates V8 cold starts vs traditional VMs.
+         3. Dynamic Stack Map -> Goal: Organize -> Viz: Connected vertical stack diagram -> Interaction: Interactive highlighting and contextual documentation updates -> Justification: Illustrates high-performance routing from the edge up to assistant-ui.
+    -->
+
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <aside class="w-64 bg-white border-r border-stone-200 flex flex-col justify-between flex-shrink-0 z-20 shadow-sm">
+        <div>
+            <div class="p-6 border-b border-stone-200">
+                <div class="flex items-center gap-2">
+                    <span class="text-orange-500 text-2xl font-bold">&#11044;</span>
+                    <h1 class="text-xl font-bold tracking-tight text-stone-800">Agentic Edge</h1>
+                </div>
+                <p class="text-xs text-stone-500 mt-2 font-medium uppercase tracking-wider">2026 Ecosystem Report</p>
+            </div>
+            <nav class="mt-4 flex flex-col" id="main-nav">
+                <button data-target="overview" class="nav-active text-left px-6 py-3.5 text-sm hover:bg-orange-50 transition-colors flex items-center gap-3">
+                    <span class="text-lg">&#127760;</span> Ecosystem Overview
+                </button>
+                <button data-target="stack" class="text-left px-6 py-3.5 text-sm text-stone-600 hover:bg-orange-50 hover:text-orange-700 transition-colors flex items-center gap-3">
+                    <span class="text-lg">&#128202;</span> The Unified Stack
+                </button>
+                <button data-target="performance" class="text-left px-6 py-3.5 text-sm text-stone-600 hover:bg-orange-50 hover:text-orange-700 transition-colors flex items-center gap-3">
+                    <span class="text-lg">&#9889;</span> Compute Primitives
+                </button>
+                <button data-target="timeline" class="text-left px-6 py-3.5 text-sm text-stone-600 hover:bg-orange-50 hover:text-orange-700 transition-colors flex items-center gap-3">
+                    <span class="text-lg">&#128197;</span> Agents Week Launches
+                </button>
+                <button data-target="playbook" class="text-left px-6 py-3.5 text-sm text-stone-600 hover:bg-orange-50 hover:text-orange-700 transition-colors flex items-center gap-3 border-t border-stone-150 mt-2">
+                    <span class="text-lg">&#128214;</span> Developer Playbook
+                </button>
+            </nav>
+        </div>
+        <div class="p-6 bg-stone-50 border-t border-stone-200">
+            <p class="text-xs text-stone-400 leading-tight">Synthesized from Cloudflare 2026 Master Reference, Agents SDK Docs, and assistant-ui Guides.</p>
+        </div>
+    </aside>
+
+    <main class="flex-1 h-full overflow-y-auto bg-stone-50 scroll-smooth relative" id="main-content">
+        <header class="sticky top-0 bg-stone-50/90 backdrop-blur-md border-b border-stone-200 p-6 z-10 flex justify-between items-center">
+            <h2 id="section-title" class="text-2xl font-bold text-stone-800">Ecosystem Overview</h2>
+            <div id="header-tag" class="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-semibold border border-orange-200">
+                ⚡ Astro + Hono + Agents SDK
+            </div>
+        </header>
+
+        <div class="p-8 max-w-6xl mx-auto pb-24">
+            
+            <section id="overview" class="fade-in block">
+                <div class="mb-8">
+                    <p class="text-lg text-stone-600 leading-relaxed">
+                        Welcome to the interactive synthesis of the 2026 Cloudflare Developer Ecosystem. This section provides a high-level view of the architectural paradigm shift from fragmented cloud services to a cohesive, edge-native <strong>Connectivity Cloud</strong>. Following the strategic acquisition of the Astro framework and the launch of the Agents SDK, Cloudflare has fundamentally transformed how autonomous AI applications are built, deployed, and scaled.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="text-3xl mb-4">&#129302;</div>
+                        <h3 class="font-bold text-stone-800 mb-2">Agent-First Design</h3>
+                        <p class="text-sm text-stone-600">Transitioning from stateless serverless to stateful, actor-model architectures using Durable Objects with embedded SQLite to give every agent persistent memory and identity.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="text-3xl mb-4">&#128640;</div>
+                        <h3 class="font-bold text-stone-800 mb-2">Framework Synthesis</h3>
+                        <p class="text-sm text-stone-600">The 2026 acquisition of Astro fuses the ultimate content-first frontend framework directly into the edge, allowing unified deployments of React Islands and Worker APIs.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="text-3xl mb-4">&#128187;</div>
+                        <h3 class="font-bold text-stone-800 mb-2">UI Standardization</h3>
+                        <p class="text-sm text-stone-600">Adoption of <code>assistant-ui</code> as the definitive frontend primitive for Generative UI, tightly coupled with the Cloudflare Agents SDK via zero-latency WebSocket hibernation.</p>
+                    </div>
+                </div>
+
+                <div class="bg-stone-800 rounded-xl p-8 text-stone-100 shadow-lg relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 text-orange-500/20 text-9xl leading-none font-black select-none pointer-events-none">&#10034;</div>
+                    <h3 class="text-xl font-bold text-white mb-4 relative z-10">The 2026 Architectural Mandate</h3>
+                    <p class="text-stone-300 mb-6 relative z-10 max-w-3xl">
+                        "The modern web development landscape is undergoing a profound architectural paradigm shift... The advent of Cloudflare Worker Static Assets represents a pivotal milestone in the convergence of these paradigms, enabling engineers to host entirely unified full-stack applications within a single computing primitive."
+                    </p>
+                    <div class="flex flex-wrap gap-4 relative z-10">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-700 text-xs font-medium text-stone-200 border border-stone-600">&#10003; Astro SSR</span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-700 text-xs font-medium text-stone-200 border border-stone-600">&#10003; assistant-ui</span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-700 text-xs font-medium text-stone-200 border border-stone-600">&#10003; Cloudflare Agents</span>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-700 text-xs font-medium text-stone-200 border border-stone-600">&#10003; Drizzle ORM + D1</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="stack" class="fade-in hidden">
+                <div class="mb-8">
+                    <p class="text-lg text-stone-600 leading-relaxed">
+                        This section deconstructs the mandated 2026 unified edge stack. With the acquisition of Astro and the deep integration of <code>assistant-ui</code>, the barrier between frontend presentation and backend agentic logic has been dissolved. Explore the interactive stack below to understand how the components interact from the user's browser down to the edge database.
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-xl border border-stone-200 p-8 shadow-sm flex flex-col md:flex-row gap-8 items-center">
+                    <div class="w-full md:w-1/2 flex flex-col gap-3" id="stack-diagram">
+                        
+                        <div class="stack-layer p-4 rounded-lg border-2 border-blue-200 bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors" data-layer="frontend">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-blue-900">Frontend: Astro + assistant-ui</h4>
+                                <span class="text-2xl">&#128187;</span>
+                            </div>
+                            <p class="text-xs text-blue-700 mt-1">React Islands, Generative UI, Shadcn/ui (Dark Theme)</p>
+                        </div>
+                        
+                        <div class="flex justify-center text-stone-400 text-xl">&#8595;</div>
+
+                        <div class="stack-layer p-4 rounded-lg border-2 border-orange-200 bg-orange-50 cursor-pointer hover:bg-orange-100 transition-colors" data-layer="compute">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-orange-900">Routing & Compute: Workers + Hono</h4>
+                                <span class="text-2xl">&#9889;</span>
+                            </div>
+                            <p class="text-xs text-orange-700 mt-1">Worker Static Assets, REST/RPC Routing, Dynamic Worker Executor</p>
+                        </div>
+
+                        <div class="flex justify-center text-stone-400 text-xl">&#8595;</div>
+
+                        <div class="stack-layer p-4 rounded-lg border-2 border-purple-200 bg-purple-50 cursor-pointer hover:bg-purple-100 transition-colors" data-layer="agents">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-purple-900">Logic: Cloudflare Agents SDK</h4>
+                                <span class="text-2xl">&#129302;</span>
+                            </div>
+                            <p class="text-xs text-purple-700 mt-1">Durable Objects, WebSocket Hibernation, McpAgent</p>
+                        </div>
+
+                        <div class="flex justify-center text-stone-400 text-xl">&#8595;</div>
+
+                        <div class="stack-layer p-4 rounded-lg border-2 border-green-200 bg-green-50 cursor-pointer hover:bg-green-100 transition-colors" data-layer="data">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-green-900">Data Layer: D1 + Artifacts + R2</h4>
+                                <span class="text-2xl">&#128193;</span>
+                            </div>
+                            <p class="text-xs text-green-700 mt-1">Embedded SQLite, Git-compatible storage, Vectorize</p>
+                        </div>
+
+                    </div>
+
+                    <div class="w-full md:w-1/2 bg-stone-100 rounded-lg p-6 border border-stone-200 h-full min-h-[400px]">
+                        <h4 id="layer-title" class="text-xl font-bold text-stone-800 mb-4">Select a layer to view details</h4>
+                        <div id="layer-content" class="text-sm text-stone-600 space-y-4">
+                            <p>Interact with the architecture diagram on the left to explore the specific documentation, design patterns, and SDK integrations that form the 2026 standard.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="performance" class="fade-in hidden">
+                <div class="mb-8">
+                    <p class="text-lg text-stone-600 leading-relaxed">
+                        To support consumer-scale agents, Cloudflare recognized that traditional containers were too heavy. This section explores the quantitative impact of <strong>Dynamic Workers</strong> and <strong>Durable Object Facets</strong>. By replacing Linux containers with lightweight V8 isolates created on the fly, Cloudflare achieved a 100x performance increase, enabling secure, per-tenant code execution in milliseconds.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex flex-col">
+                        <h3 class="text-lg font-bold text-stone-800 mb-2">Cold Start Latency Comparison</h3>
+                        <p class="text-xs text-stone-500 mb-6">Execution startup time (milliseconds) for untrusted AI-generated code environments.</p>
+                        <div class="flex-1 flex items-center justify-center">
+                            <div class="chart-container">
+                                <canvas id="latencyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex flex-col">
+                        <h3 class="text-lg font-bold text-stone-800 mb-2">Architectural Primitives</h3>
+                        <p class="text-xs text-stone-500 mb-6">The core infrastructure elements powering the Agentic Cloud.</p>
+                        
+                        <div class="space-y-4 flex-1">
+                            <div class="p-4 border border-stone-200 rounded-lg bg-stone-50 hover:border-orange-300 transition-colors">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-orange-500 font-bold">&#9881;</span>
+                                    <h4 class="font-bold text-stone-800">Dynamic Workers</h4>
+                                </div>
+                                <p class="text-sm text-stone-600">The <code>DynamicWorkerExecutor</code> constructs purpose-built V8 sandboxes. Eliminates file system access and explicitly controls outbound fetches for zero-trust code execution.</p>
+                            </div>
+                            <div class="p-4 border border-stone-200 rounded-lg bg-stone-50 hover:border-orange-300 transition-colors">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-orange-500 font-bold">&#128274;</span>
+                                    <h4 class="font-bold text-stone-800">Durable Object Facets</h4>
+                                </div>
+                                <p class="text-sm text-stone-600">Allows Dynamic Workers to instantiate DOs with isolated SQLite databases. Enables platforms to run persistent, stateful code generated on-the-fly by AI.</p>
+                            </div>
+                            <div class="p-4 border border-stone-200 rounded-lg bg-stone-50 hover:border-orange-300 transition-colors">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="text-orange-500 font-bold">&#128220;</span>
+                                    <h4 class="font-bold text-stone-800">Code Mode MCP</h4>
+                                </div>
+                                <p class="text-sm text-stone-600">Instead of thousands of discrete MCP tool calls, agents write a single TypeScript execution plan that orchestrates Cloudflare APIs, reducing token context by up to 80%.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="timeline" class="fade-in hidden">
+                <div class="mb-8">
+                    <p class="text-lg text-stone-600 leading-relaxed">
+                        In a single week in 2026, Cloudflare released a platform-wide overhaul spanning compute, storage, networking, and inference tooling. This timeline organizes the critical "Agents Week" launches, demonstrating how these primitives fit together into a cohesive platform for the agentic web. Click on any event to view its capabilities.
+                    </p>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-8">
+                    <div class="w-full md:w-1/3 border-l-2 border-orange-200 pl-4 space-y-2 relative" id="timeline-container">
+                        <!-- Instantiated by JS -->
+                    </div>
+
+                    <div class="w-full md:w-2/3">
+                        <div class="bg-white rounded-xl border border-stone-200 p-8 shadow-sm h-full" id="timeline-detail">
+                            <div class="flex flex-col items-center justify-center h-full text-center text-stone-400 p-12">
+                                <div class="text-4xl mb-4">&#128072;</div>
+                                <h3 class="text-xl font-bold text-stone-600 mb-2">Select a Launch Event</h3>
+                                <p class="text-sm">Click an event on the timeline to explore the technical details and implementation use cases.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DEVELOPER PLAYBOOK SECTION -->
+            <section id="playbook" class="fade-in hidden">
+                <div class="mb-8">
+                    <p class="text-lg text-stone-600 leading-relaxed">
+                        This section contains a comprehensive, engineering-grade implementation plan to deploy a multi-page Cloudflare Worker Static Assets showcase. It bridges the <strong>Agents SDK</strong> and <strong>assistant-ui</strong>, serving as your production-ready blueprint. Choose a flagship showcase below to view its specific unified codebase, directory layout, and wrangler deployment configuration.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <!-- Left Hand Showcase Directory -->
+                    <div class="lg:col-span-1 flex flex-col gap-2" id="playbook-menu">
+                        <!-- Playbook menu buttons populated by JS -->
+                    </div>
+
+                    <!-- Right Hand Interactive Code Workspace -->
+                    <div class="lg:col-span-3 flex flex-col bg-stone-900 rounded-xl overflow-hidden border border-stone-800 shadow-xl">
+                        <!-- Header with dynamic files and tabs -->
+                        <div class="bg-stone-950 px-6 py-4 border-b border-stone-800 flex flex-wrap justify-between items-center gap-4">
+                            <div>
+                                <h3 id="workspace-title" class="font-bold text-white text-base">Select a Showcase Feature</h3>
+                                <p id="workspace-subtitle" class="text-xs text-stone-400 mt-0.5">Click any showcase to preview the workspace</p>
+                            </div>
+                            <div class="flex bg-stone-900 rounded-md p-1 border border-stone-800" id="workspace-tabs">
+                                <button class="tab-btn tab-active px-3 py-1.5 rounded text-xs font-semibold" data-tab="backend">Backend Agent</button>
+                                <button class="tab-btn text-stone-400 hover:text-stone-200 px-3 py-1.5 rounded text-xs font-semibold" data-tab="frontend">Frontend Island</button>
+                                <button class="tab-btn text-stone-400 hover:text-stone-200 px-3 py-1.5 rounded text-xs font-semibold" data-tab="wrangler">Wrangler Config</button>
+                            </div>
+                        </div>
+
+                        <!-- Code Display -->
+                        <div class="p-6 overflow-x-auto overflow-y-auto max-h-[500px]">
+                            <pre class="text-sm text-stone-300" id="code-block"><code>// Select a showcase from the left-hand directory to inspect production code.</code></pre>
+                        </div>
+
+                        <!-- Info Footer -->
+                        <div class="bg-stone-950 px-6 py-4 border-t border-stone-800 flex items-center justify-between text-xs text-stone-400">
+                            <span id="workspace-file-path">File: undefined</span>
+                            <span class="text-orange-500 font-bold">&#9679; Complete implementation</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+        </div>
+    </main>
+
+    <script>
+        const state = {
+            currentSection: 'overview',
+            currentLayer: null,
+            currentTimelineItem: null,
+            currentPlaybookId: 'code-mode',
+            currentPlaybookTab: 'backend'
+        };
+
+        const layersData = {
+            frontend: {
+                title: "Frontend: Astro + assistant-ui",
+                content: `
+                    <div class="space-y-3">
+                        <p>Following Cloudflare's acquisition of Astro in 2026, it became the default framework for Edge UI.</p>
+                        <ul class="list-disc pl-5 space-y-2 text-stone-700">
+                            <li><strong>React Islands:</strong> Astro renders static HTML and hydrates <code>client:load</code> interactive components like the <code>assistant-ui</code> chat thread.</li>
+                            <li><strong>UI Standardization:</strong> Utilizing Shadcn/ui primitives forced to a Default Dark Theme per the architectural mandate.</li>
+                            <li><strong>Hook Integration:</strong> Uses <code>useAgentChat</code> from <code>@cloudflare/ai-chat/react</code>, structurally extending the Vercel AI SDK v6.</li>
+                            <li><strong>Generative UI:</strong> intercepts tool calls (like <code>execute()</code>) to render live, sandboxed React previews.</li>
+                        </ul>
+                    </div>
+                `
+            },
+            compute: {
+                title: "Routing & Compute: Workers + Hono",
+                content: `
+                    <div class="space-y-3">
+                        <p>The convergence of frontend and API logic into a single globally distributed primitive.</p>
+                        <ul class="list-disc pl-5 space-y-2 text-stone-700">
+                            <li><strong>Worker Static Assets:</strong> Configured via <code>assets: { directory: "./dist" }</code> in <code>wrangler.jsonc</code>, eliminating the need for separate Pages deployments.</li>
+                            <li><strong>Hono Routing:</strong> Acts as the primary REST/RPC router handling <code>/api/*</code> and <code>/agents/*</code> paths, falling back to Astro's SSR handler.</li>
+                            <li><strong>Code Mode Execution:</strong> Utilizes <code>DynamicWorkerExecutor</code> to compile and run agent-generated TypeScript on the fly in V8 isolates.</li>
+                        </ul>
+                    </div>
+                `
+            },
+            agents: {
+                title: "Logic: Cloudflare Agents SDK",
+                content: `
+                    <div class="space-y-3">
+                        <p>The definitive framework for stateful AI agents, built strictly on the Actor Model.</p>
+                        <ul class="list-disc pl-5 space-y-2 text-stone-700">
+                            <li><strong>Base Classes:</strong> Backends must extend <code>Agent</code>, <code>AIChatAgent</code>, or <code>McpAgent</code>.</li>
+                            <li><strong>WebSocket Hibernation:</strong> Achieves zero idle cost. The Durable Object spins down when quiet, maintaining the connection, and wakes instantly on message.</li>
+                            <li><strong>Multi-Agent Orchestration:</strong> Orchestrator agents spawn child Durable Object facets, allowing the UI's <code>ThreadList</code> to seamlessly switch active WebSockets.</li>
+                            <li><strong>Human-in-the-Loop (HITL):</strong> Uses the SDK's <code>needsApproval</code> dynamic tool pattern integrated with <code>assistant-ui</code>'s ToolFallback UI.</li>
+                        </ul>
+                    </div>
+                `
+            },
+            data: {
+                title: "Data Layer: D1 + Artifacts + R2",
+                content: `
+                    <div class="space-y-3">
+                        <p>State persistence and storage that moves seamlessly with the edge compute.</p>
+                        <ul class="list-disc pl-5 space-y-2 text-stone-700">
+                            <li><strong>Embedded SQLite:</strong> Agents maintain message history via <code>this.sql</code> within their Durable Object, instantly syncing with the frontend via <code>setMessages</code> broadcasts.</li>
+                            <li><strong>D1 & Drizzle ORM:</strong> Used for relational metadata, configurations, and storing global agent health metrics.</li>
+                            <li><strong>Cloudflare Artifacts:</strong> Git-compatible versioned storage. Allows agents to iteratively refine code, natively powering <code>assistant-ui</code>'s Diff Viewer component.</li>
+                            <li><strong>Vectorize:</strong> Integrates directly with Workers AI for real-time RAG (Retrieval-Augmented Generation) pipelines.</li>
+                        </ul>
+                    </div>
+                `
+            }
+        };
+
+        const timelineData = [
+            {
+                id: 'dynamic-workers',
+                date: 'March 24, 2026',
+                title: 'Dynamic Workers Beta',
+                icon: '&#9881;',
+                desc: 'V8 isolates generated on the fly in single-digit milliseconds, enabling secure Code Mode execution.',
+                details: `
+                    <h4 class="font-bold text-lg text-stone-800 mb-2">Dynamic Workers Open Beta</h4>
+                    <p class="text-sm text-stone-600 mb-4">Replaced traditional Linux containers with lightweight V8 isolates. Allowed developers to execute dynamic, untrusted AI-generated code securely. Included libraries like <code>@cloudflare/worker-bundler</code> to resolve NPM dependencies at runtime.</p>
+                    <div class="bg-stone-100 p-3 rounded text-sm text-stone-700 border border-stone-200">
+                        <strong>Agent Impact:</strong> Reduced token cost by 80% by letting agents write a single script instead of making hundreds of sequential tool calls.
+                    </div>
+                `
+            },
+            {
+                id: 'agent-memory',
+                date: 'April 20, 2026',
+                title: 'Agent Memory',
+                icon: '&#128420;',
+                desc: 'Managed persistent memory service utilizing Vectorize and DOs.',
+                details: `
+                    <h4 class="font-bold text-lg text-stone-800 mb-2">Agent Memory</h4>
+                    <p class="text-sm text-stone-600 mb-4">A managed service that addresses profiles by name. Under the hood, it coordinates Durable Objects (raw message storage), Vectorize (semantic search), and Workers AI (embeddings). Enables cross-session and cross-team shared agent knowledge.</p>
+                    <div class="bg-stone-100 p-3 rounded text-sm text-stone-700 border border-stone-200">
+                        <strong>assistant-ui Integration:</strong> Maps directly to the Context API, allowing the interface to display memory extraction events natively in the chat stream.
+                    </div>
+                `
+            },
+            {
+                id: 'mesh',
+                date: 'May 1, 2026',
+                title: 'Cloudflare Mesh & Sandboxes GA',
+                icon: '&#128274;',
+                desc: 'Zero-trust private networking and persistent Linux environments.',
+                details: `
+                    <h4 class="font-bold text-lg text-stone-800 mb-2">Mesh & Sandboxes GA</h4>
+                    <p class="text-sm text-stone-600 mb-4">Mesh eliminated VPN requirements, bridging cloud environments so agents could reach private databases. Sandboxes GA brought persistent code interpreters, snapshot-based recovery (warm starts in 2s), and PTY terminal support.</p>
+                    <div class="bg-stone-100 p-3 rounded text-sm text-stone-700 border border-stone-200">
+                        <strong>Architecture Shift:</strong> Moved agents from isolated, public-only access to secure, deeply integrated corporate citizens.
+                    </div>
+                `
+            },
+            {
+                id: 'dynamic-workflows',
+                date: 'May 1, 2026',
+                title: 'Dynamic Workflows',
+                icon: '&#128260;',
+                desc: 'Durable execution that follows the tenant, built on Dynamic Workers.',
+                details: `
+                    <h4 class="font-bold text-lg text-stone-800 mb-2">Dynamic Workflows</h4>
+                    <p class="text-sm text-stone-600 mb-4">Bridged durable execution (Workflows) with dynamic deployment. Allowed SaaS platforms and AI agents to define custom, multi-step code plans at runtime that survive failures, network drops, and system reboots.</p>
+                    <div class="bg-stone-100 p-3 rounded text-sm text-stone-700 border border-stone-200">
+                        <strong>Use Case:</strong> Transcribing a 2-hour audio file. The Workflow emits <code>this.reportProgress()</code> events, driving dynamic progress bars inside an <code>assistant-ui</code> message bubble.
+                    </div>
+                `
+            },
+            {
+                id: 'artifacts',
+                date: 'May 8, 2026',
+                title: 'Cloudflare Artifacts Beta',
+                icon: '&#128193;',
+                desc: 'Git-compatible versioned storage explicitly for AI agents.',
+                details: `
+                    <h4 class="font-bold text-lg text-stone-800 mb-2">Artifacts Beta</h4>
+                    <p class="text-sm text-stone-600 mb-4">A Git-native filesystem allowing the creation of tens of millions of repositories instantly. Designed because traditional version control systems couldn't handle the massive scale and velocity of agent-generated code.</p>
+                    <div class="bg-stone-100 p-3 rounded text-sm text-stone-700 border border-stone-200">
+                        <strong>Workflow:</strong> Agent drafts code -> Commits to Artifacts -> <code>assistant-ui</code> Diff Viewer shows changes to user -> User approves -> Merged.
+                    </div>
+                `
+            }
+        ];
+
+        const playbookData = {
+            'code-mode': {
+                title: "Code Mode Canvas",
+                subtitle: "Dynamic sandboxed edge isolates",
+                icon: "⚡",
+                backend: `import { AIChatAgent } from "@cloudflare/ai-chat";
+import { generateText } from "ai";
+import { DynamicWorkerExecutor } from "@cloudflare/codemode";
+
+export class CodeModeAgent extends AIChatAgent {
+  async onStart() {
+    this.executor = new DynamicWorkerExecutor(this.env.WORKER_LOADERS);
+  }
+
+  async onChatMessage(onFinish) {
+    const result = await generateText({
+      model: this.env.AI,
+      prompt: this.messages[this.messages.length - 1].content,
+      tools: {
+        executePlan: {
+          description: "Execute a generated TypeScript plan securely on Cloudflare.",
+          parameters: z.object({ code: z.string() }),
+          execute: async ({ code }) => {
+            const runtime = await this.executor.load(code);
+            return await runtime.fetch("/");
+          }
+        }
+      }
+    });
+    return result;
+  }
+}`,
+                frontend: `import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
+import { AssistantSidebar, GenerativeUI } from "assistant-ui";
+
+export function CodeModeCanvas() {
+  const chat = useAgentChat({ agent: "CodeModeAgent" });
+  const runtime = useAISDKRuntime(chat);
+
+  return (
+    <div class="h-screen flex">
+      <AssistantSidebar runtime={runtime}>
+        <GenerativeUI 
+          toolName="executePlan" 
+          render={({ args, result }) => (
+            <div class="p-4 bg-stone-900 border border-stone-800 rounded-lg">
+              <h4 class="text-orange-500 font-semibold text-xs uppercase mb-2">Code Canvas Sandbox</h4>
+              <pre class="bg-stone-950 p-3 rounded text-xs overflow-auto max-h-48 text-stone-300">
+                <code>{args.code}</code>
+              </pre>
+              {result && (
+                <div class="mt-4 p-3 bg-stone-950 rounded border border-emerald-950 text-emerald-400 text-xs">
+                  <strong>Output:</strong> {JSON.stringify(result)}
+                </div>
+              )}
+            </div>
+          )}
+        />
+      </AssistantSidebar>
+    </div>
+  );
+}`,
+                wrangler: `{
+  "name": "codemode-showcase",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-25",
+  "durable_objects": {
+    "bindings": [
+      { "name": "CODE_MODE_AGENT", "class_name": "CodeModeAgent" }
+    ]
+  },
+  "worker_loaders": [
+    { "binding": "WORKER_LOADERS" }
+  ]
+}`,
+                paths: {
+                    backend: "src/agents/CodeModeAgent.ts",
+                    frontend: "src/islands/CodeModeCanvas.tsx",
+                    wrangler: "wrangler.jsonc"
+                }
+            },
+            'hitl': {
+                title: "Agentic Browsing & HITL",
+                subtitle: "Playwright CDP with Human Approval",
+                icon: "🕵️",
+                backend: `import { AIChatAgent } from "@cloudflare/ai-chat";
+
+export class BrowserHitlAgent extends AIChatAgent {
+  async onChatMessage(onFinish) {
+    const result = await streamText({
+      model: this.env.AI,
+      prompt: this.messages[this.messages.length - 1].content,
+      tools: {
+        fillSecureForm: {
+          description: "Enters payment details or triggers high-value API operations.",
+          parameters: z.object({ url: z.string(), payload: z.any() }),
+          needsApproval: true, // Triggers standard human check
+          execute: async ({ url, payload }) => {
+            const browser = await this.env.MYBROWSER.launch();
+            const page = await browser.newPage();
+            await page.goto(url);
+            await page.fill("#secure", payload.data);
+            return { status: "Success" };
+          }
+        }
+      }
+    });
+    return result;
+  }
+}`,
+                frontend: `import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { useAISDKRuntime } from "@assistant-ui/react-ai-sdk";
+import { Thread, ToolFallback } from "assistant-ui";
+
+export function BrowserHitlInterface() {
+  const chat = useAgentChat({ agent: "BrowserHitlAgent" });
+  const runtime = useAISDKRuntime(chat);
+
+  return (
+    <Thread runtime={runtime}>
+      <ToolFallback 
+        toolName="fillSecureForm" 
+        render={({ args, confirm, reject }) => (
+          <div class="border border-amber-500 bg-amber-950/20 p-4 rounded-lg flex flex-col gap-3">
+            <div>
+              <h4 class="text-amber-500 font-bold text-sm flex items-center gap-1.5">&#9888; Human Approval Required</h4>
+              <p class="text-xs text-stone-400 mt-1">Agent wishes to perform browsing on <strong>{args.url}</strong></p>
+            </div>
+            <div class="flex gap-2">
+              <button onClick={confirm} class="bg-amber-600 hover:bg-amber-500 text-black px-3 py-1.5 rounded text-xs font-bold transition-colors">Approve Execution</button>
+              <button onClick={reject} class="border border-stone-700 hover:bg-stone-800 text-stone-300 px-3 py-1.5 rounded text-xs font-semibold transition-colors">Deny</button>
+            </div>
+          </div>
+        )}
+      />
+    </Thread>
+  );
+}`,
+                wrangler: `{
+  "name": "browser-hitl-showcase",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-25",
+  "durable_objects": {
+    "bindings": [
+      { "name": "BROWSER_HITL_AGENT", "class_name": "BrowserHitlAgent" }
+    ]
+  },
+  "browser": {
+    "binding": "MYBROWSER"
+  }
+}`,
+                paths: {
+                    backend: "src/agents/BrowserHitlAgent.ts",
+                    frontend: "src/islands/BrowserHitlInterface.tsx",
+                    wrangler: "wrangler.jsonc"
+                }
+            },
+            'multi-agent': {
+                title: "Multi-Agent Orchestration",
+                subtitle: "Thread list WebSocket switching",
+                icon: "🧠",
+                backend: `import { Agent } from "@cloudflare/agents";
+
+export class OrchestratorAgent extends Agent {
+  async onConnect(connection) {
+    // Coordinate child subagents via Durable Object Facets
+    const researchDO = await this.subAgent("researcher", connection.userId);
+    const codingDO = await this.subAgent("coder", connection.userId);
+    
+    // Broadcast active workspaces to the parent thread list
+    this.setState({
+      activeSubagents: [
+        { id: "researcher", role: "Researcher", url: "/agents/researcher/" + connection.userId },
+        { id: "coder", role: "Developer", url: "/agents/coder/" + connection.userId }
+      ]
+    });
+  }
+}`,
+                frontend: `import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { ThreadList } from "assistant-ui";
+
+export function UnifiedWorkspace() {
+  const [activeAgent, setActiveAgent] = useState("researcher");
+  
+  // Directly swap the active WebSocket routing target
+  const chat = useAgentChat({ 
+    agent: activeAgent === "researcher" ? "ResearcherAgent" : "CoderAgent",
+    name: "workspace-session-id"
+  });
+
+  return (
+    <div class="flex h-screen bg-stone-950">
+      <div class="w-64 border-r border-stone-800 p-4">
+        <h3 class="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Workspaces</h3>
+        <button onClick={() => setActiveAgent("researcher")} class={\`w-full text-left p-2 rounded text-xs mb-1 \${activeAgent === 'researcher' ? 'bg-orange-550/20 text-orange-500 border border-orange-500/30' : 'text-stone-400'}\`}>Research Workspace</button>
+        <button onClick={() => setActiveAgent("coder")} class={\`w-full text-left p-2 rounded text-xs \${activeAgent === 'coder' ? 'bg-orange-550/20 text-orange-500 border border-orange-500/30' : 'text-stone-400'}\`}>Coding Workspace</button>
+      </div>
+      <div class="flex-1">
+        <ThreadList activeChat={chat} />
+      </div>
+    </div>
+  );
+}`,
+                wrangler: `{
+  "name": "multi-agent-showcase",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-25",
+  "durable_objects": {
+    "bindings": [
+      { "name": "ORCHESTRATOR_AGENT", "class_name": "OrchestratorAgent" },
+      { "name": "RESEARCHER_AGENT", "class_name": "ResearcherAgent" },
+      { "name": "CODER_AGENT", "class_name": "CoderAgent" }
+    ]
+  }
+}`,
+                paths: {
+                    backend: "src/agents/OrchestratorAgent.ts",
+                    frontend: "src/islands/UnifiedWorkspace.tsx",
+                    wrangler: "wrangler.jsonc"
+                }
+            },
+            'workflows': {
+                title: "Workflows Progress",
+                subtitle: "Real-time durable task updates",
+                icon: "⏱️",
+                backend: `import { AIChatAgent } from "@cloudflare/ai-chat";
+import { AgentWorkflow } from "cloudflare:workers";
+
+export class LongTaskWorkflow extends AgentWorkflow {
+  async run(event, step) {
+    const file = event.payload;
+    
+    // Durable step 1: Audio Transcription via Workers AI Whisper
+    const transcription = await step.do("transcribe", async () => {
+      await this.agent.reportProgress({ step: "transcribing", percent: 25 });
+      return await this.env.AI.run("@cf/openai/whisper", { audio: file });
+    });
+
+    // Durable step 2: Semantic vector ingestion to Vectorize
+    await step.do("vectorize", async () => {
+      await this.agent.reportProgress({ step: "vectorizing", percent: 75 });
+      await this.env.VECTORIZE.insert(transcription);
+    });
+
+    await this.agent.reportProgress({ step: "complete", percent: 100 });
+  }
+}`,
+                frontend: `import { MessagePartGrouping, Progress } from "assistant-ui";
+
+export function TranscriptionBubble({ message }) {
+  return (
+    <MessagePartGrouping message={message}>
+      {({ status, metadata }) => (
+        <div class="p-4 bg-stone-900 border border-stone-800 rounded-lg">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs text-stone-400 font-semibold uppercase">Whisper Ingestion Pipeline</span>
+            <span class="text-xs text-orange-500 font-bold">{metadata.percent || 0}%</span>
+          </div>
+          <Progress value={metadata.percent || 0} class="h-1 bg-stone-850" />
+          <p class="text-stone-400 text-xs mt-2 italic">Current phase: {metadata.step || "Queued"}</p>
+        </div>
+      )}
+    </MessagePartGrouping>
+  );
+}`,
+                wrangler: `{
+  "name": "workflows-showcase",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-25",
+  "durable_objects": {
+    "bindings": [
+      { "name": "WORKFLOWS_AGENT", "class_name": "WorkflowsAgent" }
+    ]
+  },
+  "workflows": [
+    { "name": "IngestionWorkflow", "class_name": "LongTaskWorkflow" }
+  ]
+}`,
+                paths: {
+                    backend: "src/agents/LongTaskWorkflow.ts",
+                    frontend: "src/islands/TranscriptionBubble.tsx",
+                    wrangler: "wrangler.jsonc"
+                }
+            },
+            'artifacts': {
+                title: "Memory & Artifacts",
+                subtitle: "Git commits and Diff Viewer",
+                icon: "📂",
+                backend: `import { AIChatAgent } from "@cloudflare/ai-chat";
+import { Artifacts } from "cloudflare:workers";
+
+export class ArtifactAgent extends AIChatAgent {
+  async onChatMessage(onFinish) {
+    const repo = await this.env.ARTIFACTS.get("agent-workspace");
+    const originalCode = await repo.read("index.ts");
+    
+    const response = await generateText({
+      model: this.env.AI,
+      prompt: \`Refactor this code: \${originalCode}\`
+    });
+
+    // Commit direct incremental update to Git-native Artifacts storage
+    await repo.write("index.ts", response.text);
+    const commit = await repo.commit("Refactored runtime initialization");
+    
+    // Expose git metadata back to client for instant diff evaluation
+    this.setState({
+      lastCommitHash: commit.hash,
+      originalCode,
+      updatedCode: response.text
+    });
+  }
+}`,
+                frontend: `import { DiffViewer } from "assistant-ui";
+import { useAgentChat } from "@cloudflare/ai-chat/react";
+
+export function CodeRefinementView() {
+  const chat = useAgentChat({ agent: "ArtifactAgent" });
+  const { originalCode, updatedCode, lastCommitHash } = chat.state;
+
+  return (
+    <div class="h-screen flex flex-col bg-stone-950 p-6">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h2 class="text-base font-bold text-white">Cloudflare Git Artifact: index.ts</h2>
+          <p class="text-stone-400 text-xs mt-0.5">Commit: <code class="text-orange-500">{lastCommitHash || "HEAD"}</code></p>
+        </div>
+      </div>
+      <div class="flex-1 rounded-lg border border-stone-850 overflow-hidden">
+        <DiffViewer 
+          oldValue={originalCode || ""} 
+          newValue={updatedCode || ""} 
+          language="typescript" 
+          theme="dark"
+        />
+      </div>
+    </div>
+  );
+}`,
+                wrangler: `{
+  "name": "artifacts-showcase",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-25",
+  "durable_objects": {
+    "bindings": [
+      { "name": "ARTIFACT_AGENT", "class_name": "ArtifactAgent" }
+    ]
+  },
+  "artifacts": [
+    { "binding": "ARTIFACTS", "namespace": "code-refinement" }
+  ]
+}`,
+                paths: {
+                    backend: "src/agents/ArtifactAgent.ts",
+                    frontend: "src/islands/CodeRefinementView.tsx",
+                    wrangler: "wrangler.jsonc"
+                }
+            }
+        };
+
+        function initNavigation() {
+            const buttons = document.querySelectorAll('#main-nav button');
+            const sections = document.querySelectorAll('main section');
+            const title = document.getElementById('section-title');
+            const headerTag = document.getElementById('header-tag');
+
+            buttons.forEach(button => {
+                button.addEventListener('click', () => {
+                    buttons.forEach(b => {
+                        b.classList.remove('nav-active', 'text-orange-700');
+                        b.classList.add('text-stone-600');
+                    });
+                    
+                    button.classList.add('nav-active', 'text-orange-700');
+                    button.classList.remove('text-stone-600');
+
+                    const targetId = button.getAttribute('data-target');
+                    title.innerText = button.innerText.replace(/[^a-zA-Z\s]/g, '').trim();
+
+                    sections.forEach(sec => {
+                        if(sec.id === targetId) {
+                            sec.classList.remove('hidden');
+                            sec.classList.add('block');
+                        } else {
+                            sec.classList.add('hidden');
+                            sec.classList.remove('block');
+                        }
+                    });
+
+                    if (targetId === 'playbook') {
+                        headerTag.innerText = "🛠 Playbook Workspace";
+                        renderPlaybook();
+                    } else {
+                        headerTag.innerText = "⚡ Astro + Hono + Agents SDK";
+                    }
+
+                    if(targetId === 'performance') {
+                        renderChart();
+                    }
+                });
+            });
+        }
+
+        function initStackInteractive() {
+            const layers = document.querySelectorAll('.stack-layer');
+            const titleEl = document.getElementById('layer-title');
+            const contentEl = document.getElementById('layer-content');
+
+            layers.forEach(layer => {
+                layer.addEventListener('click', () => {
+                    
+                    layers.forEach(l => {
+                        l.classList.remove('ring-2', 'ring-offset-2', 'ring-stone-400');
+                        l.style.transform = 'scale(1)';
+                    });
+                    
+                    layer.classList.add('ring-2', 'ring-offset-2', 'ring-stone-400');
+                    layer.style.transform = 'scale(1.02)';
+
+                    const layerKey = layer.getAttribute('data-layer');
+                    const data = layersData[layerKey];
+                    
+                    titleEl.innerHTML = data.title;
+                    contentEl.innerHTML = data.content;
+                });
+            });
+        }
+
+        let chartInstance = null;
+        function renderChart() {
+            if (chartInstance) return; 
+
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+            
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Legacy Docker VM', 'Standard Container', 'Dynamic Worker (V8 Isolate)'],
+                    datasets: [{
+                        label: 'Cold Start Time (ms)',
+                        data: [30000, 2000, 15], 
+                        backgroundColor: [
+                            'rgba(168, 162, 158, 0.6)', 
+                            'rgba(251, 146, 60, 0.6)',  
+                            'rgba(234, 88, 12, 0.9)'    
+                        ],
+                        borderColor: [
+                            'rgba(168, 162, 158, 1)',
+                            'rgba(251, 146, 60, 1)',
+                            'rgba(234, 88, 12, 1)'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            title: {
+                                display: true,
+                                text: 'Milliseconds (Log Scale)',
+                                color: '#57534e'
+                            },
+                            grid: { color: '#e7e5e4' },
+                            ticks: { color: '#78716c' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#78716c' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.raw + ' ms';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initTimeline() {
+            const container = document.getElementById('timeline-container');
+            const detailPane = document.getElementById('timeline-detail');
+
+            timelineData.forEach((item, index) => {
+                const node = document.createElement('div');
+                node.className = 'relative pl-6 py-3 cursor-pointer group';
+                node.innerHTML = `
+                    <div class="absolute left-[-9px] top-4 w-4 h-4 rounded-full bg-white border-2 border-orange-400 group-hover:bg-orange-400 transition-colors timeline-dot"></div>
+                    <div class="text-xs font-bold text-orange-600 mb-1">${item.date}</div>
+                    <div class="font-bold text-stone-800 text-sm flex items-center gap-2">
+                        <span>${item.icon}</span> ${item.title}
+                    </div>
+                `;
+                
+                node.addEventListener('click', () => {
+                    document.querySelectorAll('.timeline-dot').forEach(dot => {
+                        dot.classList.remove('bg-orange-500', 'border-orange-600');
+                        dot.classList.add('bg-white', 'border-orange-400');
+                    });
+                    const myDot = node.querySelector('.timeline-dot');
+                    myDot.classList.remove('bg-white', 'border-orange-400');
+                    myDot.classList.add('bg-orange-500', 'border-orange-600');
+
+                    detailPane.innerHTML = `
+                        <div class="fade-in h-full flex flex-col justify-center">
+                            <div class="inline-block px-3 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full w-max mb-4 border border-orange-200">
+                                ${item.date}
+                            </div>
+                            ${item.details}
+                        </div>
+                    `;
+                });
+
+                container.appendChild(node);
+            });
+        }
+
+        function renderPlaybook() {
+            const menuContainer = document.getElementById('playbook-menu');
+            if (menuContainer.children.length > 0) return; // Prevent double rendering
+
+            Object.keys(playbookData).forEach((key) => {
+                const item = playbookData[key];
+                const btn = document.createElement('button');
+                btn.className = `playbook-btn text-left p-4 rounded-xl border border-stone-200 shadow-sm transition-all duration-200 flex flex-col gap-1 bg-white hover:border-orange-400 ${key === state.currentPlaybookId ? 'ring-2 ring-orange-550 border-orange-400 bg-orange-50/20' : ''}`;
+                btn.setAttribute('data-id', key);
+                btn.innerHTML = `
+                    <span class="font-bold text-sm text-stone-800 flex items-center gap-2">
+                        <span class="text-base">${item.icon}</span> ${item.title}
+                    </span>
+                    <span class="text-xs text-stone-500 font-medium">${item.subtitle}</span>
+                `;
+
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.playbook-btn').forEach(b => {
+                        b.classList.remove('ring-2', 'ring-orange-550', 'border-orange-400', 'bg-orange-50/20');
+                    });
+                    btn.classList.add('ring-2', 'ring-orange-550', 'border-orange-400', 'bg-orange-50/20');
+                    state.currentPlaybookId = key;
+                    updateCodeWorkspace();
+                });
+
+                menuContainer.appendChild(btn);
+            });
+
+            // Set up workspace tabs event listeners
+            document.querySelectorAll('#workspace-tabs button').forEach(tabBtn => {
+                tabBtn.addEventListener('click', () => {
+                    document.querySelectorAll('#workspace-tabs button').forEach(b => {
+                        b.classList.remove('tab-active', 'text-white');
+                        b.classList.add('text-stone-400');
+                    });
+                    tabBtn.classList.add('tab-active', 'text-white');
+                    tabBtn.classList.remove('text-stone-400');
+                    state.currentPlaybookTab = tabBtn.getAttribute('data-tab');
+                    updateCodeWorkspace();
+                });
+            });
+
+            updateCodeWorkspace();
+        }
+
+        function updateCodeWorkspace() {
+            const showcase = playbookData[state.currentPlaybookId];
+            const tab = state.currentPlaybookTab;
+            
+            document.getElementById('workspace-title').innerText = showcase.title;
+            document.getElementById('workspace-subtitle').innerText = showcase.subtitle;
+            document.getElementById('workspace-file-path').innerText = `File: ${showcase.paths[tab]}`;
+            
+            // Escape code characters safely for HTML container injection
+            const rawCode = showcase[tab];
+            const escapedCode = rawCode
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+                
+            document.getElementById('code-block').innerHTML = `<code class="fade-in">${escapedCode}</code>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initNavigation();
+            initStackInteractive();
+            initTimeline();
+        });
+
+    </script>
+</body>
+</html>

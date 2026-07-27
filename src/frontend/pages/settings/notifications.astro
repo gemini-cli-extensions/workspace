@@ -1,0 +1,16 @@
+---
+/**
+ * @fileoverview /settings/notifications — channel × category delivery matrix,
+ * backed by /api/settings/notification-prefs.
+ */
+
+import SettingsLayout from "@/layouts/SettingsLayout.astro";
+import { NotificationPrefsMatrix } from "@/components/settings";
+---
+
+<SettingsLayout
+  title="Notifications"
+  description="Choose which notification categories reach you on each channel."
+>
+  <NotificationPrefsMatrix client:load />
+</SettingsLayout>

@@ -1,0 +1,44 @@
+---
+/**
+ * `/gws/connect` — reads the signed-in user's token server-side (the HttpOnly
+ * cr_session cookie) and hands it to the <ConnectPanel> shadcn island, which
+ * renders the Claude connection options. No server-stringified markup.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { ConnectPanel } from "@/components/gws/ConnectPanel";
+
+const BASE = Astro.url.origin;
+
+function readCookie(raw: string | null, name: string): string | null {
+  if (!raw) return null;
+  const prefix = `${name}=`;
+  const hit = raw.split(";").map((s) => s.trim()).find((s) => s.startsWith(prefix));
+  return hit ? hit.slice(prefix.length) : null;
+}
+
+function decodePayload(token: string): { email?: string; sub?: string; exp?: number } | null {
+  try {
+    const enc = token.split(".")[0];
+    const json = new TextDecoder().decode(
+      Uint8Array.from(atob(enc.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)),
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+const cookie = readCookie(Astro.request.headers.get("cookie"), "cr_session");
+const payload = cookie ? decodePayload(cookie) : null;
+const token = payload?.sub ? cookie : null; // only treat as valid if it decodes to a sub
+const expiresAt = payload?.exp ? new Date(payload.exp * 1000).toLocaleDateString() : undefined;
+---
+
+<BaseLayout title="Connect Claude" description="Connect Claude to your Google Workspace MCP server.">
+  <div class="container mx-auto max-w-3xl px-4 py-16">
+    <Badge variant="outline" class="mb-4 font-mono text-[11px]">Connect</Badge>
+    <h1 class="mb-8 text-balance text-4xl font-bold tracking-tight">Connect Claude</h1>
+    <ConnectPanel client:load token={token} email={payload?.email} expiresAt={expiresAt} baseUrl={BASE} />
+  </div>
+</BaseLayout>

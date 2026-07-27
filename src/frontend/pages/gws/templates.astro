@@ -1,0 +1,39 @@
+---
+/**
+ * `/gws/templates` — registry of reusable Google Drive templates agents can
+ * reference. SSR-fetched from `GET /api/gws/templates` (public read), same
+ * self-fetch pattern as `/gws/operations`. Any error or non-ok response falls
+ * back to an empty list instead of a 500.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { TemplatesManager, type TemplateArtifact } from "@/components/gws/TemplatesManager";
+
+let templates: TemplateArtifact[] = [];
+try {
+  const res = await fetch(new URL("/api/gws/templates", Astro.url), {
+    headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
+  });
+  if (res.ok) {
+    ({ templates } = (await res.json()) as { templates: TemplateArtifact[] });
+  }
+} catch {
+  templates = [];
+}
+---
+
+<BaseLayout
+  title="Template Artifacts"
+  description="Registry of reusable Google Drive templates agents can reference"
+>
+  <div class="container mx-auto max-w-5xl px-4 py-16">
+    <section class="mb-10 space-y-4">
+      <h1 class="text-balance text-4xl font-bold tracking-tight">Template Artifacts</h1>
+      <p class="max-w-2xl text-base text-muted-foreground">
+        Reusable Google Drive templates — docs, sheets, slides, forms, or plain Drive files — that
+        agents can look up by id. Loaded from <code class="text-primary">GET /api/gws/templates</code>.
+      </p>
+    </section>
+
+    <TemplatesManager client:load templates={templates} />
+  </div>
+</BaseLayout>

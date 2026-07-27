@@ -1,0 +1,35 @@
+---
+/**
+ * Admin Dashboard page.
+ *
+ * Thin Astro shell: renders the BaseLayout chrome + a page header, then mounts
+ * the single `<AdminDashboard>` React island (`client:load`) which owns all
+ * data fetching, filtering, charts, AI insights, and the activity feed.
+ *
+ * The nav already links `/dashboard` (see `src/frontend/lib/config.ts`), so no
+ * navigation change is required.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminDashboard } from "@/components/dashboard";
+---
+
+<BaseLayout
+  title="Admin Dashboard"
+  description="Live operational overview: project & task KPIs, Workers AI insights, a full recharts analytics suite, and a real-time activity feed — all wired to the D1-backed REST API."
+>
+  <main class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">📊</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Admin Dashboard</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        A live operational overview of the workspace: project and task KPIs,
+        Workers&nbsp;AI-generated insights, a full recharts analytics suite, and
+        a real-time activity feed — every panel wired to the D1-backed REST API.
+      </p>
+    </header>
+
+    <AdminDashboard client:load />
+  </main>
+</BaseLayout>

@@ -1,0 +1,9 @@
+packages:
+  - "."
+
+allowBuilds:
+  core-js-pure: true
+  esbuild: true
+  msw: true
+  sharp: true
+  workerd: true

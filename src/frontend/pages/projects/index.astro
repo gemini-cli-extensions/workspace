@@ -1,0 +1,30 @@
+---
+/**
+ * Projects index — grid/list of projects with search, status/starred filters,
+ * sort, star toggling, and a "New project" dialog. Thin Astro shell mounting
+ * the ProjectList island (client:load).
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ProjectList } from "@/components/tasks/ProjectList";
+---
+
+<BaseLayout
+  title="Projects"
+  description="Browse, search, star, and create projects. Each project groups tasks and notes under a named, color-coded entity."
+>
+  <div class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">📁</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Projects</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        Top-level containers grouping tasks, notes, and activity. Search,
+        filter by lifecycle status, star the ones you care about, and spin up
+        new projects without leaving the page.
+      </p>
+    </header>
+
+    <ProjectList client:load />
+  </div>
+</BaseLayout>

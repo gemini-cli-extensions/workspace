@@ -1,0 +1,30 @@
+---
+/**
+ * Team analytics — summary cards and breakdowns aggregated client-side from
+ * `GET /api/tasks` and `GET /api/projects`. Lighter than the admin dashboard.
+ * Mounts the TeamAnalytics island (client:load).
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { TeamAnalytics } from "@/components/tasks/TeamAnalytics";
+---
+
+<BaseLayout
+  title="Team Analytics"
+  description="At-a-glance task and project metrics: completion rate, status and priority breakdowns, overdue counts, and per-project progress."
+>
+  <div class="container mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12">
+    <header class="flex flex-col gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-4xl">📊</span>
+        <h1 class="text-3xl font-semibold tracking-tight">Team Analytics</h1>
+      </div>
+      <p class="max-w-3xl text-base text-muted-foreground">
+        A focused read on throughput: how tasks split across status and
+        priority, what's overdue, and how each project is progressing toward
+        done.
+      </p>
+    </header>
+
+    <TeamAnalytics client:load />
+  </div>
+</BaseLayout>

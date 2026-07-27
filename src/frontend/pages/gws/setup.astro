@@ -1,0 +1,169 @@
+---
+/**
+ * `/gws/setup` — deployment docs. Commands use the live origin this page is
+ * served from (`Astro.url.origin`), i.e. your PUBLIC_BASE_URL — no placeholders.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { CodeBlock } from "@/components/ui/code-block";
+
+// The real base URL: whatever host is serving this page = your PUBLIC_BASE_URL.
+const BASE = Astro.url.origin;
+
+const secretsCmd = `# One command, from the repo root (reads client_id/secret from the creds JSON):
+node scripts/create-worker-secrets.mjs /path/to/creds.json
+
+# …or set them individually:
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET`;
+
+const wranglerVars = `// wrangler.jsonc
+"vars": {
+  "PUBLIC_BASE_URL": "${BASE}",
+},
+"kv_namespaces": [
+  { "binding": "SESSIONS", "id": "…" },
+],
+"d1_databases": [
+  { "binding": "DB", "database_name": "…", "database_id": "…" },
+],`;
+
+const migrateCmd = `pnpm run migrate:remote`;
+const deployCmd = `pnpm run deploy`;
+
+const devVars = `# .dev.vars (copy from .dev.vars.example, gitignored, never commit real values)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+PUBLIC_BASE_URL=http://localhost:8787`;
+
+const redirectUri = `${BASE}/auth/google/callback`;
+
+// Claude Code — one command. Token comes from /gws/connect after you sign in.
+const claudeCodeCmd = `claude mcp add --transport http google-workspace \\
+  ${BASE}/mcp \\
+  --header "Authorization: Bearer <YOUR_TOKEN>"`;
+
+const claudeDesktopConfig = `{
+  "mcpServers": {
+    "google-workspace": {
+      "url": "${BASE}/mcp",
+      "headers": { "Authorization": "Bearer <YOUR_TOKEN>" }
+    }
+  }
+}`;
+
+const steps = [
+  {
+    n: 1,
+    title: "Create the Google OAuth client",
+    body: "In Google Cloud Console → APIs & Services → Credentials, create (or confirm) an OAuth 2.0 client of type “Web application”. Add exactly this authorized redirect URI (full walkthrough on the Google Cloud Config page):",
+    code: { lang: "text", file: "authorized redirect URI", src: redirectUri },
+  },
+  {
+    n: 2,
+    title: "Set the OAuth secrets",
+    body: "Push the client ID and client secret as Worker secrets (never committed). The helper script does both from your downloaded creds JSON:",
+    code: { lang: "bash", file: "terminal", src: secretsCmd },
+  },
+  {
+    n: 3,
+    title: "Point PUBLIC_BASE_URL at the deployed Worker",
+    body: "wrangler.jsonc declares the SESSIONS KV namespace and the DB D1 database this project uses. Set PUBLIC_BASE_URL to this Worker's public URL so the OAuth redirect_uri is built correctly:",
+    code: { lang: "jsonc", file: "wrangler.jsonc", src: wranglerVars },
+  },
+  {
+    n: 4,
+    title: "Apply D1 migrations",
+    body: "Generates the latest Drizzle migration and applies it to the remote D1 database bound as DB:",
+    code: { lang: "bash", file: "terminal", src: migrateCmd },
+  },
+  {
+    n: 5,
+    title: "Deploy",
+    body: "Builds the Astro + Worker bundle, applies migrations, and deploys with wrangler:",
+    code: { lang: "bash", file: "terminal", src: deployCmd },
+  },
+];
+---
+
+<BaseLayout
+  title="Setup & Deploy"
+  description="Deploy the Google Workspace MCP Worker: OAuth client, secrets, KV/D1 bindings, and connecting an MCP client"
+>
+  <div class="container mx-auto max-w-4xl px-4 py-16">
+    <section class="mb-12 space-y-4">
+      <Badge variant="outline" class="font-mono text-[11px]">Setup</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight">Setup &amp; Deploy</h1>
+      <p class="max-w-2xl text-base leading-relaxed text-muted-foreground">
+        A stateless, multi-user Worker: every signed-in Google account gets its own refresh token
+        in KV, keyed by the Google <code class="text-primary">sub</code> claim, so one deployment
+        serves many users with no shared credentials. New here? Start with
+        <a href="/docs/google-config" class="text-primary hover:underline">Google Cloud Config</a>.
+      </p>
+    </section>
+
+    <section class="mb-12 space-y-3">
+      <h2 class="text-xl font-bold">Local development</h2>
+      <p class="text-sm text-muted-foreground">
+        Copy <code class="text-primary">.dev.vars.example</code> to <code class="text-primary">.dev.vars</code>
+        (the secrets script writes it for you) and run <code class="text-primary">wrangler dev</code>:
+      </p>
+      <CodeBlock client:visible filename=".dev.vars" language="bash" code={devVars} />
+    </section>
+
+    <section class="space-y-10">
+      {steps.map((step) => (
+        <div class="space-y-3">
+          <div class="flex items-center gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{step.n}</span>
+            <h2 class="text-xl font-bold">{step.title}</h2>
+          </div>
+          <p class="pl-10 text-sm text-muted-foreground">{step.body}</p>
+          <div class="pl-10">
+            <CodeBlock client:visible filename={step.code.file} language={step.code.lang} code={step.code.src} />
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <!-- Connecting a client -->
+    <section class="mt-14 space-y-4">
+      <div class="flex items-center gap-3">
+        <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">6</span>
+        <h2 class="text-xl font-bold">Sign in and connect Claude</h2>
+      </div>
+      <div class="space-y-4 pl-10">
+        <p class="text-sm text-muted-foreground">
+          Authorization is a <strong>Bearer token</strong> you get by signing in with Google — you
+          don't configure it by hand. Go to
+          <a href="/auth/google" class="text-primary hover:underline">{BASE}/auth/google</a>,
+          grant the scopes, and you'll land on
+          <a href="/gws/connect" class="text-primary hover:underline">/gws/connect</a>, which shows
+          your token and the exact command to add this server to Claude.
+        </p>
+
+        <div>
+          <p class="mb-2 text-sm font-medium">Claude Code</p>
+          <CodeBlock client:visible filename="terminal" language="bash" code={claudeCodeCmd} />
+        </div>
+
+        <div>
+          <p class="mb-2 text-sm font-medium">Claude Desktop / other MCP clients</p>
+          <CodeBlock client:visible filename="mcp client config" language="json" code={claudeDesktopConfig} />
+        </div>
+
+        <div class="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+          <p>
+            <strong class="text-foreground">Which Claude?</strong> Claude Code and Claude Desktop use
+            the <code class="text-primary">Authorization</code> header above with the token from
+            <a href="/gws/connect" class="text-primary hover:underline">/gws/connect</a>. The
+            <strong>claude.ai</strong> web “custom connector” is also supported — this server
+            implements the MCP OAuth flow (discovery + dynamic client registration + PKCE), so you
+            just paste <code class="text-primary">{`${BASE}/mcp`}</code> as a custom connector and
+            Claude runs the Google sign-in itself.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,219 @@
+---
+/**
+ * `/docs/google-config` — walkthrough for the Google Cloud side: create the
+ * OAuth client, configure consent + scopes, download creds, set secrets, and
+ * test the first login. Static content; commands/URLs are real for this repo.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Badge } from "@/components/ui/badge";
+import { CodeBlock } from "@/components/ui/code-block";
+
+const BASE_URL = "https://google-workspace-mcp.hacolby.workers.dev";
+
+const enableApis = `# Enable the four Workspace APIs this server uses (Console → APIs & Services → Library),
+# or via gcloud:
+gcloud services enable \\
+  drive.googleapis.com \\
+  docs.googleapis.com \\
+  sheets.googleapis.com \\
+  gmail.googleapis.com`;
+
+const scopes = `openid
+email
+profile
+https://www.googleapis.com/auth/drive
+https://www.googleapis.com/auth/documents
+https://www.googleapis.com/auth/spreadsheets
+https://www.googleapis.com/auth/gmail.modify`;
+
+const redirectUris = `# Authorized redirect URIs (add both — prod + local dev):
+${BASE_URL}/auth/google/callback
+http://localhost:8787/auth/google/callback`;
+
+const credsShape = `{
+  "web": {
+    "client_id": "…apps.googleusercontent.com",
+    "client_secret": "…",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "redirect_uris": ["${BASE_URL}/auth/google/callback"]
+  }
+}`;
+
+const setSecrets = `# From the repo root, with the downloaded creds JSON:
+node scripts/create-worker-secrets.mjs /path/to/creds.json
+# (or: pnpm run secrets -- /path/to/creds.json)
+#
+# It sets GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET (via wrangler secret put),
+# writes a local .dev.vars, and prints the redirect URI to register.
+# Secret values are never printed.`;
+
+const manualSecrets = `# Or set them by hand:
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET`;
+
+const firstLogin = `# 1. Deploy (or run locally with wrangler dev)
+pnpm run migrate:remote
+pnpm run deploy
+
+# 2. Open the login route in a browser
+open ${BASE_URL}/auth/google
+
+# 3. Consent to the scopes → you are redirected to /gws with a session cookie.
+#    The refresh token is stored in KV (keyed by your Google account id).`;
+
+const steps = [
+  {
+    n: "1",
+    title: "Create or select a Google Cloud project",
+    body: "In the Google Cloud Console pick an existing project or create a new one. Everything below happens inside this project.",
+    code: null,
+  },
+  {
+    n: "2",
+    title: "Enable the Workspace APIs",
+    body: "Enable Drive, Docs, Sheets, and Gmail APIs. Without these the tool calls return 403 even with a valid token.",
+    code: { filename: "APIs & Services → Library", lang: "bash", value: enableApis },
+  },
+  {
+    n: "3",
+    title: "Configure the OAuth consent screen",
+    body: "APIs & Services → OAuth consent screen. Choose Internal if this is a Google Workspace org (no test-user limit), or External for a personal @gmail account. Set an app name + support email. Add the scopes below. For External apps left in Testing, add your Google account under Test users — otherwise sign-in returns access_denied.",
+    code: { filename: "Scopes to add", lang: "text", value: scopes },
+  },
+  {
+    n: "4",
+    title: "Create the OAuth client ID (Web application)",
+    body: "APIs & Services → Credentials → Create credentials → OAuth client ID → Application type: Web application. Add the Authorized redirect URIs below (prod + local). Then Download JSON — that is your creds file.",
+    code: { filename: "Authorized redirect URIs", lang: "bash", value: redirectUris },
+  },
+  {
+    n: "5",
+    title: "Know your creds file",
+    body: "The downloaded JSON is a \"web\" OAuth client. Only client_id and client_secret are read by the secrets script — never commit this file.",
+    code: { filename: "creds.json (shape)", lang: "json", value: credsShape },
+  },
+  {
+    n: "6",
+    title: "Set the Worker secrets",
+    body: "Run the helper script against your creds file. It pushes the two secrets and writes a local .dev.vars for wrangler dev.",
+    code: { filename: "terminal", lang: "bash", value: setSecrets },
+  },
+  {
+    n: "7",
+    title: "Test the first login",
+    body: "Deploy, then hit /auth/google. Google forces a fresh consent (prompt=consent) so a refresh token is always issued and stored in KV. Success lands you on /gws.",
+    code: { filename: "terminal", lang: "bash", value: firstLogin },
+  },
+];
+
+const dwdScopes = `https://www.googleapis.com/auth/drive
+https://www.googleapis.com/auth/documents
+https://www.googleapis.com/auth/spreadsheets
+https://www.googleapis.com/auth/presentations
+https://www.googleapis.com/auth/calendar
+https://www.googleapis.com/auth/gmail.modify
+https://www.googleapis.com/auth/script.projects
+https://www.googleapis.com/auth/script.processes`;
+
+const troubleshooting = [
+  { err: "redirect_uri_mismatch", fix: "The redirect URI in the console must exactly match ${BASE}/auth/google/callback (scheme, host, path — no trailing slash). Add both prod and localhost variants." },
+  { err: "No refresh_token returned", fix: "Google only returns a refresh token on first consent. Revoke the app at myaccount.google.com → Security → Third-party access, then sign in again (this server already sends prompt=consent to force it)." },
+  { err: "access_denied", fix: "External + Testing apps only allow listed Test users. Add your account under OAuth consent screen → Test users, or publish the app." },
+  { err: "403 on a tool call", fix: "The corresponding API (Drive/Docs/Sheets/Gmail) isn't enabled, or the granted scopes don't cover it. Re-check step 2 and the scopes in step 3." },
+];
+---
+
+<BaseLayout
+  title="Google Cloud Config"
+  description="Create the Google OAuth client, configure consent + scopes, download creds, set secrets, and test your first login."
+>
+  <div class="container mx-auto max-w-3xl px-4 py-16">
+    <!-- Hero -->
+    <section class="mb-12">
+      <a href="/docs" class="text-sm text-muted-foreground hover:text-foreground">← Docs</a>
+      <Badge variant="outline" class="mb-4 mt-3 block w-fit font-mono text-[11px]">Start here</Badge>
+      <h1 class="text-balance text-4xl font-bold tracking-tight">Google Cloud Config</h1>
+      <p class="mt-5 text-lg leading-relaxed text-muted-foreground">
+        Set up the Google side of OAuth so this server can act on your Workspace on your behalf.
+        You'll create a web OAuth client, grant it Drive/Docs/Sheets/Gmail scopes, and confirm the
+        first login end-to-end.
+      </p>
+    </section>
+
+    <!-- Steps -->
+    <ol class="space-y-10">
+      {steps.map((s) => (
+        <li>
+          <div class="flex items-baseline gap-3">
+            <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{s.n}</span>
+            <h2 class="text-xl font-bold tracking-tight">{s.title}</h2>
+          </div>
+          <p class="mt-2 pl-10 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+          {s.code && (
+            <div class="mt-4 pl-10">
+              <CodeBlock client:visible filename={s.code.filename} language={s.code.lang} code={s.code.value} />
+            </div>
+          )}
+        </li>
+      ))}
+    </ol>
+
+    <!-- Manual secrets alt -->
+    <section class="mt-12">
+      <h2 class="mb-3 text-lg font-semibold">Setting secrets by hand</h2>
+      <p class="mb-4 text-sm text-muted-foreground">Prefer not to run the script? Set the two secrets directly:</p>
+      <CodeBlock client:visible filename="terminal" language="bash" code={manualSecrets} />
+    </section>
+
+    <!-- Domain-Wide Delegation (headless / impersonation) -->
+    <section class="mt-14 space-y-4">
+      <div class="flex items-baseline gap-3">
+        <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">DWD</span>
+        <h2 class="text-2xl font-bold tracking-tight">Domain-Wide Delegation (optional, headless)</h2>
+      </div>
+      <p class="text-sm leading-relaxed text-muted-foreground">
+        The steps above set up per-user OAuth (the default). To let agents act <em>headlessly</em>
+        as any user in a Google Workspace domain — no interactive login — configure a service
+        account with Domain-Wide Delegation. Then any tool call can pass
+        <code class="text-primary">as_user: "someone@yourdomain.com"</code> to impersonate that
+        user; omit it to use the signed-in account.
+      </p>
+      <ol class="space-y-3 pl-1 text-sm text-muted-foreground">
+        <li><strong class="text-foreground">1.</strong> In Google Cloud → IAM &amp; Admin → Service Accounts, create a service account and download its JSON key.</li>
+        <li><strong class="text-foreground">2.</strong> Store the key as Worker secrets: <code class="text-primary">GOOGLE_CREDS_SA_CLIENT_EMAIL</code> and the PKCS8 private key split across <code class="text-primary">GOOGLE_CREDS_SA_PRIVATE_KEY_PT_1</code> + <code class="text-primary">GOOGLE_CREDS_SA_PRIVATE_KEY_PT_2</code> (already declared in wrangler.jsonc's Secrets Store).</li>
+        <li><strong class="text-foreground">3.</strong> In the Workspace Admin console → Security → API controls → Domain-wide delegation, add the service account's <strong>client ID</strong> and authorize exactly the API scopes below.</li>
+      </ol>
+      <CodeBlock client:visible filename="DWD scopes to authorize" language="text" code={dwdScopes} />
+      <div class="rounded-lg border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+        <strong class="text-foreground">Note:</strong> DWD is powerful — a caller passing
+        <code class="text-primary">as_user</code> acts as that user with full scope. Only expose
+        this server to trusted operators, or drop the service-account secrets to disable DWD
+        entirely (the OAuth path keeps working).
+      </div>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section class="mt-14">
+      <h2 class="mb-6 text-2xl font-bold tracking-tight">Troubleshooting</h2>
+      <div class="divide-y divide-border/40 overflow-hidden rounded-xl bg-card ring-1 ring-border/40">
+        {troubleshooting.map((t) => (
+          <div class="px-5 py-4">
+            <code class="text-sm font-semibold text-primary">{t.err}</code>
+            <p class="mt-1 text-sm text-muted-foreground">{t.fix.replace("${BASE}", BASE_URL)}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Next -->
+    <section class="mt-12 rounded-xl bg-muted/40 p-6">
+      <h2 class="text-lg font-semibold">Next</h2>
+      <p class="mt-1 text-sm text-muted-foreground">
+        Creds set? Continue to <a href="/gws/setup" class="text-primary hover:underline">Setup &amp; Deploy</a> to
+        wire bindings, migrate D1, deploy, and connect an MCP client — or head to
+        <a href="/gws/tools" class="text-primary hover:underline">MCP Tools</a> to see what's exposed.
+      </p>
+    </section>
+  </div>
+</BaseLayout>

@@ -6,6 +6,17 @@ The Google Workspace extension for Gemini CLI brings the power of your Google
 Workspace apps to your command line. Manage your documents, spreadsheets,
 presentations, emails, chat, and calendar events without leaving your terminal.
 
+## Cloudflare Worker MCP
+
+This repo also ships a self-hostable **remote MCP server** on Cloudflare Workers,
+exposing Google Drive, Docs, Sheets, and Gmail as MCP tools over a stateless
+`/mcp` JSON-RPC endpoint — single Worker, D1-backed operation/asset logging, and
+per-user Google OAuth (multi-user, keyed by Google account). See
+[`/gws/setup`](src/frontend/pages/gws/setup.astro) (served at `/gws/setup` once
+deployed) for the full setup and deploy walkthrough: OAuth client creation,
+`wrangler secret put`, KV/D1 bindings, `pnpm run migrate:remote`, `pnpm run
+deploy`, and connecting an MCP client with the session bearer token.
+
 ## Prerequisites
 
 Before using the Google Workspace extension, you need to be logged into your

@@ -1,0 +1,17 @@
+---
+/**
+ * Google Accounts — manage the authorized Google accounts the ported gsuite
+ * Workspace agents can act on.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AuthGate } from "@/components/gsuite-agents/AuthGate";
+import { AccountsManager } from "@/components/gsuite-agents/AccountsManager";
+---
+
+<BaseLayout
+  title="Google Accounts"
+  description="Manage the authorized Google accounts the Workspace agents can act on — add OAuth accounts, set a default, and remove accounts."
+>
+  <AuthGate authed={false} client:load />
+  <AccountsManager client:load />
+</BaseLayout>
