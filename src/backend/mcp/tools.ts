@@ -66,6 +66,21 @@ function acct(sub: string, a: { as_user?: string }): string {
   return a.as_user ? `dwd:${a.as_user}` : sub;
 }
 
+/**
+ * Insert braille rows in chunks. D1 caps bound parameters at 100 per query;
+ * braille_artifacts has 11 columns, so a single INSERT can hold at most 9
+ * rows — chunk at 8 to stay clear.
+ */
+async function insertBrailleRows(
+  db: ReturnType<typeof getDb>,
+  rows: (typeof brailleArtifacts.$inferInsert)[],
+): Promise<void> {
+  const CHUNK = 8;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await db.insert(brailleArtifacts).values(rows.slice(i, i + CHUNK));
+  }
+}
+
 export const TOOLS: ToolDef[] = [
   // ---- Drive -------------------------------------------------------------
   {
@@ -959,7 +974,7 @@ export const TOOLS: ToolDef[] = [
         tags: a.tags ?? null,
         createdBySub: sub,
       }));
-      await getDb(env).insert(brailleArtifacts).values(rows);
+      await insertBrailleRows(getDb(env), rows);
 
       const template = rows.find((r) => r.kind === "template");
       return {
@@ -1053,7 +1068,7 @@ export const TOOLS: ToolDef[] = [
           tags: a.tags ?? null,
           createdBySub: sub,
         }));
-        await db.insert(brailleArtifacts).values(rows);
+        await insertBrailleRows(db, rows);
         results.push({ fileId: f.id, name: f.name, surface, indexed: rows.length });
       }
 
