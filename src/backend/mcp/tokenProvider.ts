@@ -31,10 +31,18 @@ export async function getUser(env: Env, sub: string): Promise<GwsUser | null> {
 
 export async function getAccessToken(env: Env, sub: string): Promise<string> {
   // Domain-wide delegation: a `dwd:<email>` account ref impersonates that user
-  // via the service account instead of an OAuth refresh token. Tools default to
-  // the OAuth caller's sub; passing `as_user` switches to this path.
+  // via the service account instead of an OAuth refresh token. Passing
+  // `as_user` on a tool call takes this explicit path and always wins.
   if (sub.startsWith("dwd:")) {
     return getDwdAccessToken(env, sub.slice(4));
+  }
+
+  // Global default impersonation: when GOOGLE_USER_TO_IMPERSONATE is set, every
+  // call acts as that user via DWD — no per-tool `as_user` needed. Clear the var
+  // to fall back to the OAuth caller's own token.
+  const forced = env.GOOGLE_USER_TO_IMPERSONATE?.trim();
+  if (forced) {
+    return getDwdAccessToken(env, forced);
   }
 
   const cached = await env.SESSIONS.get(TOK_PREFIX + sub);

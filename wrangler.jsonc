@@ -90,7 +90,7 @@
     // Registered OAuth redirect URI for the multi-account consent flow.
     "GOOGLE_OAUTH_REDIRECT_URI": "https://google-workspace-mcp.hacolby.workers.dev/api/auth/google/oauth/callback",
     // Default Workspace user impersonated via Domain-Wide Delegation.
-    "GOOGLE_USER_TO_IMPERSONATE": "",
+    "GOOGLE_USER_TO_IMPERSONATE": "justin@126colby.com",
     // Display email for the default Workspace (DWD) account.
     "GOOGLE_WORKSPACE_ACCOUNT_EMAIL": "",
     // Email for the consumer/personal Google account (OAuth2, not DWD).
