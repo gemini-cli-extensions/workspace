@@ -1015,4 +1015,49 @@ export const TOOLS: ToolDef[] = [
       return { result: { artifact: rows[0] ?? null } };
     },
   },
+  {
+    name: "deconstruct_drive_folder",
+    description:
+      "Sweep a Drive folder and deconstruct every Google Doc, Slides deck, and Sheet inside it into the braille registry in one call. Other file types are skipped. Accepts a folder id or a Drive folder URL.",
+    inputSchema: z.object({ folderId: z.string(), tags: z.array(z.string()).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = acct(sub, a);
+      const folderId = (a.folderId.match(/[-\w]{25,}/) ?? [a.folderId])[0];
+      const drive = new DriveService(env, account);
+      const { files } = await drive.search(`'${folderId}' in parents and trashed = false`, 100);
+
+      const db = getDb(env);
+      const results: Array<{ fileId: string; name: string; surface: BrailleSurface; indexed: number }> = [];
+      let skipped = 0;
+
+      for (const f of files) {
+        const surface = detectSurface(f.mimeType ?? "");
+        if (!surface) {
+          skipped++;
+          continue;
+        }
+        let raw: unknown;
+        if (surface === "doc") raw = await new DocsService(env, account).getRaw(f.id);
+        else if (surface === "slide") raw = await new SlidesService(env, account).get(f.id);
+        else raw = await new SheetsService(env, account).getStructure(f.id);
+
+        const rows = deconstruct(surface, raw).map((fr) => ({
+          id: crypto.randomUUID(),
+          sourceFileId: f.id,
+          sourceUrl: f.webViewLink ?? null,
+          surface: fr.surface,
+          kind: fr.kind,
+          name: fr.kind === "template" ? f.name : `${f.name} · ${fr.name}`,
+          anchor: fr.anchor,
+          structure: fr.structure as Record<string, unknown>,
+          tags: a.tags ?? null,
+          createdBySub: sub,
+        }));
+        await db.insert(brailleArtifacts).values(rows);
+        results.push({ fileId: f.id, name: f.name, surface, indexed: rows.length });
+      }
+
+      return { result: { folderId, filesIndexed: results.length, skipped, results } };
+    },
+  },
 ];
