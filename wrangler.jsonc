@@ -193,12 +193,7 @@
   ],
   "r2_buckets": [
     {
-      "binding": "R2_AUDIO_BUCKET",
-      "bucket_name": "core-template-cfw-assets-astro-shadcn-audio",
-      "remote": true,
-    },
-    {
-      "bucket_name": "core-template-cfw-assets-astro-shadcn-files",
+      "bucket_name": "google-workspace-mcp",
       "binding": "R2_FILES_BUCKET",
       "remote": true,
     },
