@@ -62,6 +62,8 @@ export default defineConfig({
         "DriveAgent",
         "CalendarAgent",
         "GsuiteService",
+        // Billing circuit breaker DO (see src/backend/circuit-breaker.ts).
+        "CircuitBreaker",
       ],
     },
   }),

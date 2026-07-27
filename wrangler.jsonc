@@ -45,6 +45,9 @@
       { "name": "APPSSCRIPT_AGENT", "class_name": "AppsScriptAgent" },
       { "name": "DRIVE_AGENT", "class_name": "DriveAgent" },
       { "name": "CALENDAR_AGENT", "class_name": "CalendarAgent" },
+      // Billing circuit breaker — single global kill-switch DO (see
+      // src/backend/circuit-breaker.ts).
+      { "name": "CIRCUIT_BREAKER", "class_name": "CircuitBreaker" },
     ],
   },
   "migrations": [
@@ -65,6 +68,8 @@
         "CalendarAgent",
       ],
     },
+    // v3 — billing circuit breaker DO. New tag; v1/v2 are immutable once deployed.
+    { "tag": "v3", "new_sqlite_classes": ["CircuitBreaker"] },
   ],
   // Worker Loader — required for Agent Skills script execution (agents/skills runner).
   "worker_loaders": [{ "binding": "WORKER_LOADERS" }],
@@ -96,6 +101,16 @@
     "MODEL_EXTRACT": "@cf/openai/gpt-oss-120b",
     "MODEL_DRAFT": "@cf/openai/gpt-oss-120b",
     "DEFAULT_MODEL_EMBEDDING": "@cf/baai/bge-large-en-v1.5",
+    // ---------------------------------------------------------------------
+    // Billing circuit breaker thresholds — requests/agent-calls/AI calls/tool
+    // calls allowed per rolling minute before CircuitBreaker auto-trips.
+    // Read as Number() in src/backend/circuit-breaker.ts; these strings are
+    // the fallback if unset or non-numeric.
+    // ---------------------------------------------------------------------
+    "CIRCUIT_MAX_REQ_PER_MIN": "3000",
+    "CIRCUIT_MAX_AGENT_PER_MIN": "300",
+    "CIRCUIT_MAX_AI_PER_MIN": "500",
+    "CIRCUIT_MAX_TOOL_PER_MIN": "1000",
   },
   "kv_namespaces": [
     {
@@ -162,6 +177,15 @@
       "binding": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
       "store_id": "8c42fa70938644e0a8a109744467375f",
       "secret_name": "GOOGLE_CREDS_SA_CLIENT_EMAIL",
+    },
+    {
+      // The Workspace user the service account impersonates via DWD (the
+      // default "workspace" account). Same store + naming pattern as the SA
+      // creds above. Distinct from GOOGLE_CREDS_SA_CLIENT_EMAIL (the SA's own
+      // address, used as the JWT issuer).
+      "binding": "GOOGLE_CREDS_SA_EMAIL",
+      "store_id": "8c42fa70938644e0a8a109744467375f",
+      "secret_name": "GOOGLE_CREDS_SA_EMAIL",
     },
   ],
   "r2_buckets": [

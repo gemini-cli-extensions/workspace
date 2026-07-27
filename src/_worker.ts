@@ -50,6 +50,7 @@ import {
   SlidesAgent,
 } from "./backend/ai/agents";
 import { GsuiteService } from "./backend/rpc";
+import { CircuitBreaker, getBreaker, type CircuitKind } from "./backend/circuit-breaker";
 
 // Re-export Durable Object agent classes + the RPC entrypoint so the Astro
 // Cloudflare adapter (and wrangler's `durable_objects`/service bindings) can
@@ -65,7 +66,54 @@ export {
   DriveAgent,
   CalendarAgent,
   GsuiteService,
+  CircuitBreaker,
 };
+
+// ---------------------------------------------------------------------------
+// Billing circuit breaker — cheap hot-path kill guard.
+//
+// The DO (`src/backend/circuit-breaker.ts`) auto-trips on a per-minute usage
+// spike and keeps this KV flag in sync on every open/close transition. The
+// hot path below reads ONLY this flag (one KV read, edge-cached) — it never
+// calls the DO directly, so the guard stays cheap even while blocking.
+// ---------------------------------------------------------------------------
+
+/** KV key the breaker DO writes on every open/close transition. */
+const CIRCUIT_KV_FLAG_KEY = "circuit:open";
+
+/**
+ * Path prefixes that stay reachable even while the breaker is open, so the
+ * owner can diagnose + reset: the control route itself, and every login path
+ * needed to authenticate to reach it. `/api/auth` covers both the admin
+ * cr_session login AND `/api/auth/google/oauth/*` (already a sub-path).
+ */
+const CIRCUIT_EXEMPT_PREFIXES = [
+  "/api/admin/circuit",
+  "/auth/google",
+  "/api/auth",
+  "/api/agent-session",
+  "/circuit", // static status page, if/when one is added
+];
+
+function isCircuitExempt(pathname: string): boolean {
+  return CIRCUIT_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+async function isCircuitOpen(env: Env): Promise<boolean> {
+  try {
+    const raw = await env.SESSIONS.get(CIRCUIT_KV_FLAG_KEY);
+    if (!raw) return false;
+    return (JSON.parse(raw) as { open?: boolean }).open === true;
+  } catch {
+    // A corrupt/unreadable flag must never brick the whole worker — fail open.
+    return false;
+  }
+}
+
+/** Fire-and-forget usage recording. Never lets a DO error affect the response. */
+function recordUsage(env: Env, ctx: ExecutionContext, kind: CircuitKind): void {
+  ctx.waitUntil(getBreaker(env).record(kind).catch(() => {}));
+}
 
 /** True for paths the Hono API owns (REST + OpenAPI doc surfaces). */
 function isApiPath(pathname: string): boolean {
@@ -130,7 +178,18 @@ function makeHandler(): ExportedHandler<Env> {
     async fetch(request: Request, env: Env, ctx: ExecutionContext) {
       const url = new URL(request.url);
 
+      // Billing circuit breaker: the FIRST thing on every request, before all
+      // other routing. One KV read; see the block above `isApiPath`.
+      if (!isCircuitExempt(url.pathname) && (await isCircuitOpen(env))) {
+        return new Response("Service temporarily unavailable (circuit breaker open)", {
+          status: 503,
+          headers: { "retry-after": "120" },
+        });
+      }
+
       if (url.pathname === "/mcp") {
+        recordUsage(env, ctx, "tool");
+        recordUsage(env, ctx, "request");
         return handleMcpRequest(request as any, env, ctx);
       }
       if (url.pathname.startsWith("/auth/google")) {
@@ -155,14 +214,17 @@ function makeHandler(): ExportedHandler<Env> {
         // Acceptable for single-tenant deployments only; before serving more
         // than one principal, derive the permitted instance name(s) from the
         // token's subject instead of trusting the caller-supplied path.
+        recordUsage(env, ctx, "agent");
         const agentResponse = await routeAgentRequest(request as any, env as any);
         if (agentResponse) return agentResponse as unknown as Response;
       }
 
       if (isApiPath(url.pathname)) {
+        recordUsage(env, ctx, "request");
         return honoApp.fetch(request as any, env, ctx);
       }
       if (astroApp) {
+        recordUsage(env, ctx, "request");
         return handle(astroManifest, astroApp, request as any, env as any, ctx as any);
       }
       return env.ASSETS.fetch(request as any);
@@ -182,6 +244,7 @@ export function createExports() {
     DriveAgent,
     CalendarAgent,
     GsuiteService,
+    CircuitBreaker,
   };
 }
 

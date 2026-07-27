@@ -66,6 +66,6 @@ export async function getServiceAccountAccessToken(
   sub?: string,
 ): Promise<string> {
   void scopes;
-  const impersonate = sub ?? getGoogleUserToImpersonate(env);
+  const impersonate = sub ?? (await getGoogleUserToImpersonate(env));
   return getDwdAccessToken(env, impersonate);
 }

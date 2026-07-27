@@ -117,7 +117,7 @@ export async function getGoogleAccessToken(
     // The concrete email DWD impersonates: the configured primary for the
     // synthetic selector, otherwise the resolved domain email.
     const impersonated =
-      resolved === "workspace" ? getGoogleUserToImpersonate(env).toLowerCase() : resolved;
+      resolved === "workspace" ? (await getGoogleUserToImpersonate(env)).toLowerCase() : resolved;
     const sub = resolved === "workspace" ? undefined : resolved;
 
     try {

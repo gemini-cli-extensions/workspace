@@ -29,6 +29,7 @@ import { adminRouter, configRouter } from "./routes/config";
 import { docsRouter } from "./routes/docs";
 import { healthRouter } from "./routes/health";
 import { activityRouter } from "./routes/activity";
+import { circuitRouter } from "./routes/circuit";
 import { dashboardRouter } from "./routes/dashboard";
 import { gwsRouter } from "./routes/gws";
 import { gwsNotificationsRouter } from "./routes/gws-notifications";
@@ -114,6 +115,17 @@ app.get("/api/swagger", swaggerUI({ url: "/api/openapi.json" }));
 // showcase feature APIs (projects, tasks, stats, settings, notifications,
 // dashboard) are intentionally open so the template runs end-to-end out of the
 // box. Tighten this to `/api/*` once you wire real per-user auth.
+// Billing circuit breaker control (`GET/POST /api/admin/circuit*`) — mounted
+// BEFORE the blanket `/api/admin/*` cookie gate below so its own middleware
+// (cookie OR Bearer WORKER_API_KEY, see routes/circuit.ts) runs first. Hono
+// composes matched layers in registration order, so this earlier-registered
+// router's own auth + handler resolve the request before the later cookie
+// gate is ever reached. This is deliberately the mirror image of the
+// gsuite-surfaces pattern below (middleware registered before its router) —
+// here the router carries its own auth precisely so a kill switch survives a
+// session outage.
+app.route("/api/admin/circuit", circuitRouter);
+
 app.use("/api/admin/*", authMiddleware);
 
 // Ported gsuite surfaces (see C1 in the 2026-07-25 security audit): these

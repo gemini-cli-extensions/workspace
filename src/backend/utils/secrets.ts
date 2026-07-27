@@ -96,16 +96,20 @@ export async function getGitHubWebhookSecret(env: Env): Promise<string> {
  * Default Workspace user impersonated via Domain-Wide Delegation.
  * Plain `vars` entry (see `wrangler.jsonc`) — not a Secrets Store binding.
  */
-export function getGoogleUserToImpersonate(env: Env): string {
-  if (!env.GOOGLE_USER_TO_IMPERSONATE) {
-    throw new Error("Missing GOOGLE_USER_TO_IMPERSONATE var");
+export async function getGoogleUserToImpersonate(env: Env): Promise<string> {
+  // Prefer the Secrets Store secret GOOGLE_CREDS_SA_EMAIL (same store + naming
+  // pattern as the SA creds); fall back to the GOOGLE_USER_TO_IMPERSONATE var.
+  const fromStore = await getSecret(env, "GOOGLE_CREDS_SA_EMAIL");
+  const value = fromStore || env.GOOGLE_USER_TO_IMPERSONATE;
+  if (!value) {
+    throw new Error("No impersonation user configured: set the GOOGLE_CREDS_SA_EMAIL secret or GOOGLE_USER_TO_IMPERSONATE var");
   }
-  return env.GOOGLE_USER_TO_IMPERSONATE;
+  return value;
 }
 
-/** Display email for the default Workspace account (plain `vars` entry). */
-export function getGoogleWorkspaceAccountEmail(env: Env): string {
-  return env.GOOGLE_WORKSPACE_ACCOUNT_EMAIL || getGoogleUserToImpersonate(env);
+/** Display email for the default Workspace account. */
+export async function getGoogleWorkspaceAccountEmail(env: Env): Promise<string> {
+  return env.GOOGLE_WORKSPACE_ACCOUNT_EMAIL || (await getGoogleUserToImpersonate(env));
 }
 
 /** Email for the consumer/personal Google account (plain `vars` entry). */
