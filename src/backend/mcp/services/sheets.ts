@@ -12,6 +12,14 @@ export class SheetsService {
     });
   }
 
+  /**
+   * Fetch the full spreadsheet JSON ("braille") including per-cell grid data
+   * and formatting, for deconstruction into the component library.
+   */
+  async getStructure<T = unknown>(spreadsheetId: string): Promise<T> {
+    return googleJson<T>(this.env, this.sub, `${BASE}/${spreadsheetId}?includeGridData=true`);
+  }
+
   async getValues(
     spreadsheetId: string,
     range: string

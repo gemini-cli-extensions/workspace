@@ -14,10 +14,11 @@
  * Also consumed by `/api/gws/tools` for a human-facing tool list.
  */
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { templateArtifacts, driveNotifications } from "@db/schemas";
+import { templateArtifacts, driveNotifications, brailleArtifacts } from "@db/schemas";
+import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/braille/deconstruct";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -917,6 +918,101 @@ export const TOOLS: ToolDef[] = [
         result: { id: copy.id, name: copy.name, url: copy.webViewLink, fromTemplate: tpl.id, templateType: tpl.templateType },
         asset: { assetType: tpl.templateType || "drive", googleId: copy.id, title: copy.name, url: copy.webViewLink, action: "create", detail: { fromTemplate: tpl.id } },
       };
+    },
+  },
+  {
+    name: "deconstruct_to_braille",
+    description:
+      "Read a Google Doc, Slides deck, or Sheet and index its structure ('braille') into the D1 registry: one whole-file template row plus one component row per anchor-tagged block ([Component: X]…[End Component]) in a Doc, per slide, or per sheet tab. Builds the reusable component/template library. Surface is auto-detected from the Drive mimeType.",
+    inputSchema: z.object({
+      fileId: z.string(),
+      name: z.string().optional(),
+      surface: z.enum(["doc", "slide", "sheet"]).optional(),
+      tags: z.array(z.string()).optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = acct(sub, a);
+      const meta = await new DriveService(env, account).get(a.fileId);
+      const surface: BrailleSurface | null = a.surface ?? detectSurface(meta.mimeType ?? "");
+      if (!surface) {
+        throw new Error(`Unsupported file type for braille (mimeType: ${meta.mimeType ?? "unknown"}). Supported: Google Doc, Slides, Sheet.`);
+      }
+
+      let raw: unknown;
+      if (surface === "doc") raw = await new DocsService(env, account).getRaw(a.fileId);
+      else if (surface === "slide") raw = await new SlidesService(env, account).get(a.fileId);
+      else raw = await new SheetsService(env, account).getStructure(a.fileId);
+
+      const fragments = deconstruct(surface, raw);
+      const baseName = a.name ?? meta.name ?? a.fileId;
+      const sourceUrl = meta.webViewLink ?? null;
+      const rows = fragments.map((f) => ({
+        id: crypto.randomUUID(),
+        sourceFileId: a.fileId,
+        sourceUrl,
+        surface: f.surface,
+        kind: f.kind,
+        name: f.kind === "template" ? baseName : `${baseName} · ${f.name}`,
+        anchor: f.anchor,
+        structure: f.structure as Record<string, unknown>,
+        tags: a.tags ?? null,
+        createdBySub: sub,
+      }));
+      await getDb(env).insert(brailleArtifacts).values(rows);
+
+      const template = rows.find((r) => r.kind === "template");
+      return {
+        result: {
+          indexed: rows.length,
+          surface,
+          templateId: template?.id ?? null,
+          components: rows.filter((r) => r.kind === "component").map((r) => ({ id: r.id, name: r.name, anchor: r.anchor })),
+        },
+        asset: { assetType: surface, googleId: a.fileId, title: baseName, url: sourceUrl ?? undefined, action: "read", detail: { braille: rows.length } },
+      };
+    },
+  },
+  {
+    name: "braille_list",
+    description:
+      "List indexed braille artifacts (templates & components) from the registry. Filter by surface, kind, or sourceFileId. Returns metadata only — call braille_get for a specific artifact's full structure.",
+    inputSchema: z.object({
+      surface: z.enum(["doc", "slide", "sheet"]).optional(),
+      kind: z.enum(["template", "component"]).optional(),
+      sourceFileId: z.string().optional(),
+    }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const conds = [];
+      if (a.surface) conds.push(eq(brailleArtifacts.surface, a.surface));
+      if (a.kind) conds.push(eq(brailleArtifacts.kind, a.kind));
+      if (a.sourceFileId) conds.push(eq(brailleArtifacts.sourceFileId, a.sourceFileId));
+      const cols = {
+        id: brailleArtifacts.id,
+        name: brailleArtifacts.name,
+        surface: brailleArtifacts.surface,
+        kind: brailleArtifacts.kind,
+        anchor: brailleArtifacts.anchor,
+        tags: brailleArtifacts.tags,
+        sourceFileId: brailleArtifacts.sourceFileId,
+        sourceUrl: brailleArtifacts.sourceUrl,
+        createdAt: brailleArtifacts.createdAt,
+      };
+      const base = db.select(cols).from(brailleArtifacts);
+      const rows = await (conds.length ? base.where(and(...conds)) : base).orderBy(desc(brailleArtifacts.createdAt));
+      return { result: { artifacts: rows } };
+    },
+  },
+  {
+    name: "braille_get",
+    description:
+      "Get one braille artifact by id, including its full structure JSON — the batchUpdate-replayable braille for a template or component.",
+    inputSchema: z.object({ id: z.string() }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const rows = await db.select().from(brailleArtifacts).where(eq(brailleArtifacts.id, a.id)).limit(1);
+      return { result: { artifact: rows[0] ?? null } };
     },
   },
 ];
