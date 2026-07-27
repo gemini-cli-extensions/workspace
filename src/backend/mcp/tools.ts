@@ -947,7 +947,9 @@ export const TOOLS: ToolDef[] = [
       ...asUser,
     }),
     async run({ env, sub }, a) {
-      const account = acct(sub, a);
+      // Default to the service account's own identity (it's shared on the target
+      // files); `as_user` overrides to DWD impersonation.
+      const account = a.as_user ? acct(sub, a) : "sa";
       const meta = await new DriveService(env, account).get(a.fileId);
       const surface: BrailleSurface | null = a.surface ?? detectSurface(meta.mimeType ?? "");
       if (!surface) {
@@ -1036,7 +1038,9 @@ export const TOOLS: ToolDef[] = [
       "Sweep a Drive folder and deconstruct every Google Doc, Slides deck, and Sheet inside it into the braille registry in one call. Other file types are skipped. Accepts a folder id or a Drive folder URL.",
     inputSchema: z.object({ folderId: z.string(), tags: z.array(z.string()).optional(), ...asUser }),
     async run({ env, sub }, a) {
-      const account = acct(sub, a);
+      // Default to the service account's own identity (it's shared on the folder);
+      // `as_user` overrides to DWD impersonation.
+      const account = a.as_user ? acct(sub, a) : "sa";
       const folderId = (a.folderId.match(/[-\w]{25,}/) ?? [a.folderId])[0];
       const drive = new DriveService(env, account);
       const { files } = await drive.search(`'${folderId}' in parents and trashed = false`, 100);

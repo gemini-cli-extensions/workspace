@@ -6,7 +6,7 @@
  * via Google's token endpoint when the cached token is missing or expiring.
  */
 import { getSecret } from "../utils/secrets";
-import { getDwdAccessToken } from "./dwd";
+import { getDwdAccessToken, getServiceAccountAccessToken } from "./dwd";
 
 export type GwsUser = {
   sub: string;
@@ -35,6 +35,12 @@ export async function getAccessToken(env: Env, sub: string): Promise<string> {
   // `as_user` on a tool call takes this explicit path and always wins.
   if (sub.startsWith("dwd:")) {
     return getDwdAccessToken(env, sub.slice(4));
+  }
+
+  // Service-account own identity: reaches any Drive item shared with the SA's
+  // email. No impersonation, no domain — works for consumer-owned files too.
+  if (sub === "sa") {
+    return getServiceAccountAccessToken(env);
   }
 
   // Global default impersonation: when GOOGLE_USER_TO_IMPERSONATE is set, every
