@@ -1,5 +1,7 @@
 # Google Workspace Extension for Gemini CLI
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fgemini-cli-extensions%2Fworkspace.svg)](https://mcptoplist.com/server/glama%2Fgemini-cli-extensions%2Fworkspace)
+
 [![Build Status](https://github.com/gemini-cli-extensions/workspace/actions/workflows/ci.yml/badge.svg)](https://github.com/gemini-cli-extensions/workspace/actions/workflows/ci.yml)
 
 The Google Workspace extension for Gemini CLI brings the power of your Google
