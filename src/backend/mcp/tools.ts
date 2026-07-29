@@ -1217,6 +1217,52 @@ export const TOOLS: ToolDef[] = [
       };
     },
   },
+  // ---- Scratch sandbox ---------------------------------------------------
+  {
+    name: "create_scratch_doc",
+    description:
+      "Create a Google Doc in the dedicated 'MCP Scratch' folder, stamped as work-product/design-scratch, and return its link. A safe sandbox for building a sample for approval before producing the real document. Defaults to the SA identity.",
+    inputSchema: z.object({ title: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const folderId = await drive.findOrCreateFolder("MCP Scratch");
+      const docs = new DocsService(env, account);
+      const doc = await docs.create(a.title ?? "Scratch Doc");
+      await docs.insertText(doc.documentId, "⚠️  WORK PRODUCT — DESIGN SCRATCH · not a final document\n\n", 1);
+      await drive.updateFile(doc.documentId, { addParents: folderId });
+      const url = `https://docs.google.com/document/d/${doc.documentId}/edit`;
+      return { result: { documentId: doc.documentId, url, folderId }, asset: { assetType: "doc", googleId: doc.documentId, title: doc.title, url, action: "create", detail: { scratch: true } } };
+    },
+  },
+  {
+    name: "create_scratch_sheet",
+    description: "Create a Google Sheet in the 'MCP Scratch' folder and return its link. Sandbox for sample spreadsheets. Defaults to the SA identity.",
+    inputSchema: z.object({ title: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const folderId = await drive.findOrCreateFolder("MCP Scratch");
+      const sheet = await new SheetsService(env, account).create(a.title ?? "Scratch Sheet");
+      await drive.updateFile(sheet.spreadsheetId, { addParents: folderId });
+      const url = `https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/edit`;
+      return { result: { spreadsheetId: sheet.spreadsheetId, url, folderId }, asset: { assetType: "sheet", googleId: sheet.spreadsheetId, url, action: "create", detail: { scratch: true } } };
+    },
+  },
+  {
+    name: "create_scratch_slides",
+    description: "Create a Google Slides deck in the 'MCP Scratch' folder and return its link. Sandbox for sample decks. Defaults to the SA identity.",
+    inputSchema: z.object({ title: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const folderId = await drive.findOrCreateFolder("MCP Scratch");
+      const deck = await new SlidesService(env, account).create(a.title ?? "Scratch Deck");
+      await drive.updateFile(deck.presentationId, { addParents: folderId });
+      const url = `https://docs.google.com/presentation/d/${deck.presentationId}/edit`;
+      return { result: { presentationId: deck.presentationId, url, folderId }, asset: { assetType: "slide", googleId: deck.presentationId, url, action: "create", detail: { scratch: true } } };
+    },
+  },
   // ---- Gmail label registry ---------------------------------------------
   {
     name: "gmail_labels_sync",
