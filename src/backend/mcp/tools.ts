@@ -28,6 +28,7 @@ import { buildFillRequests, buildTableStyleRequests } from "@/backend/docs/table
 import { lintDoc, buildQcFixRequests } from "@/backend/docs/qc";
 import { RECIPES, getRequestTypes, type SchemaSurface } from "@/backend/docs/schema";
 import { htmlToRequests } from "@/backend/docs/html-to-braille";
+import { analyzePages, collectHeadings, pdfToPages } from "@/backend/docs/render-qc";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1252,6 +1253,28 @@ export const TOOLS: ToolDef[] = [
       const account = a.as_user ? acct(sub, a) : "sa";
       const f = await new DriveService(env, account).convertToGoogle(a.fileId, a.name);
       return { result: { id: f.id, name: f.name, mimeType: f.mimeType, url: f.webViewLink }, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "create", detail: { convertedFrom: a.fileId } } };
+    },
+  },
+  {
+    name: "render_qc",
+    description:
+      "Render-level QC across ALL document types (Docs, Sheets, Slides): export the file to PDF, read the ACTUAL pagination, and flag layout issues the structural QC can't see — a heading stranded at a page bottom (orphan). Returns pageCount + findings. Defaults to the SA identity.",
+    inputSchema: z.object({ fileId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const pages = await pdfToPages(await drive.exportBinary(a.fileId, "application/pdf"));
+
+      let headings: string[] = [];
+      try {
+        const meta = await drive.get(a.fileId);
+        if ((meta.mimeType ?? "").includes("document")) {
+          headings = collectHeadings(await new DocsService(env, account).getRaw(a.fileId));
+        }
+      } catch {
+        // non-Docs or no heading access → pagination-only report
+      }
+      return { result: { pageCount: pages.length, findings: analyzePages(pages, headings) } };
     },
   },
   // ---- Scratch sandbox ---------------------------------------------------

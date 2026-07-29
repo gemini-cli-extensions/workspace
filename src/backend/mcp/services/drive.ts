@@ -61,6 +61,12 @@ export class DriveService {
     return (await this.createFolder(name)).id;
   }
 
+  /** Export a Google file to binary bytes (e.g. application/pdf). */
+  async exportBinary(fileId: string, mimeType: string): Promise<Uint8Array> {
+    const res = await googleFetch(this.env, this.sub, `${BASE}/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
   /** Convert an Office file (docx/xlsx/pptx) to its Google-native equivalent via copy. */
   async convertToGoogle(fileId: string, name?: string): Promise<DriveFile> {
     const meta = await this.get(fileId);
