@@ -25,6 +25,7 @@ import { searchGmail } from "@/backend/gmail/search-service";
 import { buildCodeTextRequests, CODE_THEMES } from "@/backend/docs/code-format";
 import { findLastTable } from "@/backend/docs/locate";
 import { buildFillRequests, buildTableStyleRequests } from "@/backend/docs/table-format";
+import { lintDoc, buildQcFixRequests } from "@/backend/docs/qc";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1182,6 +1183,38 @@ export const TOOLS: ToolDef[] = [
       ];
       await docs.batchUpdate(a.documentId, requests);
       return { result: { documentId: a.documentId, language: a.language ?? "text", theme }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { codeBlock: a.language ?? "text" } } };
+    },
+  },
+  {
+    name: "docs_qc_check",
+    description:
+      "Structural quality check on a Google Doc (from its braille): headings that will orphan (no keepWithNext), tables with no borders, empty paragraphs that render blank pages. Read-only — returns findings. Layout-only issues (table spilling two pages) need the vision QC pass. Defaults to the SA identity.",
+    inputSchema: z.object({ documentId: z.string(), tabId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const raw = await new DocsService(env, account).getRaw(a.documentId);
+      return { result: { findings: lintDoc(raw, a.tabId) } };
+    },
+  },
+  {
+    name: "docs_qc_fix",
+    description:
+      "Apply the safe white-glove fixes to a Google Doc: keepWithNext on headings (no orphans) and 1pt borders on unstyled tables. Content untouched. Returns what was fixed + any remaining (report-only) findings. This is the polish/apply-style pass. Defaults to the SA identity.",
+    inputSchema: z.object({ documentId: z.string(), tabId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const docs = new DocsService(env, account);
+      const findings = lintDoc(await docs.getRaw(a.documentId), a.tabId);
+      const requests = buildQcFixRequests(findings, a.tabId);
+      if (requests.length) await docs.batchUpdate(a.documentId, requests);
+      return {
+        result: {
+          fixed: requests.length,
+          remaining: findings.filter((f) => f.rule === "phantom-empty-paragraph"),
+          findings,
+        },
+        asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { qcFixes: requests.length } },
+      };
     },
   },
   // ---- Gmail label registry ---------------------------------------------
