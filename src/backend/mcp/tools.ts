@@ -17,8 +17,9 @@ import { z } from "zod";
 import { eq, desc, and } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { templateArtifacts, driveNotifications, brailleArtifacts } from "@db/schemas";
+import { templateArtifacts, driveNotifications, brailleArtifacts, gmailLabels } from "@db/schemas";
 import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/braille/deconstruct";
+import { syncLabels } from "@/backend/gmail/sync-service";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1077,6 +1078,110 @@ export const TOOLS: ToolDef[] = [
       }
 
       return { result: { folderId, filesIndexed: results.length, skipped, results } };
+    },
+  },
+  // ---- Gmail label registry ---------------------------------------------
+  {
+    name: "gmail_labels_sync",
+    description:
+      "Reconcile the D1 gmail_labels registry with live Gmail: register new labels, reactivate returned ones, and soft-delete (is_active=0) labels that no longer exist in Gmail. Runs weekly via cron; call to sync on demand.",
+    inputSchema: z.object({ ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await syncLabels(env, acct(sub, a)) };
+    },
+  },
+  {
+    name: "gmail_labels_list",
+    description:
+      "List labels from the D1 registry (not live Gmail). Filter by active state and/or capture mode. Includes per-label capture config.",
+    inputSchema: z.object({
+      activeOnly: z.boolean().optional(),
+      captureMode: z.enum(["none", "metadata", "vectorize"]).optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = acct(sub, a);
+      const db = getDb(env);
+      const conds = [eq(gmailLabels.account, account)];
+      if (a.activeOnly !== false) conds.push(eq(gmailLabels.isActive, true));
+      if (a.captureMode) conds.push(eq(gmailLabels.captureMode, a.captureMode));
+      const rows = await db.select().from(gmailLabels).where(and(...conds)).orderBy(gmailLabels.name);
+      return { result: { labels: rows } };
+    },
+  },
+  {
+    name: "gmail_label_create",
+    description:
+      "Create a Gmail label (optionally nested under parentId and/or auto-applied by a filter), and register it in D1 with description + captured filter criteria. `filter` is Gmail filter criteria, e.g. { from: 'a@b.com' } or { query: 'has:attachment' }.",
+    inputSchema: z.object({
+      name: z.string(),
+      parentId: z.string().optional(),
+      description: z.string().optional(),
+      filter: z.record(z.string(), z.unknown()).optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = acct(sub, a);
+      const db = getDb(env);
+
+      let fullName = a.name;
+      if (a.parentId) {
+        const parent = await db.select({ name: gmailLabels.name }).from(gmailLabels).where(eq(gmailLabels.id, a.parentId)).limit(1);
+        if (!parent[0]) throw new Error(`No registered label with id ${a.parentId} to nest under. Run gmail_labels_sync first.`);
+        fullName = `${parent[0].name}/${a.name}`;
+      }
+
+      const gmail = new GmailService(env, account);
+      const label = await gmail.createLabel(fullName);
+      let filterCriteria: Record<string, unknown> | undefined;
+      if (a.filter) {
+        await gmail.createFilter(a.filter, label.id);
+        filterCriteria = a.filter;
+      }
+
+      const now = new Date();
+      await db.insert(gmailLabels).values({
+        id: label.id,
+        account,
+        name: fullName,
+        parentId: a.parentId ?? null,
+        description: a.description ?? null,
+        isActive: true,
+        createdVia: "worker",
+        filtersJson: filterCriteria ? [filterCriteria] : null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return {
+        result: { id: label.id, name: fullName, parentId: a.parentId ?? null, filter: filterCriteria ?? null },
+        asset: { assetType: "gmail-label", googleId: label.id, title: fullName, action: "create" },
+      };
+    },
+  },
+  {
+    name: "gmail_label_set_capture",
+    description:
+      "Configure how a label's messages are captured. captureMode: none | metadata | vectorize. captureAttachments + attachmentStore (r2|drive) + attachmentDriveFolderId control attachment handling. Only labels with captureMode != none are ingested.",
+    inputSchema: z.object({
+      labelId: z.string(),
+      captureMode: z.enum(["none", "metadata", "vectorize"]).optional(),
+      captureAttachments: z.boolean().optional(),
+      attachmentStore: z.enum(["r2", "drive"]).optional(),
+      attachmentDriveFolderId: z.string().optional(),
+      description: z.string().optional(),
+    }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (a.captureMode !== undefined) patch.captureMode = a.captureMode;
+      if (a.captureAttachments !== undefined) patch.captureAttachments = a.captureAttachments;
+      if (a.attachmentStore !== undefined) patch.attachmentStore = a.attachmentStore;
+      if (a.attachmentDriveFolderId !== undefined) patch.attachmentDriveFolderId = a.attachmentDriveFolderId;
+      if (a.description !== undefined) patch.description = a.description;
+      await db.update(gmailLabels).set(patch).where(eq(gmailLabels.id, a.labelId));
+      const row = await db.select().from(gmailLabels).where(eq(gmailLabels.id, a.labelId)).limit(1);
+      return { result: { label: row[0] ?? null } };
     },
   },
 ];

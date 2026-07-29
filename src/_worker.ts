@@ -32,6 +32,7 @@ import { routeAgentRequest } from "agents";
 
 import { app as honoApp } from "./backend/api/index";
 import { handleMcpRequest } from "./backend/mcp/server"; // added in Task 14
+import { syncLabelsForAllAccounts } from "./backend/gmail/sync-service";
 import { handleGoogleAuth } from "./backend/api/routes/auth-google"; // added in Task 6
 import { handleOAuth } from "./backend/mcp/oauth"; // MCP OAuth authorization server
 
@@ -228,6 +229,11 @@ function makeHandler(): ExportedHandler<Env> {
         return handle(astroManifest, astroApp, request as any, env as any, ctx as any);
       }
       return env.ASSETS.fetch(request as any);
+    },
+    // Weekly cron (see wrangler.jsonc triggers.crons): reconcile the Gmail
+    // label registry for every signed-in account.
+    async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+      ctx.waitUntil(syncLabelsForAllAccounts(env));
     },
   } as unknown as ExportedHandler<Env>;
 }

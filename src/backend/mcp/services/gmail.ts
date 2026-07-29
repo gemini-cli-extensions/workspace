@@ -129,6 +129,19 @@ export class GmailService {
     });
   }
 
+  /** Create a Gmail filter that auto-applies `labelId` to matching messages. */
+  async createFilter(
+    criteria: Record<string, unknown>,
+    labelId: string,
+  ): Promise<{ id: string; criteria: Record<string, unknown> }> {
+    return googleJson<{ id: string; criteria: Record<string, unknown> }>(
+      this.env,
+      this.sub,
+      `${BASE}/settings/filters`,
+      { method: "POST", body: JSON.stringify({ criteria, action: { addLabelIds: [labelId] } }) },
+    );
+  }
+
   async modifyMessageLabels(id: string, addLabelIds: string[], removeLabelIds: string[]): Promise<GmailMessage> {
     return googleJson<GmailMessage>(this.env, this.sub, `${BASE}/messages/${id}/modify`, {
       method: "POST",
