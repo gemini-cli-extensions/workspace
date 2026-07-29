@@ -38,14 +38,27 @@ export const gmailMessages = sqliteTable("gmail_messages", {
   account: text("account").notNull(),
   subject: text("subject"),
   snippet: text("snippet"),
-  /** Plain-text message body, stored in D1. */
-  bodyText: text("body_text"),
   /** Vectorize record id for this message's body (null until embedded). */
   ragUuid: text("rag_uuid"),
   /** Label ids on the message (JSON array). */
   labelIdsJson: text("label_ids_json", { mode: "json" }).$type<string[]>(),
   /** Gmail internalDate (Unix epoch ms). */
   internalDate: integer("internal_date"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+
+/**
+ * Message body, split into its own table so bodies can be pruned independently
+ * (trash low-value bodies) without losing message metadata/contacts. 1:1 with
+ * gmail_messages.
+ */
+export const gmailMessageBodies = sqliteTable("gmail_message_bodies", {
+  /** gmail_messages.id — 1:1. */
+  messageId: text("message_id").primaryKey(),
+  /** Full plain-text body. */
+  bodyText: text("body_text"),
+  /** Byte length of the body (for pruning heuristics). */
+  sizeBytes: integer("size_bytes"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
@@ -82,6 +95,7 @@ export const gmailMessageAttachments = sqliteTable("gmail_message_attachments", 
 
 export const insertGmailThreadSchema = createInsertSchema(gmailThreads);
 export const insertGmailMessageSchema = createInsertSchema(gmailMessages);
+export const insertGmailMessageBodySchema = createInsertSchema(gmailMessageBodies);
 export const insertGmailMessageContactSchema = createInsertSchema(gmailMessageContacts);
 export const insertGmailMessageAttachmentSchema = createInsertSchema(gmailMessageAttachments);
 export const selectGmailThreadSchema = createSelectSchema(gmailThreads);

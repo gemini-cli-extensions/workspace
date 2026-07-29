@@ -19,7 +19,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { getDb } from "@/db";
 import { templateArtifacts, driveNotifications, brailleArtifacts, gmailLabels } from "@db/schemas";
 import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/braille/deconstruct";
-import { syncLabels } from "@/backend/gmail/sync-service";
+import { syncLabels, syncLabelsForAllAccounts, listCaptureAccounts } from "@/backend/gmail/sync-service";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1084,45 +1084,53 @@ export const TOOLS: ToolDef[] = [
   {
     name: "gmail_labels_sync",
     description:
-      "Reconcile the D1 gmail_labels registry with live Gmail: register new labels, reactivate returned ones, and soft-delete (is_active=0) labels that no longer exist in Gmail. Runs weekly via cron; call to sync on demand.",
-    inputSchema: z.object({ ...asUser }),
-    async run({ env, sub }, a) {
-      return { result: await syncLabels(env, acct(sub, a)) };
+      "Reconcile the D1 gmail_labels registry with live Gmail across ALL active accounts (or one, via `account`): register new labels, reactivate returned ones, soft-delete (is_active=0) labels gone from Gmail. Runs weekly via cron; call to sync on demand.",
+    inputSchema: z.object({ account: z.string().email().optional() }),
+    async run({ env }, a) {
+      if (a.account) {
+        const target = (await listCaptureAccounts(env)).find((x) => x.email === a.account!.toLowerCase());
+        if (!target) throw new Error(`Account ${a.account} is not active/available.`);
+        return { result: { synced: [await syncLabels(env, target.ref, target.email)] } };
+      }
+      return { result: { synced: await syncLabelsForAllAccounts(env) } };
     },
   },
   {
     name: "gmail_labels_list",
     description:
-      "List labels from the D1 registry (not live Gmail). Filter by active state and/or capture mode. Includes per-label capture config.",
+      "List labels from the D1 registry (not live Gmail), across all accounts or one via `account`. Filter by active state and/or capture mode. Includes per-label capture config.",
     inputSchema: z.object({
+      account: z.string().email().optional(),
       activeOnly: z.boolean().optional(),
       captureMode: z.enum(["none", "metadata", "vectorize"]).optional(),
-      ...asUser,
     }),
-    async run({ env, sub }, a) {
-      const account = acct(sub, a);
+    async run({ env }, a) {
       const db = getDb(env);
-      const conds = [eq(gmailLabels.account, account)];
+      const conds = [];
+      if (a.account) conds.push(eq(gmailLabels.account, a.account.toLowerCase()));
       if (a.activeOnly !== false) conds.push(eq(gmailLabels.isActive, true));
       if (a.captureMode) conds.push(eq(gmailLabels.captureMode, a.captureMode));
-      const rows = await db.select().from(gmailLabels).where(and(...conds)).orderBy(gmailLabels.name);
+      const base = db.select().from(gmailLabels);
+      const rows = await (conds.length ? base.where(and(...conds)) : base).orderBy(gmailLabels.name);
       return { result: { labels: rows } };
     },
   },
   {
     name: "gmail_label_create",
     description:
-      "Create a Gmail label (optionally nested under parentId and/or auto-applied by a filter), and register it in D1 with description + captured filter criteria. `filter` is Gmail filter criteria, e.g. { from: 'a@b.com' } or { query: 'has:attachment' }.",
+      "Create a Gmail label on an account (optionally nested under parentId and/or auto-applied by a filter), and register it in D1. `account` selects which registered account (defaults to the first active); `filter` is Gmail filter criteria, e.g. { from: 'a@b.com' } or { query: 'has:attachment' }.",
     inputSchema: z.object({
       name: z.string(),
+      account: z.string().email().optional(),
       parentId: z.string().optional(),
       description: z.string().optional(),
       filter: z.record(z.string(), z.unknown()).optional(),
-      ...asUser,
     }),
-    async run({ env, sub }, a) {
-      const account = acct(sub, a);
+    async run({ env }, a) {
       const db = getDb(env);
+      const accounts = await listCaptureAccounts(env);
+      const target = a.account ? accounts.find((x) => x.email === a.account!.toLowerCase()) : accounts[0];
+      if (!target) throw new Error(`Account ${a.account ?? "(default)"} not active. Available: ${accounts.map((x) => x.email).join(", ") || "none"}.`);
 
       let fullName = a.name;
       if (a.parentId) {
@@ -1131,7 +1139,7 @@ export const TOOLS: ToolDef[] = [
         fullName = `${parent[0].name}/${a.name}`;
       }
 
-      const gmail = new GmailService(env, account);
+      const gmail = new GmailService(env, target.ref);
       const label = await gmail.createLabel(fullName);
       let filterCriteria: Record<string, unknown> | undefined;
       if (a.filter) {
@@ -1142,7 +1150,7 @@ export const TOOLS: ToolDef[] = [
       const now = new Date();
       await db.insert(gmailLabels).values({
         id: label.id,
-        account,
+        account: target.email,
         name: fullName,
         parentId: a.parentId ?? null,
         description: a.description ?? null,
