@@ -149,6 +149,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      unpdf:
+        specifier: ^1.8.0
+        version: 1.8.0
       workers-ai-provider:
         specifier: ^3.1.14
         version: 3.1.14(@ai-sdk/provider@3.0.10)(ai@6.0.191(zod@4.4.3))
@@ -6089,6 +6092,15 @@ packages:
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
+
+  unpdf@1.8.0:
+    resolution: {integrity: sha512-jQlkckbe5nKxRHQdbvo9IKHlU6Cjq00UlxxB8lrCIxvS2o5IbAL1wM+4a1Yc3+BIohg9p5AsoaftwO+G4Aq/qQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@napi-rs/canvas': ^0.1.69 || ^1.0.0
+    peerDependenciesMeta:
+      '@napi-rs/canvas':
+        optional: true
 
   unpipe@1.0.0:
     resolution: {integrity: sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==}
@@ -12506,6 +12518,8 @@ snapshots:
       unist-util-visit-parents: 6.0.2
 
   universalify@2.0.1: {}
+
+  unpdf@1.8.0: {}
 
   unpipe@1.0.0: {}
 

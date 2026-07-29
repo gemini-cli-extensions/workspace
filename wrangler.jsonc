@@ -91,6 +91,9 @@
     // ---------------------------------------------------------------------
     // Registered OAuth redirect URI for the multi-account consent flow.
     "GOOGLE_OAUTH_REDIRECT_URI": "https://google-workspace-mcp.hacolby.workers.dev/api/auth/google/oauth/callback",
+    // Optional docling-serve base URL for image/scanned-doc OCR (empty = disabled;
+    // PDFs are OCR'd in-worker via unpdf regardless).
+    "DOCLING_URL": "",
     // Default Workspace user impersonated via Domain-Wide Delegation.
     // Leave EMPTY to use the signed-in OAuth account's own token. DWD only works
     // for Google Workspace domain users — it can NOT impersonate consumer

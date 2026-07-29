@@ -41,6 +41,40 @@ export class DriveService {
     });
   }
 
+  /** Free Drive bytes for this account (limit − usage; MAX_SAFE for unlimited). */
+  async getStorageFree(): Promise<number> {
+    const about = await googleJson<{ storageQuota?: { limit?: string; usage?: string } }>(
+      this.env,
+      this.sub,
+      `${BASE}/about?fields=storageQuota`,
+    );
+    const q = about.storageQuota ?? {};
+    if (!q.limit) return Number.MAX_SAFE_INTEGER;
+    return Math.max(0, Number(q.limit) - Number(q.usage ?? 0));
+  }
+
+  /** Find a top-level folder by name, or create it. Returns its id. */
+  async findOrCreateFolder(name: string): Promise<string> {
+    const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const { files } = await this.search(q, 1);
+    if (files[0]) return files[0].id;
+    return (await this.createFolder(name)).id;
+  }
+
+  /** Upload raw bytes as a Drive file (metadata create + media PATCH). */
+  async uploadBinary(name: string, mimeType: string, bytes: Uint8Array, parentId?: string): Promise<DriveFile> {
+    const meta = await googleJson<DriveFile>(this.env, this.sub, `${BASE}/files?fields=id,name,webViewLink`, {
+      method: "POST",
+      body: JSON.stringify({ name, mimeType, parents: parentId ? [parentId] : undefined }),
+    });
+    await googleFetch(this.env, this.sub, `${UPLOAD_BASE}/files/${meta.id}?uploadType=media`, {
+      method: "PATCH",
+      headers: { "content-type": mimeType },
+      body: bytes as unknown as BodyInit,
+    });
+    return meta;
+  }
+
   async copy(fileId: string, name: string, parentId?: string): Promise<DriveFile> {
     return googleJson<DriveFile>(this.env, this.sub, `${BASE}/files/${fileId}/copy?fields=id,name,mimeType,webViewLink`, {
       method: "POST",

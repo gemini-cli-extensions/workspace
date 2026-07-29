@@ -17,6 +17,7 @@ import { ingestDocument } from "@/backend/ai/rag";
 import { parseRawMessage } from "./parse-message";
 import { keepableAttachments } from "./attachments";
 import { storeAttachment } from "./attachment-store";
+import { ocrAttachment } from "./ocr-service";
 import { listCaptureAccounts } from "./sync-service";
 
 export interface CaptureResult {
@@ -137,8 +138,27 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
           try {
             const { data } = await gmail.getAttachment(p.id, part.attachmentId);
             const stored = await storeAttachment(env, { account: email, messageId: p.id, part, data, store: lbl.attachmentStore });
+            const attId = crypto.randomUUID();
+
+            // OCR (hash-deduped) + embed the extracted text on vectorize labels.
+            let ocrText: string | null = null;
+            try {
+              ocrText = await ocrAttachment(env, { bytes: stored.bytes, mimeType: part.mimeType, hash: stored.md5 });
+            } catch (err) {
+              console.error(`[capture] ocr ${part.filename}:`, err instanceof Error ? err.message : err);
+            }
+            let attRag: string | null = null;
+            if (ocrText && lbl.captureMode === "vectorize") {
+              try {
+                const ids = await ingestDocument(env, "emails", { id: `att:${attId}`, account: email, title: part.filename ?? undefined, text: ocrText });
+                if (ids.length) attRag = `att:${attId}`;
+              } catch (err) {
+                console.error(`[capture] embed attachment ${attId}:`, err instanceof Error ? err.message : err);
+              }
+            }
+
             await db.insert(gmailMessageAttachments).values({
-              id: crypto.randomUUID(),
+              id: attId,
               messageId: p.id,
               filename: part.filename || null,
               mimetype: part.mimeType,
@@ -146,8 +166,8 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
               r2Key: stored.r2Key,
               driveId: stored.driveId,
               driveUrl: stored.driveUrl,
-              ocrText: null,
-              ragUuid: null,
+              ocrText,
+              ragUuid: attRag,
               createdAt: now,
             });
             attachments++;
