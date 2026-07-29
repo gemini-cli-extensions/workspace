@@ -36,11 +36,16 @@ async function servicePrivateKeyPem(env: Env): Promise<string> {
 }
 
 /**
- * Mint (or return cached) an access token that impersonates `subEmail` via the
- * service account's domain-wide delegation grant.
+ * Mint (or return cached) a service-account access token.
+ *
+ * - With `subEmail`: sets the JWT `sub` claim → Domain-Wide Delegation, acting
+ *   AS that Workspace user (requires an admin DWD grant; Workspace users only).
+ * - Without `subEmail`: no `sub` → the service account's OWN identity, which can
+ *   reach any Drive item shared with the SA's email (works for consumer-owned
+ *   files too, since it's plain sharing, not delegation).
  */
-export async function getDwdAccessToken(env: Env, subEmail: string): Promise<string> {
-  const cacheKey = TOK_PREFIX + subEmail;
+async function mintSaToken(env: Env, subEmail?: string): Promise<string> {
+  const cacheKey = TOK_PREFIX + (subEmail ?? "__self__");
   const cached = await env.SESSIONS.get(cacheKey);
   if (cached) {
     const { access_token, exp } = JSON.parse(cached) as { access_token: string; exp: number };
@@ -48,18 +53,18 @@ export async function getDwdAccessToken(env: Env, subEmail: string): Promise<str
   }
 
   const clientEmail = await getSecret(env, "GOOGLE_CREDS_SA_CLIENT_EMAIL");
-  if (!clientEmail) throw new Error("GOOGLE_CREDS_SA_CLIENT_EMAIL not configured — domain-wide delegation unavailable.");
+  if (!clientEmail) throw new Error("GOOGLE_CREDS_SA_CLIENT_EMAIL not configured — service-account auth unavailable.");
 
   const key = await importPKCS8(await servicePrivateKeyPem(env), "RS256");
   const now = Math.floor(Date.now() / 1000);
-  const assertion = await new SignJWT({ scope: API_SCOPE_STRING })
+  let jwt = new SignJWT({ scope: API_SCOPE_STRING })
     .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setIssuer(clientEmail)
-    .setSubject(subEmail)
     .setAudience(TOKEN_URL)
     .setIssuedAt(now)
-    .setExpirationTime(now + 3600)
-    .sign(key);
+    .setExpirationTime(now + 3600);
+  if (subEmail) jwt = jwt.setSubject(subEmail);
+  const assertion = await jwt.sign(key);
 
   const res = await fetch(TOKEN_URL, {
     method: "POST",
@@ -67,9 +72,10 @@ export async function getDwdAccessToken(env: Env, subEmail: string): Promise<str
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
   });
   if (!res.ok) {
-    // A 403/401 here usually means the admin console DWD grant is missing for
-    // one of the scopes, or the sub user isn't in the domain.
-    throw new Error(`DWD token exchange failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+    // A 401/403 with a sub usually means the DWD grant is missing a scope or the
+    // user isn't in the domain; without a sub it means the SA itself lacks access.
+    const mode = subEmail ? `DWD (as ${subEmail})` : "service-account self";
+    throw new Error(`${mode} token exchange failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
   }
   const json = (await res.json()) as { access_token: string; expires_in: number };
   const exp = Math.floor(Date.now() / 1000) + json.expires_in;
@@ -77,4 +83,14 @@ export async function getDwdAccessToken(env: Env, subEmail: string): Promise<str
     expirationTtl: Math.max(60, json.expires_in),
   });
   return json.access_token;
+}
+
+/** Access token impersonating `subEmail` via domain-wide delegation. */
+export function getDwdAccessToken(env: Env, subEmail: string): Promise<string> {
+  return mintSaToken(env, subEmail);
+}
+
+/** Access token for the service account's OWN identity (no impersonation). */
+export function getServiceAccountAccessToken(env: Env): Promise<string> {
+  return mintSaToken(env);
 }

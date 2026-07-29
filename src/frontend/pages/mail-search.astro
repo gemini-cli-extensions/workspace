@@ -1,0 +1,15 @@
+---
+/**
+ * Mail Search — semantic search over captured Gmail (labels set to
+ * captureMode=vectorize). Backed by /api/gmail/search + the emails RAG corpus.
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { GmailSearch } from "@/components/gsuite-agents/GmailSearch";
+---
+
+<BaseLayout
+  title="Mail Search"
+  description="Semantic search over captured Gmail — the same index the gmail_rag_search agent tool queries."
+>
+  <GmailSearch client:load />
+</BaseLayout>

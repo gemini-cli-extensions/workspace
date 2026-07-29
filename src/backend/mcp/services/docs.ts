@@ -11,6 +11,23 @@ export class DocsService {
     return googleJson<GoogleDoc>(this.env, this.sub, `${BASE}/${documentId}`);
   }
 
+  /**
+   * Fetch the full raw Docs JSON ("braille"), tab-aware. Hardcodes
+   * `includeTabsContent=true` so every tab is visible — otherwise the API
+   * returns only the first tab in the legacy root `body`.
+   */
+  async getRaw<T = unknown>(documentId: string): Promise<T> {
+    return googleJson<T>(this.env, this.sub, `${BASE}/${documentId}?includeTabsContent=true`);
+  }
+
+  /** Run an arbitrary array of Docs API requests atomically (the full grammar). */
+  async batchUpdate<T = unknown>(documentId: string, requests: unknown[]): Promise<T> {
+    return googleJson<T>(this.env, this.sub, `${BASE}/${documentId}:batchUpdate`, {
+      method: "POST",
+      body: JSON.stringify({ requests }),
+    });
+  }
+
   async create(title: string): Promise<GoogleDoc> {
     return googleJson<GoogleDoc>(this.env, this.sub, BASE, {
       method: "POST",

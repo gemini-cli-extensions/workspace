@@ -41,6 +41,62 @@ export class DriveService {
     });
   }
 
+  /** Free Drive bytes for this account (limit − usage; MAX_SAFE for unlimited). */
+  async getStorageFree(): Promise<number> {
+    const about = await googleJson<{ storageQuota?: { limit?: string; usage?: string } }>(
+      this.env,
+      this.sub,
+      `${BASE}/about?fields=storageQuota`,
+    );
+    const q = about.storageQuota ?? {};
+    if (!q.limit) return Number.MAX_SAFE_INTEGER;
+    return Math.max(0, Number(q.limit) - Number(q.usage ?? 0));
+  }
+
+  /** Find a top-level folder by name, or create it. Returns its id. */
+  async findOrCreateFolder(name: string): Promise<string> {
+    const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+    const { files } = await this.search(q, 1);
+    if (files[0]) return files[0].id;
+    return (await this.createFolder(name)).id;
+  }
+
+  /** Export a Google file to binary bytes (e.g. application/pdf). */
+  async exportBinary(fileId: string, mimeType: string): Promise<Uint8Array> {
+    const res = await googleFetch(this.env, this.sub, `${BASE}/files/${fileId}/export?mimeType=${encodeURIComponent(mimeType)}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  /** Convert an Office file (docx/xlsx/pptx) to its Google-native equivalent via copy. */
+  async convertToGoogle(fileId: string, name?: string): Promise<DriveFile> {
+    const meta = await this.get(fileId);
+    const target: Record<string, string> = {
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "application/vnd.google-apps.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "application/vnd.google-apps.spreadsheet",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation": "application/vnd.google-apps.presentation",
+    };
+    const mimeType = target[meta.mimeType ?? ""];
+    if (!mimeType) throw new Error(`Not a convertible Office file (mimeType: ${meta.mimeType ?? "unknown"}).`);
+    return googleJson<DriveFile>(this.env, this.sub, `${BASE}/files/${fileId}/copy?fields=id,name,mimeType,webViewLink`, {
+      method: "POST",
+      body: JSON.stringify({ name: name ?? meta.name, mimeType }),
+    });
+  }
+
+  /** Upload raw bytes as a Drive file (metadata create + media PATCH). */
+  async uploadBinary(name: string, mimeType: string, bytes: Uint8Array, parentId?: string): Promise<DriveFile> {
+    const meta = await googleJson<DriveFile>(this.env, this.sub, `${BASE}/files?fields=id,name,webViewLink`, {
+      method: "POST",
+      body: JSON.stringify({ name, mimeType, parents: parentId ? [parentId] : undefined }),
+    });
+    await googleFetch(this.env, this.sub, `${UPLOAD_BASE}/files/${meta.id}?uploadType=media`, {
+      method: "PATCH",
+      headers: { "content-type": mimeType },
+      body: bytes as unknown as BodyInit,
+    });
+    return meta;
+  }
+
   async copy(fileId: string, name: string, parentId?: string): Promise<DriveFile> {
     return googleJson<DriveFile>(this.env, this.sub, `${BASE}/files/${fileId}/copy?fields=id,name,mimeType,webViewLink`, {
       method: "POST",

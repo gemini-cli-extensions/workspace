@@ -35,6 +35,27 @@ export class GmailService {
     return googleJson<GmailMessage>(this.env, this.sub, `${BASE}/messages/${id}?format=full`);
   }
 
+  /** List message ids carrying a specific label. */
+  async listByLabel(labelId: string, maxResults = 25): Promise<{ messages: { id: string; threadId: string }[] }> {
+    const params = new URLSearchParams({ maxResults: String(maxResults), labelIds: labelId });
+    const out = await googleJson<{ messages?: { id: string; threadId: string }[] }>(this.env, this.sub, `${BASE}/messages?${params}`);
+    return { messages: out.messages ?? [] };
+  }
+
+  /** Fetch the raw `format=full` message JSON (payload + headers) for parsing. */
+  async getRawMessage(id: string): Promise<Record<string, unknown>> {
+    return googleJson<Record<string, unknown>>(this.env, this.sub, `${BASE}/messages/${id}?format=full`);
+  }
+
+  /** Fetch attachment bytes (base64url `data`) for a message part. */
+  async getAttachment(messageId: string, attachmentId: string): Promise<{ data: string; size: number }> {
+    return googleJson<{ data: string; size: number }>(
+      this.env,
+      this.sub,
+      `${BASE}/messages/${messageId}/attachments/${attachmentId}`,
+    );
+  }
+
   async send(to: string, subject: string, body: string): Promise<{ id: string }> {
     const mime = [`To: ${to}`, `Subject: ${subject}`, "Content-Type: text/plain; charset=UTF-8", "", body].join("\r\n");
     return googleJson<{ id: string }>(this.env, this.sub, `${BASE}/messages/send`, {
@@ -127,6 +148,19 @@ export class GmailService {
       method: "POST",
       body: JSON.stringify({ name, labelListVisibility: "labelShow", messageListVisibility: "show" }),
     });
+  }
+
+  /** Create a Gmail filter that auto-applies `labelId` to matching messages. */
+  async createFilter(
+    criteria: Record<string, unknown>,
+    labelId: string,
+  ): Promise<{ id: string; criteria: Record<string, unknown> }> {
+    return googleJson<{ id: string; criteria: Record<string, unknown> }>(
+      this.env,
+      this.sub,
+      `${BASE}/settings/filters`,
+      { method: "POST", body: JSON.stringify({ criteria, action: { addLabelIds: [labelId] } }) },
+    );
   }
 
   async modifyMessageLabels(id: string, addLabelIds: string[], removeLabelIds: string[]): Promise<GmailMessage> {

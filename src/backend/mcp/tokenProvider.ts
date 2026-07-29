@@ -6,7 +6,7 @@
  * via Google's token endpoint when the cached token is missing or expiring.
  */
 import { getSecret } from "../utils/secrets";
-import { getDwdAccessToken } from "./dwd";
+import { getDwdAccessToken, getServiceAccountAccessToken } from "./dwd";
 
 export type GwsUser = {
   sub: string;
@@ -31,10 +31,24 @@ export async function getUser(env: Env, sub: string): Promise<GwsUser | null> {
 
 export async function getAccessToken(env: Env, sub: string): Promise<string> {
   // Domain-wide delegation: a `dwd:<email>` account ref impersonates that user
-  // via the service account instead of an OAuth refresh token. Tools default to
-  // the OAuth caller's sub; passing `as_user` switches to this path.
+  // via the service account instead of an OAuth refresh token. Passing
+  // `as_user` on a tool call takes this explicit path and always wins.
   if (sub.startsWith("dwd:")) {
     return getDwdAccessToken(env, sub.slice(4));
+  }
+
+  // Service-account own identity: reaches any Drive item shared with the SA's
+  // email. No impersonation, no domain — works for consumer-owned files too.
+  if (sub === "sa") {
+    return getServiceAccountAccessToken(env);
+  }
+
+  // Global default impersonation: when GOOGLE_USER_TO_IMPERSONATE is set, every
+  // call acts as that user via DWD — no per-tool `as_user` needed. Clear the var
+  // to fall back to the OAuth caller's own token.
+  const forced = env.GOOGLE_USER_TO_IMPERSONATE?.trim();
+  if (forced) {
+    return getDwdAccessToken(env, forced);
   }
 
   const cached = await env.SESSIONS.get(TOK_PREFIX + sub);

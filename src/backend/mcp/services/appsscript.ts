@@ -33,4 +33,29 @@ export class AppsScriptService {
   async listProcesses(): Promise<unknown> {
     return googleJson(this.env, this.sub, `${BASE}/processes`);
   }
+
+  /** Snapshot the current code as an immutable version (required before deploying). */
+  async createVersion(scriptId: string, description?: string): Promise<{ versionNumber: number }> {
+    return googleJson<{ versionNumber: number }>(this.env, this.sub, `${BASE}/projects/${scriptId}/versions`, {
+      method: "POST",
+      body: JSON.stringify({ description: description ?? "Automated version" }),
+    });
+  }
+
+  /** Deploy a version (API-executable and/or web app, per the manifest). */
+  async createDeployment(
+    scriptId: string,
+    versionNumber: number,
+    description?: string,
+    manifestFileName = "appsscript",
+  ): Promise<{ deploymentId: string; entryPoints?: unknown[] }> {
+    return googleJson<{ deploymentId: string; entryPoints?: unknown[] }>(this.env, this.sub, `${BASE}/projects/${scriptId}/deployments`, {
+      method: "POST",
+      body: JSON.stringify({ versionNumber, manifestFileName, description: description ?? "Automated deployment" }),
+    });
+  }
+
+  async listDeployments(scriptId: string): Promise<unknown> {
+    return googleJson(this.env, this.sub, `${BASE}/projects/${scriptId}/deployments`);
+  }
 }

@@ -14,10 +14,23 @@
  * Also consumed by `/api/gws/tools` for a human-facing tool list.
  */
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { templateArtifacts, driveNotifications } from "@db/schemas";
+import { templateArtifacts, driveNotifications, brailleArtifacts, gmailLabels } from "@db/schemas";
+import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/braille/deconstruct";
+import { syncLabels, syncLabelsForAllAccounts, listCaptureAccounts } from "@/backend/gmail/sync-service";
+import { captureAccount, captureAllAccounts } from "@/backend/gmail/capture-service";
+import { searchGmail } from "@/backend/gmail/search-service";
+import { buildCodeTextRequests, CODE_THEMES } from "@/backend/docs/code-format";
+import { findLastTable } from "@/backend/docs/locate";
+import { buildFillRequests, buildTableStyleRequests } from "@/backend/docs/table-format";
+import { lintDoc, buildQcFixRequests } from "@/backend/docs/qc";
+import { RECIPES, getRequestTypes, type SchemaSurface } from "@/backend/docs/schema";
+import { htmlToRequests } from "@/backend/docs/html-to-braille";
+import { analyzePages, collectHeadings, pdfToPages } from "@/backend/docs/render-qc";
+import { SCRIPT_SCAFFOLDS } from "@/backend/docs/appscript-scaffolds";
+import { rasterizePdf, storeRender } from "@/backend/docs/browser-render";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -63,6 +76,21 @@ const asUser = {
 /** Resolve the account ref for a call: DWD impersonation, or the OAuth caller. */
 function acct(sub: string, a: { as_user?: string }): string {
   return a.as_user ? `dwd:${a.as_user}` : sub;
+}
+
+/**
+ * Insert braille rows in chunks. D1 caps bound parameters at 100 per query;
+ * braille_artifacts has 11 columns, so a single INSERT can hold at most 9
+ * rows — chunk at 8 to stay clear.
+ */
+async function insertBrailleRows(
+  db: ReturnType<typeof getDb>,
+  rows: (typeof brailleArtifacts.$inferInsert)[],
+): Promise<void> {
+  const CHUNK = 8;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await db.insert(brailleArtifacts).values(rows.slice(i, i + CHUNK));
+  }
 }
 
 export const TOOLS: ToolDef[] = [
@@ -917,6 +945,656 @@ export const TOOLS: ToolDef[] = [
         result: { id: copy.id, name: copy.name, url: copy.webViewLink, fromTemplate: tpl.id, templateType: tpl.templateType },
         asset: { assetType: tpl.templateType || "drive", googleId: copy.id, title: copy.name, url: copy.webViewLink, action: "create", detail: { fromTemplate: tpl.id } },
       };
+    },
+  },
+  {
+    name: "deconstruct_to_braille",
+    description:
+      "Read a Google Doc, Slides deck, or Sheet and index its structure ('braille') into the D1 registry: one whole-file template row plus one component row per anchor-tagged block ([Component: X]…[End Component]) in a Doc, per slide, or per sheet tab. Builds the reusable component/template library. Surface is auto-detected from the Drive mimeType.",
+    inputSchema: z.object({
+      fileId: z.string(),
+      name: z.string().optional(),
+      surface: z.enum(["doc", "slide", "sheet"]).optional(),
+      tags: z.array(z.string()).optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      // Default to the service account's own identity (it's shared on the target
+      // files); `as_user` overrides to DWD impersonation.
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const meta = await new DriveService(env, account).get(a.fileId);
+      const surface: BrailleSurface | null = a.surface ?? detectSurface(meta.mimeType ?? "");
+      if (!surface) {
+        throw new Error(`Unsupported file type for braille (mimeType: ${meta.mimeType ?? "unknown"}). Supported: Google Doc, Slides, Sheet.`);
+      }
+
+      let raw: unknown;
+      if (surface === "doc") raw = await new DocsService(env, account).getRaw(a.fileId);
+      else if (surface === "slide") raw = await new SlidesService(env, account).get(a.fileId);
+      else raw = await new SheetsService(env, account).getStructure(a.fileId);
+
+      const fragments = deconstruct(surface, raw);
+      const baseName = a.name ?? meta.name ?? a.fileId;
+      const sourceUrl = meta.webViewLink ?? null;
+      const rows = fragments.map((f) => ({
+        id: crypto.randomUUID(),
+        sourceFileId: a.fileId,
+        sourceUrl,
+        surface: f.surface,
+        kind: f.kind,
+        name: f.kind === "template" ? baseName : `${baseName} · ${f.name}`,
+        anchor: f.anchor,
+        structure: f.structure as Record<string, unknown>,
+        tags: a.tags ?? null,
+        createdBySub: sub,
+      }));
+      await insertBrailleRows(getDb(env), rows);
+
+      const template = rows.find((r) => r.kind === "template");
+      return {
+        result: {
+          indexed: rows.length,
+          surface,
+          templateId: template?.id ?? null,
+          components: rows.filter((r) => r.kind === "component").map((r) => ({ id: r.id, name: r.name, anchor: r.anchor })),
+        },
+        asset: { assetType: surface, googleId: a.fileId, title: baseName, url: sourceUrl ?? undefined, action: "read", detail: { braille: rows.length } },
+      };
+    },
+  },
+  {
+    name: "braille_list",
+    description:
+      "List indexed braille artifacts (templates & components) from the registry. Filter by surface, kind, or sourceFileId. Returns metadata only — call braille_get for a specific artifact's full structure.",
+    inputSchema: z.object({
+      surface: z.enum(["doc", "slide", "sheet"]).optional(),
+      kind: z.enum(["template", "component"]).optional(),
+      sourceFileId: z.string().optional(),
+    }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const conds = [];
+      if (a.surface) conds.push(eq(brailleArtifacts.surface, a.surface));
+      if (a.kind) conds.push(eq(brailleArtifacts.kind, a.kind));
+      if (a.sourceFileId) conds.push(eq(brailleArtifacts.sourceFileId, a.sourceFileId));
+      const cols = {
+        id: brailleArtifacts.id,
+        name: brailleArtifacts.name,
+        surface: brailleArtifacts.surface,
+        kind: brailleArtifacts.kind,
+        anchor: brailleArtifacts.anchor,
+        tags: brailleArtifacts.tags,
+        sourceFileId: brailleArtifacts.sourceFileId,
+        sourceUrl: brailleArtifacts.sourceUrl,
+        createdAt: brailleArtifacts.createdAt,
+      };
+      const base = db.select(cols).from(brailleArtifacts);
+      const rows = await (conds.length ? base.where(and(...conds)) : base).orderBy(desc(brailleArtifacts.createdAt));
+      return { result: { artifacts: rows } };
+    },
+  },
+  {
+    name: "braille_get",
+    description:
+      "Get one braille artifact by id, including its full structure JSON — the batchUpdate-replayable braille for a template or component.",
+    inputSchema: z.object({ id: z.string() }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const rows = await db.select().from(brailleArtifacts).where(eq(brailleArtifacts.id, a.id)).limit(1);
+      return { result: { artifact: rows[0] ?? null } };
+    },
+  },
+  {
+    name: "deconstruct_drive_folder",
+    description:
+      "Sweep a Drive folder and deconstruct every Google Doc, Slides deck, and Sheet inside it into the braille registry in one call. Other file types are skipped. Accepts a folder id or a Drive folder URL.",
+    inputSchema: z.object({ folderId: z.string(), tags: z.array(z.string()).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      // Default to the service account's own identity (it's shared on the folder);
+      // `as_user` overrides to DWD impersonation.
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const folderId = (a.folderId.match(/[-\w]{25,}/) ?? [a.folderId])[0];
+      const drive = new DriveService(env, account);
+      const { files } = await drive.search(`'${folderId}' in parents and trashed = false`, 100);
+
+      const db = getDb(env);
+      const results: Array<{ fileId: string; name: string; surface: BrailleSurface; indexed: number }> = [];
+      let skipped = 0;
+
+      for (const f of files) {
+        const surface = detectSurface(f.mimeType ?? "");
+        if (!surface) {
+          skipped++;
+          continue;
+        }
+        let raw: unknown;
+        if (surface === "doc") raw = await new DocsService(env, account).getRaw(f.id);
+        else if (surface === "slide") raw = await new SlidesService(env, account).get(f.id);
+        else raw = await new SheetsService(env, account).getStructure(f.id);
+
+        const rows = deconstruct(surface, raw).map((fr) => ({
+          id: crypto.randomUUID(),
+          sourceFileId: f.id,
+          sourceUrl: f.webViewLink ?? null,
+          surface: fr.surface,
+          kind: fr.kind,
+          name: fr.kind === "template" ? f.name : `${f.name} · ${fr.name}`,
+          anchor: fr.anchor,
+          structure: fr.structure as Record<string, unknown>,
+          tags: a.tags ?? null,
+          createdBySub: sub,
+        }));
+        await insertBrailleRows(db, rows);
+        results.push({ fileId: f.id, name: f.name, surface, indexed: rows.length });
+      }
+
+      return { result: { folderId, filesIndexed: results.length, skipped, results } };
+    },
+  },
+  // ---- Docs batchUpdate engine (braille replay) -------------------------
+  {
+    name: "docs_get_json",
+    description:
+      "Return a Google Doc's raw structure JSON (the 'braille'), tab-aware (includeTabsContent=true). This is the exact shape docs_batch_update replays. Defaults to the service-account identity; as_user overrides.",
+    inputSchema: z.object({ documentId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      return { result: await new DocsService(env, account).getRaw(a.documentId) };
+    },
+  },
+  {
+    name: "docs_batch_update",
+    description:
+      "Apply an array of native Google Docs API requests to a document atomically — the full grammar: headings, tables, colors, spacing, page/section breaks, tabs (addDocumentTab), landscape (updateSectionStyle flipPageOrientation), styled tables. Each request carries its own tabId/location. This is how stored braille is replayed into docs. Defaults to the service-account identity; as_user overrides.",
+    inputSchema: z.object({
+      documentId: z.string(),
+      requests: z.array(z.record(z.string(), z.unknown())),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const result = await new DocsService(env, account).batchUpdate(a.documentId, a.requests);
+      return { result, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { requests: a.requests.length } } };
+    },
+  },
+  {
+    name: "table_factory",
+    description:
+      "Insert a themed table into a Google Doc from a 2D array (first row = header). Header row gets a dark-blue fill with white bold centered text; every cell gets a 1pt border. Handles the index math (fills bottom-up, styles after re-fetch). Defaults to the SA identity.",
+    inputSchema: z.object({
+      documentId: z.string(),
+      data: z.array(z.array(z.string())),
+      theme: z.string().optional(),
+      tabId: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const docs = new DocsService(env, account);
+      const rows = a.data.length;
+      const cols = Math.max(0, ...a.data.map((r: string[]) => r.length));
+      if (!rows || !cols) throw new Error("data must be a non-empty 2D array");
+
+      await docs.batchUpdate(a.documentId, [{ insertTable: { rows, columns: cols, endOfSegmentLocation: a.tabId ? { tabId: a.tabId } : {} } }]);
+      let table = findLastTable(await docs.getRaw(a.documentId), a.tabId);
+      if (!table) throw new Error("Could not locate the inserted table.");
+      await docs.batchUpdate(a.documentId, buildFillRequests(table, a.data, a.tabId));
+      table = findLastTable(await docs.getRaw(a.documentId), a.tabId);
+      if (!table) throw new Error("Table not found after fill.");
+      await docs.batchUpdate(a.documentId, buildTableStyleRequests(table, a.data, a.theme ?? "default", a.tabId));
+
+      return { result: { documentId: a.documentId, rows, cols }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { table: `${rows}x${cols}` } } };
+    },
+  },
+  {
+    name: "code_block_factory",
+    description:
+      "Insert a syntax-highlighted code block (shaded 1x1 container) into a Google Doc. Tokenizes by language (sql, javascript, typescript, python, bash…) and colors by theme (dracula | github). Defaults to the SA identity.",
+    inputSchema: z.object({
+      documentId: z.string(),
+      code: z.string(),
+      language: z.string().optional(),
+      theme: z.enum(["dracula", "github"]).optional(),
+      tabId: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const docs = new DocsService(env, account);
+      const theme = a.theme ?? "github";
+
+      await docs.batchUpdate(a.documentId, [{ insertTable: { rows: 1, columns: 1, endOfSegmentLocation: a.tabId ? { tabId: a.tabId } : {} } }]);
+      const table = findLastTable(await docs.getRaw(a.documentId), a.tabId);
+      if (!table?.cells[0]) throw new Error("Could not locate the inserted code container.");
+      const cellIndex = table.cells[0].startIndex;
+      const start = a.tabId ? { index: table.tableStartIndex, tabId: a.tabId } : { index: table.tableStartIndex };
+      const bg = (CODE_THEMES[theme] ?? CODE_THEMES.github).background;
+
+      const requests = [
+        {
+          updateTableCellStyle: {
+            tableRange: { tableCellLocation: { tableStartLocation: start, rowIndex: 0, columnIndex: 0 }, rowSpan: 1, columnSpan: 1 },
+            tableCellStyle: {
+              backgroundColor: { color: { rgbColor: bg } },
+              paddingTop: { magnitude: 8, unit: "PT" },
+              paddingBottom: { magnitude: 8, unit: "PT" },
+              paddingLeft: { magnitude: 10, unit: "PT" },
+              paddingRight: { magnitude: 10, unit: "PT" },
+            },
+            fields: "backgroundColor,paddingTop,paddingBottom,paddingLeft,paddingRight",
+          },
+        },
+        ...buildCodeTextRequests(cellIndex, a.code, a.language ?? "text", theme, a.tabId),
+      ];
+      await docs.batchUpdate(a.documentId, requests);
+      return { result: { documentId: a.documentId, language: a.language ?? "text", theme }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { codeBlock: a.language ?? "text" } } };
+    },
+  },
+  {
+    name: "docs_qc_check",
+    description:
+      "Structural quality check on a Google Doc (from its braille): headings that will orphan (no keepWithNext), tables with no borders, empty paragraphs that render blank pages. Read-only — returns findings. Layout-only issues (table spilling two pages) need the vision QC pass. Defaults to the SA identity.",
+    inputSchema: z.object({ documentId: z.string(), tabId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const raw = await new DocsService(env, account).getRaw(a.documentId);
+      return { result: { findings: lintDoc(raw, a.tabId) } };
+    },
+  },
+  {
+    name: "docs_qc_fix",
+    description:
+      "Apply the safe white-glove fixes to a Google Doc: keepWithNext on headings (no orphans) and 1pt borders on unstyled tables. Content untouched. Returns what was fixed + any remaining (report-only) findings. This is the polish/apply-style pass. Defaults to the SA identity.",
+    inputSchema: z.object({ documentId: z.string(), tabId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const docs = new DocsService(env, account);
+      const findings = lintDoc(await docs.getRaw(a.documentId), a.tabId);
+      const requests = buildQcFixRequests(findings, a.tabId);
+      if (requests.length) await docs.batchUpdate(a.documentId, requests);
+      return {
+        result: {
+          fixed: requests.length,
+          remaining: findings.filter((f) => f.rule === "phantom-empty-paragraph"),
+          findings,
+        },
+        asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { qcFixes: requests.length } },
+      };
+    },
+  },
+  {
+    name: "docs_schema",
+    description:
+      "Get the batchUpdate request grammar for a Google surface (docs | slides | sheets | forms): curated recipes (correct patterns for styled headers, landscape sections via flipPageOrientation, keep-with-next, tabs) plus the full list of available request-type names. The complete Discovery JSON is served at GET /api/schema/:surface.",
+    inputSchema: z.object({ surface: z.enum(["docs", "slides", "sheets", "forms"]) }),
+    async run({ env }, a) {
+      const surface = a.surface as SchemaSurface;
+      const requestTypes = await getRequestTypes(env, surface).catch(() => [] as string[]);
+      return { result: { surface, recipes: RECIPES[surface], requestTypes, discoveryUrl: `/api/schema/${surface}` } };
+    },
+  },
+  {
+    name: "html_to_doc",
+    description:
+      "Convert an HTML string into a Google Doc via native batchUpdate (NOT Google's importer) — headings, bold/italic/underline/code, and bullet/numbered lists come out clean. WE control the mapping, so no <hr>-around-heading junk. Inserts at index 1 (use a fresh/scratch doc). Tables/images not yet mapped — use table_factory. Defaults to the SA identity.",
+    inputSchema: z.object({ documentId: z.string(), html: z.string(), tabId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const requests = htmlToRequests(a.html, 1, a.tabId);
+      if (!requests.length) throw new Error("No renderable content parsed from the HTML.");
+      await new DocsService(env, account).batchUpdate(a.documentId, requests);
+      return { result: { documentId: a.documentId, blocks: requests.length }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { htmlImport: true } } };
+    },
+  },
+  {
+    name: "office_to_google",
+    description:
+      "Convert an Office file already in Drive (.docx/.xlsx/.pptx) to its Google-native equivalent (Doc/Sheet/Slides) via Drive's converter — far higher fidelity than parsing OpenXML. Returns the new file id + url; then deconstruct_to_braille it. Defaults to the SA identity.",
+    inputSchema: z.object({ fileId: z.string(), name: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const f = await new DriveService(env, account).convertToGoogle(a.fileId, a.name);
+      return { result: { id: f.id, name: f.name, mimeType: f.mimeType, url: f.webViewLink }, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "create", detail: { convertedFrom: a.fileId } } };
+    },
+  },
+  {
+    name: "render_qc",
+    description:
+      "Render-level QC across ALL document types (Docs, Sheets, Slides): export the file to PDF, read the ACTUAL pagination, and flag layout issues the structural QC can't see — a heading stranded at a page bottom (orphan). Returns pageCount + findings. Defaults to the SA identity.",
+    inputSchema: z.object({ fileId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const pages = await pdfToPages(await drive.exportBinary(a.fileId, "application/pdf"));
+
+      let headings: string[] = [];
+      try {
+        const meta = await drive.get(a.fileId);
+        if ((meta.mimeType ?? "").includes("document")) {
+          headings = collectHeadings(await new DocsService(env, account).getRaw(a.fileId));
+        }
+      } catch {
+        // non-Docs or no heading access → pagination-only report
+      }
+      return { result: { pageCount: pages.length, findings: analyzePages(pages, headings) } };
+    },
+  },
+  {
+    name: "appsscript_deploy",
+    description:
+      "Deploy an Apps Script project: snapshot an immutable version, then create a deployment (API-executable and/or web app, per its manifest). Returns deploymentId + any web-app URL. The web-app path is the headless-execution route (a service account can hit the URL); container-bound web apps let a Doc/Sheet call back into this worker. Defaults to the SA identity.",
+    inputSchema: z.object({ scriptId: z.string(), description: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const svc = new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa");
+      const version = await svc.createVersion(a.scriptId, a.description);
+      const dep = await svc.createDeployment(a.scriptId, version.versionNumber, a.description);
+      const webAppUrl = ((dep.entryPoints as any[]) ?? []).map((e) => e?.webApp?.url).find(Boolean) ?? null;
+      return {
+        result: { versionNumber: version.versionNumber, deploymentId: dep.deploymentId, webAppUrl, entryPoints: dep.entryPoints },
+        asset: { assetType: "script", googleId: a.scriptId, action: "modify", detail: { deploymentId: dep.deploymentId } },
+      };
+    },
+  },
+  {
+    name: "appsscript_list_deployments",
+    description: "List an Apps Script project's deployments (with entry points / web-app URLs).",
+    inputSchema: z.object({ scriptId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").listDeployments(a.scriptId) };
+    },
+  },
+  {
+    name: "appscript_scaffold",
+    description:
+      "Overwrite an Apps Script project with a ready-to-use container-bound template: 'sidebar' (custom menu + sidebar shell) or 'chat-sidebar' (chat UI that calls the worker's /api/appscript/ai bridge). After: set Script Properties WORKER_URL + WORKER_KEY, then appsscript_deploy. Defaults to the SA identity.",
+    inputSchema: z.object({ scriptId: z.string(), template: z.enum(["sidebar", "chat-sidebar"]), ...asUser }),
+    async run({ env, sub }, a) {
+      const files = SCRIPT_SCAFFOLDS[a.template];
+      await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").updateContent(a.scriptId, files);
+      return { result: { scriptId: a.scriptId, template: a.template, files: files.map((f) => f.name) } };
+    },
+  },
+  {
+    name: "appscript_save_roll",
+    description: "Save an Apps Script project's current files as a reusable 'roll' in the braille registry (surface=appscript) for replay into other projects.",
+    inputSchema: z.object({ scriptId: z.string(), name: z.string(), tags: z.array(z.string()).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const content = await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").getContent(a.scriptId);
+      const id = crypto.randomUUID();
+      await getDb(env).insert(brailleArtifacts).values({
+        id,
+        sourceFileId: a.scriptId,
+        sourceUrl: null,
+        surface: "appscript",
+        kind: "template",
+        name: a.name,
+        anchor: null,
+        structure: content as Record<string, unknown>,
+        tags: a.tags ?? null,
+        createdBySub: sub,
+        createdAt: new Date(),
+      });
+      return { result: { id, name: a.name } };
+    },
+  },
+  {
+    name: "appscript_apply_roll",
+    description: "Apply a saved Apps Script roll (braille id) to a project — overwrites its files with the roll's.",
+    inputSchema: z.object({ rollId: z.string(), scriptId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const row = (await getDb(env).select().from(brailleArtifacts).where(eq(brailleArtifacts.id, a.rollId)).limit(1))[0];
+      if (!row) throw new Error(`No roll with id ${a.rollId}`);
+      const files = (row.structure as { files?: unknown[] })?.files;
+      if (!Array.isArray(files)) throw new Error("Roll has no files[] to apply.");
+      await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").updateContent(a.scriptId, files);
+      return { result: { scriptId: a.scriptId, applied: row.name, files: files.length } };
+    },
+  },
+  {
+    name: "vision_qc",
+    description:
+      "Pixel-level QC. For Slides: render each slide to a thumbnail and ask a vision model to flag layout problems (overflow, crowding, tiny/low-contrast text, misalignment). For Docs/Sheets: pixel vision needs a rasterizer, so it falls back to render_qc pagination. Defaults to the SA identity.",
+    inputSchema: z.object({ fileId: z.string(), prompt: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const mime = (await drive.get(a.fileId)).mimeType ?? "";
+
+      if (mime.includes("presentation")) {
+        const slides = new SlidesService(env, account);
+        const deck = (await slides.get(a.fileId)) as { slides?: { objectId?: string }[] };
+        const prompt = a.prompt ?? "You are a slide design reviewer. List concrete layout problems: text overflow/cutoff, crowding, tiny or low-contrast text, misaligned or overlapping elements, awkward empty space. If clean, say 'clean'. Be terse.";
+        const findings: unknown[] = [];
+        for (const [i, s] of (deck.slides ?? []).slice(0, 10).entries()) {
+          if (!s.objectId) continue;
+          try {
+            const thumb = (await slides.getThumbnail(a.fileId, s.objectId)) as { contentUrl?: string };
+            if (!thumb.contentUrl) continue;
+            const img = new Uint8Array(await (await fetch(thumb.contentUrl)).arrayBuffer());
+            const out = (await (env.AI as any).run("@cf/meta/llama-3.2-11b-vision-instruct", { image: Array.from(img), prompt })) as { response?: string; description?: string };
+            findings.push({ slide: i + 1, notes: out?.response ?? out?.description ?? "" });
+          } catch (err) {
+            findings.push({ slide: i + 1, error: err instanceof Error ? err.message : String(err) });
+          }
+        }
+        return { result: { surface: "slide", slidesReviewed: findings.length, findings } };
+      }
+
+      const surface = mime.includes("spreadsheet") ? "sheet" : "doc";
+      const pdf = await drive.exportBinary(a.fileId, "application/pdf");
+
+      // Pixel vision: rasterize the PDF via Browser Rendering, then review it.
+      const png = await rasterizePdf(env, pdf);
+      if (png) {
+        const stored = await storeRender(env, png, { sourceFileId: a.fileId, sub });
+        const prompt = a.prompt ?? "You are a document layout reviewer. The image shows the rendered pages top-to-bottom. List concrete layout problems: a table split across two pages that could fit one, a heading stranded at a page bottom, squished or overflowing tables, awkward text wrapping, uneven spacing. If it looks clean, say 'clean'. Be terse.";
+        const out = (await (env.AI as any).run("@cf/meta/llama-3.2-11b-vision-instruct", { image: Array.from(png), prompt })) as { response?: string; description?: string };
+        return { result: { surface, method: "browser-render + vision", screenshotUrl: stored.url, findings: [{ notes: out?.response ?? out?.description ?? "" }] } };
+      }
+
+      // Fallback: no rasterizer available → render_qc pagination.
+      const pages = await pdfToPages(pdf);
+      let headings: string[] = [];
+      if (mime.includes("document")) {
+        try { headings = collectHeadings(await new DocsService(env, account).getRaw(a.fileId)); } catch { /* no heading access */ }
+      }
+      return {
+        result: {
+          surface,
+          method: "pagination-fallback",
+          note: "Browser Rendering unavailable (enable it, or check the API token) — ran render_qc pagination instead.",
+          pageCount: pages.length,
+          findings: analyzePages(pages, headings),
+        },
+      };
+    },
+  },
+  // ---- Scratch sandbox ---------------------------------------------------
+  {
+    name: "create_scratch_doc",
+    description:
+      "Create a Google Doc in the dedicated 'MCP Scratch' folder, stamped as work-product/design-scratch, and return its link. A safe sandbox for building a sample for approval before producing the real document. Defaults to the SA identity.",
+    inputSchema: z.object({ title: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const folderId = await drive.findOrCreateFolder("MCP Scratch");
+      const docs = new DocsService(env, account);
+      const doc = await docs.create(a.title ?? "Scratch Doc");
+      await docs.insertText(doc.documentId, "⚠️  WORK PRODUCT — DESIGN SCRATCH · not a final document\n\n", 1);
+      await drive.updateFile(doc.documentId, { addParents: folderId });
+      const url = `https://docs.google.com/document/d/${doc.documentId}/edit`;
+      return { result: { documentId: doc.documentId, url, folderId }, asset: { assetType: "doc", googleId: doc.documentId, title: doc.title, url, action: "create", detail: { scratch: true } } };
+    },
+  },
+  {
+    name: "create_scratch_sheet",
+    description: "Create a Google Sheet in the 'MCP Scratch' folder and return its link. Sandbox for sample spreadsheets. Defaults to the SA identity.",
+    inputSchema: z.object({ title: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const folderId = await drive.findOrCreateFolder("MCP Scratch");
+      const sheet = await new SheetsService(env, account).create(a.title ?? "Scratch Sheet");
+      await drive.updateFile(sheet.spreadsheetId, { addParents: folderId });
+      const url = `https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/edit`;
+      return { result: { spreadsheetId: sheet.spreadsheetId, url, folderId }, asset: { assetType: "sheet", googleId: sheet.spreadsheetId, url, action: "create", detail: { scratch: true } } };
+    },
+  },
+  {
+    name: "create_scratch_slides",
+    description: "Create a Google Slides deck in the 'MCP Scratch' folder and return its link. Sandbox for sample decks. Defaults to the SA identity.",
+    inputSchema: z.object({ title: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const folderId = await drive.findOrCreateFolder("MCP Scratch");
+      const deck = await new SlidesService(env, account).create(a.title ?? "Scratch Deck");
+      await drive.updateFile(deck.presentationId, { addParents: folderId });
+      const url = `https://docs.google.com/presentation/d/${deck.presentationId}/edit`;
+      return { result: { presentationId: deck.presentationId, url, folderId }, asset: { assetType: "slide", googleId: deck.presentationId, url, action: "create", detail: { scratch: true } } };
+    },
+  },
+  // ---- Gmail label registry ---------------------------------------------
+  {
+    name: "gmail_labels_sync",
+    description:
+      "Reconcile the D1 gmail_labels registry with live Gmail across ALL active accounts (or one, via `account`): register new labels, reactivate returned ones, soft-delete (is_active=0) labels gone from Gmail. Runs weekly via cron; call to sync on demand.",
+    inputSchema: z.object({ account: z.string().email().optional() }),
+    async run({ env }, a) {
+      if (a.account) {
+        const target = (await listCaptureAccounts(env)).find((x) => x.email === a.account!.toLowerCase());
+        if (!target) throw new Error(`Account ${a.account} is not active/available.`);
+        return { result: { synced: [await syncLabels(env, target.ref, target.email)] } };
+      }
+      return { result: { synced: await syncLabelsForAllAccounts(env) } };
+    },
+  },
+  {
+    name: "gmail_labels_list",
+    description:
+      "List labels from the D1 registry (not live Gmail), across all accounts or one via `account`. Filter by active state and/or capture mode. Includes per-label capture config.",
+    inputSchema: z.object({
+      account: z.string().email().optional(),
+      activeOnly: z.boolean().optional(),
+      captureMode: z.enum(["none", "metadata", "vectorize"]).optional(),
+    }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const conds = [];
+      if (a.account) conds.push(eq(gmailLabels.account, a.account.toLowerCase()));
+      if (a.activeOnly !== false) conds.push(eq(gmailLabels.isActive, true));
+      if (a.captureMode) conds.push(eq(gmailLabels.captureMode, a.captureMode));
+      const base = db.select().from(gmailLabels);
+      const rows = await (conds.length ? base.where(and(...conds)) : base).orderBy(gmailLabels.name);
+      return { result: { labels: rows } };
+    },
+  },
+  {
+    name: "gmail_label_create",
+    description:
+      "Create a Gmail label on an account (optionally nested under parentId and/or auto-applied by a filter), and register it in D1. `account` selects which registered account (defaults to the first active); `filter` is Gmail filter criteria, e.g. { from: 'a@b.com' } or { query: 'has:attachment' }.",
+    inputSchema: z.object({
+      name: z.string(),
+      account: z.string().email().optional(),
+      parentId: z.string().optional(),
+      description: z.string().optional(),
+      filter: z.record(z.string(), z.unknown()).optional(),
+    }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const accounts = await listCaptureAccounts(env);
+      const target = a.account ? accounts.find((x) => x.email === a.account!.toLowerCase()) : accounts[0];
+      if (!target) throw new Error(`Account ${a.account ?? "(default)"} not active. Available: ${accounts.map((x) => x.email).join(", ") || "none"}.`);
+
+      let fullName = a.name;
+      if (a.parentId) {
+        const parent = await db.select({ name: gmailLabels.name }).from(gmailLabels).where(eq(gmailLabels.id, a.parentId)).limit(1);
+        if (!parent[0]) throw new Error(`No registered label with id ${a.parentId} to nest under. Run gmail_labels_sync first.`);
+        fullName = `${parent[0].name}/${a.name}`;
+      }
+
+      const gmail = new GmailService(env, target.ref);
+      const label = await gmail.createLabel(fullName);
+      let filterCriteria: Record<string, unknown> | undefined;
+      if (a.filter) {
+        await gmail.createFilter(a.filter, label.id);
+        filterCriteria = a.filter;
+      }
+
+      const now = new Date();
+      await db.insert(gmailLabels).values({
+        id: label.id,
+        account: target.email,
+        name: fullName,
+        parentId: a.parentId ?? null,
+        description: a.description ?? null,
+        isActive: true,
+        createdVia: "worker",
+        filtersJson: filterCriteria ? [filterCriteria] : null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return {
+        result: { id: label.id, name: fullName, parentId: a.parentId ?? null, filter: filterCriteria ?? null },
+        asset: { assetType: "gmail-label", googleId: label.id, title: fullName, action: "create" },
+      };
+    },
+  },
+  {
+    name: "gmail_label_set_capture",
+    description:
+      "Configure how a label's messages are captured. captureMode: none | metadata | vectorize. captureAttachments + attachmentStore (r2|drive) + attachmentDriveFolderId control attachment handling. Only labels with captureMode != none are ingested.",
+    inputSchema: z.object({
+      labelId: z.string(),
+      captureMode: z.enum(["none", "metadata", "vectorize"]).optional(),
+      captureAttachments: z.boolean().optional(),
+      attachmentStore: z.enum(["r2", "drive"]).optional(),
+      attachmentDriveFolderId: z.string().optional(),
+      description: z.string().optional(),
+    }),
+    async run({ env }, a) {
+      const db = getDb(env);
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (a.captureMode !== undefined) patch.captureMode = a.captureMode;
+      if (a.captureAttachments !== undefined) patch.captureAttachments = a.captureAttachments;
+      if (a.attachmentStore !== undefined) patch.attachmentStore = a.attachmentStore;
+      if (a.attachmentDriveFolderId !== undefined) patch.attachmentDriveFolderId = a.attachmentDriveFolderId;
+      if (a.description !== undefined) patch.description = a.description;
+      await db.update(gmailLabels).set(patch).where(eq(gmailLabels.id, a.labelId));
+      const row = await db.select().from(gmailLabels).where(eq(gmailLabels.id, a.labelId)).limit(1);
+      return { result: { label: row[0] ?? null } };
+    },
+  },
+  {
+    name: "gmail_capture_run",
+    description:
+      "Ingest messages for capture-enabled labels (captureMode != none) into the relational store: gmail_threads, gmail_messages, gmail_message_bodies, gmail_message_contacts (from/to/cc/bcc). Runs weekly via cron after label sync; call to ingest on demand. Idempotent — already-stored messages are skipped. All active accounts, or one via `account`.",
+    inputSchema: z.object({
+      account: z.string().email().optional(),
+      perLabel: z.number().int().min(1).max(100).optional(),
+    }),
+    async run({ env }, a) {
+      if (a.account) {
+        const target = (await listCaptureAccounts(env)).find((x) => x.email === a.account!.toLowerCase());
+        if (!target) throw new Error(`Account ${a.account} is not active/available.`);
+        return { result: { captured: [await captureAccount(env, target.ref, target.email, a.perLabel ?? 25)] } };
+      }
+      return { result: { captured: await captureAllAccounts(env) } };
+    },
+  },
+  {
+    name: "gmail_rag_search",
+    description:
+      "Semantic search over captured mail (labels set to captureMode=vectorize). Returns the best-matching messages with subject, sender, snippet, and a matched-text preview. Optionally scope to one account.",
+    inputSchema: z.object({
+      query: z.string(),
+      account: z.string().email().optional(),
+      topK: z.number().int().min(1).max(25).optional(),
+    }),
+    async run({ env }, a) {
+      return { result: { hits: await searchGmail(env, a.query, { account: a.account, topK: a.topK }) } };
     },
   },
 ];

@@ -3,6 +3,8 @@
   "main": "dist/_worker.js/index.js",
   "compatibility_date": "2026-05-25",
   "compatibility_flags": ["nodejs_compat"],
+  // Weekly Gmail label-registry reconciliation (Mondays 06:00 UTC).
+  "triggers": { "crons": ["0 6 * * 1"] },
   "upload_source_maps": true,
   "workers_dev": true,
   "preview_urls": true,
@@ -89,7 +91,13 @@
     // ---------------------------------------------------------------------
     // Registered OAuth redirect URI for the multi-account consent flow.
     "GOOGLE_OAUTH_REDIRECT_URI": "https://google-workspace-mcp.hacolby.workers.dev/api/auth/google/oauth/callback",
+    // Optional docling-serve base URL for image/scanned-doc OCR (empty = disabled;
+    // PDFs are OCR'd in-worker via unpdf regardless).
+    "DOCLING_URL": "",
     // Default Workspace user impersonated via Domain-Wide Delegation.
+    // Leave EMPTY to use the signed-in OAuth account's own token. DWD only works
+    // for Google Workspace domain users — it can NOT impersonate consumer
+    // @gmail.com accounts (e.g. jmbish04@gmail.com), so those must use OAuth.
     "GOOGLE_USER_TO_IMPERSONATE": "",
     // Display email for the default Workspace (DWD) account.
     "GOOGLE_WORKSPACE_ACCOUNT_EMAIL": "",
@@ -190,12 +198,7 @@
   ],
   "r2_buckets": [
     {
-      "binding": "R2_AUDIO_BUCKET",
-      "bucket_name": "core-template-cfw-assets-astro-shadcn-audio",
-      "remote": true,
-    },
-    {
-      "bucket_name": "core-template-cfw-assets-astro-shadcn-files",
+      "bucket_name": "google-workspace-mcp",
       "binding": "R2_FILES_BUCKET",
       "remote": true,
     },
