@@ -29,6 +29,7 @@ import { lintDoc, buildQcFixRequests } from "@/backend/docs/qc";
 import { RECIPES, getRequestTypes, type SchemaSurface } from "@/backend/docs/schema";
 import { htmlToRequests } from "@/backend/docs/html-to-braille";
 import { analyzePages, collectHeadings, pdfToPages } from "@/backend/docs/render-qc";
+import { SCRIPT_SCAFFOLDS } from "@/backend/docs/appscript-scaffolds";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1299,6 +1300,98 @@ export const TOOLS: ToolDef[] = [
     inputSchema: z.object({ scriptId: z.string(), ...asUser }),
     async run({ env, sub }, a) {
       return { result: await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").listDeployments(a.scriptId) };
+    },
+  },
+  {
+    name: "appscript_scaffold",
+    description:
+      "Overwrite an Apps Script project with a ready-to-use container-bound template: 'sidebar' (custom menu + sidebar shell) or 'chat-sidebar' (chat UI that calls the worker's /api/appscript/ai bridge). After: set Script Properties WORKER_URL + WORKER_KEY, then appsscript_deploy. Defaults to the SA identity.",
+    inputSchema: z.object({ scriptId: z.string(), template: z.enum(["sidebar", "chat-sidebar"]), ...asUser }),
+    async run({ env, sub }, a) {
+      const files = SCRIPT_SCAFFOLDS[a.template];
+      await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").updateContent(a.scriptId, files);
+      return { result: { scriptId: a.scriptId, template: a.template, files: files.map((f) => f.name) } };
+    },
+  },
+  {
+    name: "appscript_save_roll",
+    description: "Save an Apps Script project's current files as a reusable 'roll' in the braille registry (surface=appscript) for replay into other projects.",
+    inputSchema: z.object({ scriptId: z.string(), name: z.string(), tags: z.array(z.string()).optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const content = await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").getContent(a.scriptId);
+      const id = crypto.randomUUID();
+      await getDb(env).insert(brailleArtifacts).values({
+        id,
+        sourceFileId: a.scriptId,
+        sourceUrl: null,
+        surface: "appscript",
+        kind: "template",
+        name: a.name,
+        anchor: null,
+        structure: content as Record<string, unknown>,
+        tags: a.tags ?? null,
+        createdBySub: sub,
+        createdAt: new Date(),
+      });
+      return { result: { id, name: a.name } };
+    },
+  },
+  {
+    name: "appscript_apply_roll",
+    description: "Apply a saved Apps Script roll (braille id) to a project — overwrites its files with the roll's.",
+    inputSchema: z.object({ rollId: z.string(), scriptId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const row = (await getDb(env).select().from(brailleArtifacts).where(eq(brailleArtifacts.id, a.rollId)).limit(1))[0];
+      if (!row) throw new Error(`No roll with id ${a.rollId}`);
+      const files = (row.structure as { files?: unknown[] })?.files;
+      if (!Array.isArray(files)) throw new Error("Roll has no files[] to apply.");
+      await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").updateContent(a.scriptId, files);
+      return { result: { scriptId: a.scriptId, applied: row.name, files: files.length } };
+    },
+  },
+  {
+    name: "vision_qc",
+    description:
+      "Pixel-level QC. For Slides: render each slide to a thumbnail and ask a vision model to flag layout problems (overflow, crowding, tiny/low-contrast text, misalignment). For Docs/Sheets: pixel vision needs a rasterizer, so it falls back to render_qc pagination. Defaults to the SA identity.",
+    inputSchema: z.object({ fileId: z.string(), prompt: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const drive = new DriveService(env, account);
+      const mime = (await drive.get(a.fileId)).mimeType ?? "";
+
+      if (mime.includes("presentation")) {
+        const slides = new SlidesService(env, account);
+        const deck = (await slides.get(a.fileId)) as { slides?: { objectId?: string }[] };
+        const prompt = a.prompt ?? "You are a slide design reviewer. List concrete layout problems: text overflow/cutoff, crowding, tiny or low-contrast text, misaligned or overlapping elements, awkward empty space. If clean, say 'clean'. Be terse.";
+        const findings: unknown[] = [];
+        for (const [i, s] of (deck.slides ?? []).slice(0, 10).entries()) {
+          if (!s.objectId) continue;
+          try {
+            const thumb = (await slides.getThumbnail(a.fileId, s.objectId)) as { contentUrl?: string };
+            if (!thumb.contentUrl) continue;
+            const img = new Uint8Array(await (await fetch(thumb.contentUrl)).arrayBuffer());
+            const out = (await (env.AI as any).run("@cf/meta/llama-3.2-11b-vision-instruct", { image: Array.from(img), prompt })) as { response?: string; description?: string };
+            findings.push({ slide: i + 1, notes: out?.response ?? out?.description ?? "" });
+          } catch (err) {
+            findings.push({ slide: i + 1, error: err instanceof Error ? err.message : String(err) });
+          }
+        }
+        return { result: { surface: "slide", slidesReviewed: findings.length, findings } };
+      }
+
+      const pages = await pdfToPages(await drive.exportBinary(a.fileId, "application/pdf"));
+      let headings: string[] = [];
+      if (mime.includes("document")) {
+        try { headings = collectHeadings(await new DocsService(env, account).getRaw(a.fileId)); } catch { /* no heading access */ }
+      }
+      return {
+        result: {
+          surface: mime.includes("spreadsheet") ? "sheet" : "doc",
+          note: "Pixel vision needs a rasterizer for this type; ran render_qc pagination instead.",
+          pageCount: pages.length,
+          findings: analyzePages(pages, headings),
+        },
+      };
     },
   },
   // ---- Scratch sandbox ---------------------------------------------------

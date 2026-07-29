@@ -64,6 +64,7 @@
     "drizzle-zod": "0.8.3",
     "hono": "^4.12.16",
     "jose": "^6.2.4",
+    "js-md5": "^0.9.2",
     "lucide-react": "^0.575.0",
     "mind-elixir": "5.13.0",
     "mustache": "^4.2.0",

@@ -5,9 +5,11 @@
  * account (see drive-target). Returns the refs (+ content hash) for the
  * gmail_message_attachments row.
  *
- * NOTE on the hash: Workers' SubtleCrypto has no MD5, so we store a SHA-256 hex
- * digest in the `md5` column — used for dedup (skip re-OCR of identical bytes).
+ * The `md5` column holds a real MD5 (js-md5, pure JS — Workers' SubtleCrypto has
+ * no MD5), used for dedup (skip re-OCR of identical bytes).
  */
+import { md5 } from "js-md5";
+
 import { DriveService } from "@/backend/mcp/services/drive";
 
 import type { AttachmentPart } from "./attachments";
@@ -17,11 +19,6 @@ function base64UrlToBytes(data: string): Uint8Array {
   const b64 = data.replace(/-/g, "+").replace(/_/g, "/");
   const bin = atob(b64);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", bytes as unknown as BufferSource);
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function safeName(s: string): string {
@@ -43,7 +40,7 @@ export async function storeAttachment(
   opts: { account: string; messageId: string; part: AttachmentPart; data: string; store: string | null },
 ): Promise<StoredAttachment> {
   const bytes = base64UrlToBytes(opts.data);
-  const hash = await sha256Hex(bytes);
+  const hash = md5(bytes);
   const name = safeName(opts.part.filename || opts.part.attachmentId);
 
   // Drive: upload into the dedicated folder on the highest-storage account.
