@@ -26,6 +26,7 @@ import { buildCodeTextRequests, CODE_THEMES } from "@/backend/docs/code-format";
 import { findLastTable } from "@/backend/docs/locate";
 import { buildFillRequests, buildTableStyleRequests } from "@/backend/docs/table-format";
 import { lintDoc, buildQcFixRequests } from "@/backend/docs/qc";
+import { RECIPES, getRequestTypes, type SchemaSurface } from "@/backend/docs/schema";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1215,6 +1216,17 @@ export const TOOLS: ToolDef[] = [
         },
         asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { qcFixes: requests.length } },
       };
+    },
+  },
+  {
+    name: "docs_schema",
+    description:
+      "Get the batchUpdate request grammar for a Google surface (docs | slides | sheets | forms): curated recipes (correct patterns for styled headers, landscape sections via flipPageOrientation, keep-with-next, tabs) plus the full list of available request-type names. The complete Discovery JSON is served at GET /api/schema/:surface.",
+    inputSchema: z.object({ surface: z.enum(["docs", "slides", "sheets", "forms"]) }),
+    async run({ env }, a) {
+      const surface = a.surface as SchemaSurface;
+      const requestTypes = await getRequestTypes(env, surface).catch(() => [] as string[]);
+      return { result: { surface, recipes: RECIPES[surface], requestTypes, discoveryUrl: `/api/schema/${surface}` } };
     },
   },
   // ---- Scratch sandbox ---------------------------------------------------
