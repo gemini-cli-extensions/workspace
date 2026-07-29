@@ -47,6 +47,15 @@ export class GmailService {
     return googleJson<Record<string, unknown>>(this.env, this.sub, `${BASE}/messages/${id}?format=full`);
   }
 
+  /** Fetch attachment bytes (base64url `data`) for a message part. */
+  async getAttachment(messageId: string, attachmentId: string): Promise<{ data: string; size: number }> {
+    return googleJson<{ data: string; size: number }>(
+      this.env,
+      this.sub,
+      `${BASE}/messages/${messageId}/attachments/${attachmentId}`,
+    );
+  }
+
   async send(to: string, subject: string, body: string): Promise<{ id: string }> {
     const mime = [`To: ${to}`, `Subject: ${subject}`, "Content-Type: text/plain; charset=UTF-8", "", body].join("\r\n");
     return googleJson<{ id: string }>(this.env, this.sub, `${BASE}/messages/send`, {
