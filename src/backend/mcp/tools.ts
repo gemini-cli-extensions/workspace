@@ -30,7 +30,7 @@ import { RECIPES, getRequestTypes, type SchemaSurface } from "@/backend/docs/sch
 import { htmlToRequests } from "@/backend/docs/html-to-braille";
 import { analyzePages, collectHeadings, pdfToPages } from "@/backend/docs/render-qc";
 import { SCRIPT_SCAFFOLDS } from "@/backend/docs/appscript-scaffolds";
-import { rasterizePdf } from "@/backend/docs/browser-render";
+import { rasterizePdf, storeRender } from "@/backend/docs/browser-render";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1386,9 +1386,10 @@ export const TOOLS: ToolDef[] = [
       // Pixel vision: rasterize the PDF via Browser Rendering, then review it.
       const png = await rasterizePdf(env, pdf);
       if (png) {
+        const stored = await storeRender(env, png, { sourceFileId: a.fileId, sub });
         const prompt = a.prompt ?? "You are a document layout reviewer. The image shows the rendered pages top-to-bottom. List concrete layout problems: a table split across two pages that could fit one, a heading stranded at a page bottom, squished or overflowing tables, awkward text wrapping, uneven spacing. If it looks clean, say 'clean'. Be terse.";
         const out = (await (env.AI as any).run("@cf/meta/llama-3.2-11b-vision-instruct", { image: Array.from(png), prompt })) as { response?: string; description?: string };
-        return { result: { surface, method: "browser-render + vision", findings: [{ notes: out?.response ?? out?.description ?? "" }] } };
+        return { result: { surface, method: "browser-render + vision", screenshotUrl: stored.url, findings: [{ notes: out?.response ?? out?.description ?? "" }] } };
       }
 
       // Fallback: no rasterizer available → render_qc pagination.

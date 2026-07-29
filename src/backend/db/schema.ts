@@ -38,6 +38,7 @@ export * from "./schemas/workspace-assets";
 export * from "./schemas/template-artifacts";
 export * from "./schemas/braille-artifacts";
 export * from "./schemas/gmail";
+export * from "./schemas/render-artifacts";
 export * from "./schemas/drive-notifications";
 export * from "./schemas/google-accounts";
 

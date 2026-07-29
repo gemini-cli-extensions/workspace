@@ -6,6 +6,10 @@
  * the account id + API token secrets. Returns null (caller falls back) if the
  * service isn't available or the PDF is too large to inline.
  */
+import { eq, lt } from "drizzle-orm";
+
+import { getDb } from "@/db";
+import { renderArtifacts } from "@db/schemas";
 import { getSecret } from "@/backend/utils/secrets";
 
 const MAX_PDF_BYTES = 3_000_000; // keep the inlined base64 payload sane
@@ -59,3 +63,42 @@ export async function rasterizePdf(env: Env, pdfBytes: Uint8Array, maxPages = 8)
   if (!(res.headers.get("content-type") ?? "").includes("image")) return null;
   return new Uint8Array(await res.arrayBuffer());
 }
+
+/** Store a rendered PNG in R2 + the D1 registry; returns the servable URL. */
+export async function storeRender(
+  env: Env,
+  png: Uint8Array,
+  opts: { sourceFileId?: string; pageCount?: number; sub?: string },
+): Promise<{ id: string; url: string; r2Key: string }> {
+  const id = crypto.randomUUID();
+  const r2Key = `renders/${id}.png`;
+  await env.R2_FILES_BUCKET.put(r2Key, png, { httpMetadata: { contentType: "image/png" } });
+  await getDb(env).insert(renderArtifacts).values({
+    id,
+    sourceFileId: opts.sourceFileId ?? null,
+    r2Key,
+    mimeType: "image/png",
+    pageCount: opts.pageCount ?? null,
+    createdBySub: opts.sub ?? null,
+    createdAt: new Date(),
+  });
+  return { id, url: `/api/render/${id}`, r2Key };
+}
+
+const RENDER_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+/** Delete render artifacts (D1 rows + R2 objects) older than 90 days. */
+export async function purgeOldRenders(env: Env): Promise<number> {
+  const db = getDb(env);
+  const cutoff = new Date(Date.now() - RENDER_TTL_MS);
+  const old = await db
+    .select({ id: renderArtifacts.id, r2Key: renderArtifacts.r2Key })
+    .from(renderArtifacts)
+    .where(lt(renderArtifacts.createdAt, cutoff));
+  for (const r of old) {
+    try { await env.R2_FILES_BUCKET.delete(r.r2Key); } catch { /* already gone */ }
+    await db.delete(renderArtifacts).where(eq(renderArtifacts.id, r.id));
+  }
+  return old.length;
+}
+
