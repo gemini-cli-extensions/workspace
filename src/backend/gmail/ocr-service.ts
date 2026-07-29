@@ -14,7 +14,7 @@ import { gmailMessageAttachments } from "@db/schemas";
 /** Reuse prior OCR for identical bytes (hash), else extract. Returns null if unavailable. */
 export async function ocrAttachment(
   env: Env,
-  opts: { bytes: Uint8Array; mimeType: string; hash: string },
+  opts: { bytes: Uint8Array; mimeType: string; hash: string; filename?: string },
 ): Promise<string | null> {
   // Dedup: identical content already OCR'd?
   const db = getDb(env);
@@ -41,7 +41,7 @@ export async function ocrAttachment(
   const doclingUrl = env.DOCLING_URL?.trim();
   if (doclingUrl && (isPdf || opts.mimeType.startsWith("image/"))) {
     try {
-      return await doclingConvert(doclingUrl, opts.bytes, opts.mimeType);
+      return await doclingConvert(doclingUrl, opts.bytes, opts.filename ?? "attachment");
     } catch (err) {
       console.error("[ocr] docling failed:", err instanceof Error ? err.message : err);
     }
@@ -49,12 +49,14 @@ export async function ocrAttachment(
   return null;
 }
 
-/** Convert a document to markdown via a docling-serve instance. */
-async function doclingConvert(baseUrl: string, bytes: Uint8Array, mimeType: string): Promise<string | null> {
-  const form = new FormData();
-  form.append("files", new Blob([bytes as unknown as BlobPart], { type: mimeType }), "attachment");
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1alpha/convert/file`, { method: "POST", body: form });
-  if (!res.ok) return null;
-  const data = (await res.json()) as { document?: { md_content?: string; text_content?: string } };
-  return data.document?.md_content ?? data.document?.text_content ?? null;
+/**
+ * Convert a document to markdown via a docling-serve instance (docling-sdk).
+ * Imported lazily so the SDK (and its Node-built-in baggage) never loads unless
+ * DOCLING_URL is configured and an image/scanned doc is actually processed.
+ */
+async function doclingConvert(baseUrl: string, bytes: Uint8Array, filename: string): Promise<string | null> {
+  const { createAPIClient } = await import("docling-sdk/browser");
+  const client = createAPIClient(baseUrl, { timeout: 30000, retries: 2 });
+  const result = await client.convert(bytes, filename, { to_formats: ["md"] });
+  return result.document?.md_content ?? null;
 }

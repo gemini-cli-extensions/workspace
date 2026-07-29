@@ -143,7 +143,7 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
             // OCR (hash-deduped) + embed the extracted text on vectorize labels.
             let ocrText: string | null = null;
             try {
-              ocrText = await ocrAttachment(env, { bytes: stored.bytes, mimeType: part.mimeType, hash: stored.md5 });
+              ocrText = await ocrAttachment(env, { bytes: stored.bytes, mimeType: part.mimeType, hash: stored.md5, filename: part.filename || undefined });
             } catch (err) {
               console.error(`[capture] ocr ${part.filename}:`, err instanceof Error ? err.message : err);
             }
