@@ -198,26 +198,6 @@ const schemaResponseSchema = z.object({
   tables: z.array(tableInfoSchema),
 });
 
-const agentMetadataSchema = z.object({
-  name: z.string(),
-  className: z.string(),
-  description: z.string(),
-  docsPath: z.string(),
-  methods: z.array(
-    z.object({
-      name: z.string(),
-      description: z.string(),
-      params: z.string().optional(),
-      returns: z.string().optional(),
-    }),
-  ),
-  tools: z.array(z.string()),
-});
-
-const agentsResponseSchema = z.object({
-  agents: z.array(agentMetadataSchema),
-});
-
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -274,27 +254,5 @@ docsRouter.openapi(
     }
 
     return c.json({ tables });
-  }) as any,
-);
-
-// GET /api/docs/agents
-//
-// This Worker has zero Durable Object bindings — no agents to document.
-// Kept as an empty-array endpoint (rather than removed) so `/docs/agents`
-// consumers don't need a conditional fetch.
-docsRouter.openapi(
-  createRoute({
-    method: "get",
-    path: "/agents",
-    operationId: "docsAgents",
-    responses: {
-      200: {
-        description: "Agent metadata for documentation",
-        content: { "application/json": { schema: agentsResponseSchema } },
-      },
-    },
-  }),
-  (async (c: any) => {
-    return c.json({ agents: [] });
   }) as any,
 );
