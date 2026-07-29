@@ -29,6 +29,7 @@ import { adminRouter, configRouter } from "./routes/config";
 import { docsRouter } from "./routes/docs";
 import { gmailRouter } from "./routes/gmail";
 import { schemaRouter } from "./routes/schema";
+import { appscriptRouter } from "./routes/appscript";
 import { healthRouter } from "./routes/health";
 import { activityRouter } from "./routes/activity";
 import { circuitRouter } from "./routes/circuit";
@@ -157,6 +158,7 @@ app.route("/api/docs", docsRouter);
 // Feature APIs (open — see auth note above)
 app.route("/api/gmail", gmailRouter);
 app.route("/api/schema", schemaRouter);
+app.route("/api/appscript", appscriptRouter);
 app.route("/api/projects", projectsRouter);
 app.route("/api/tasks", tasksRouter);
 // Comments / Subtasks / Attachments for a single task — mounted alongside

@@ -1277,6 +1277,30 @@ export const TOOLS: ToolDef[] = [
       return { result: { pageCount: pages.length, findings: analyzePages(pages, headings) } };
     },
   },
+  {
+    name: "appsscript_deploy",
+    description:
+      "Deploy an Apps Script project: snapshot an immutable version, then create a deployment (API-executable and/or web app, per its manifest). Returns deploymentId + any web-app URL. The web-app path is the headless-execution route (a service account can hit the URL); container-bound web apps let a Doc/Sheet call back into this worker. Defaults to the SA identity.",
+    inputSchema: z.object({ scriptId: z.string(), description: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const svc = new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa");
+      const version = await svc.createVersion(a.scriptId, a.description);
+      const dep = await svc.createDeployment(a.scriptId, version.versionNumber, a.description);
+      const webAppUrl = ((dep.entryPoints as any[]) ?? []).map((e) => e?.webApp?.url).find(Boolean) ?? null;
+      return {
+        result: { versionNumber: version.versionNumber, deploymentId: dep.deploymentId, webAppUrl, entryPoints: dep.entryPoints },
+        asset: { assetType: "script", googleId: a.scriptId, action: "modify", detail: { deploymentId: dep.deploymentId } },
+      };
+    },
+  },
+  {
+    name: "appsscript_list_deployments",
+    description: "List an Apps Script project's deployments (with entry points / web-app URLs).",
+    inputSchema: z.object({ scriptId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      return { result: await new AppsScriptService(env, a.as_user ? acct(sub, a) : "sa").listDeployments(a.scriptId) };
+    },
+  },
   // ---- Scratch sandbox ---------------------------------------------------
   {
     name: "create_scratch_doc",
