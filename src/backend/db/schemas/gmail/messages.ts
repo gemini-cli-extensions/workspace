@@ -8,7 +8,7 @@
  * Only messages under capture-enabled labels (see gmail_labels) are ingested.
  */
 
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 /** One row per Gmail thread. */
@@ -52,15 +52,21 @@ export const gmailMessages = sqliteTable("gmail_messages", {
  * (trash low-value bodies) without losing message metadata/contacts. 1:1 with
  * gmail_messages.
  */
-export const gmailMessageBodies = sqliteTable("gmail_message_bodies", {
-  /** gmail_messages.id — 1:1. */
-  messageId: text("message_id").primaryKey(),
-  /** Full plain-text body. */
-  bodyText: text("body_text"),
-  /** Byte length of the body (for pruning heuristics). */
-  sizeBytes: integer("size_bytes"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
-});
+export const gmailMessageBodies = sqliteTable(
+  "gmail_message_bodies",
+  {
+    /** gmail_messages.id — 1:1; body is removed when the message is. */
+    messageId: text("message_id")
+      .primaryKey()
+      .references(() => gmailMessages.id, { onDelete: "cascade" }),
+    /** Full plain-text body. */
+    bodyText: text("body_text"),
+    /** Byte length of the body (for pruning heuristics). */
+    sizeBytes: integer("size_bytes"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  },
+  (t) => ({ createdAtIdx: index("gmail_message_bodies_created_at_idx").on(t.createdAt) }),
+);
 
 /** One row per message participant (from/to/cc/bcc). */
 export const gmailMessageContacts = sqliteTable("gmail_message_contacts", {
