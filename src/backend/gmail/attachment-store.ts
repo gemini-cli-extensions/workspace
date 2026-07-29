@@ -15,45 +15,46 @@ import { DriveService } from "@/backend/mcp/services/drive";
 import type { AttachmentPart } from "./attachments";
 import { resolveDriveTarget } from "./drive-target";
 
-function base64UrlToBytes(data: string): Uint8Array {
+/** Decode a Gmail base64url attachment payload to bytes. */
+export function decodeAttachment(data: string): Uint8Array {
   const b64 = data.replace(/-/g, "+").replace(/_/g, "/");
   const bin = atob(b64);
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+/** MD5 hex of attachment bytes (dedup key). */
+export function hashBytes(bytes: Uint8Array): string {
+  return md5(bytes);
 }
 
 function safeName(s: string): string {
   return (s || "file").replace(/[^\w.\-]+/g, "_").slice(0, 120);
 }
 
-export interface StoredAttachment {
-  md5: string;
+export interface StoredRefs {
   r2Key: string | null;
   driveId: string | null;
   driveUrl: string | null;
-  /** Decoded bytes, so the caller can OCR without re-fetching. */
-  bytes: Uint8Array;
 }
 
-/** Store attachment bytes and return the persisted refs. */
+/** Store attachment bytes to R2 (or Drive per label) and return the refs. */
 export async function storeAttachment(
   env: Env,
-  opts: { account: string; messageId: string; part: AttachmentPart; data: string; store: string | null },
-): Promise<StoredAttachment> {
-  const bytes = base64UrlToBytes(opts.data);
-  const hash = md5(bytes);
+  opts: { account: string; messageId: string; part: AttachmentPart; bytes: Uint8Array; store: string | null },
+): Promise<StoredRefs> {
   const name = safeName(opts.part.filename || opts.part.attachmentId);
 
   // Drive: upload into the dedicated folder on the highest-storage account.
   if (opts.store === "drive") {
     const target = await resolveDriveTarget(env);
     if (target) {
-      const file = await new DriveService(env, target.ref).uploadBinary(name, opts.part.mimeType, bytes, target.folderId);
-      return { md5: hash, r2Key: null, driveId: file.id, driveUrl: file.webViewLink ?? null, bytes };
+      const file = await new DriveService(env, target.ref).uploadBinary(name, opts.part.mimeType, opts.bytes, target.folderId);
+      return { r2Key: null, driveId: file.id, driveUrl: file.webViewLink ?? null };
     }
     // No usable Drive account → fall through to R2.
   }
 
   const key = `gmail/${opts.account}/${opts.messageId}/${name}`;
-  await env.R2_FILES_BUCKET.put(key, bytes, { httpMetadata: { contentType: opts.part.mimeType } });
-  return { md5: hash, r2Key: key, driveId: null, driveUrl: null, bytes };
+  await env.R2_FILES_BUCKET.put(key, opts.bytes, { httpMetadata: { contentType: opts.part.mimeType } });
+  return { r2Key: key, driveId: null, driveUrl: null };
 }

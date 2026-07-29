@@ -48,20 +48,24 @@ const LOGO_RE = /(logo|signature|sig[-_]?image|icon|image0\d\d|facebook|instagra
 const TINY_IMAGE_BYTES = 20_000;
 
 /**
- * Signature images and social/logo icons are junk; real documents and standalone
- * photos are kept. Non-image attachments (PDF, DOCX, ...) are always kept.
+ * Why an attachment is junk (signature images, social/logo icons), or null to
+ * keep it. Non-image attachments (PDF, DOCX, ...) and standalone photos are kept.
  */
+export function junkReason(a: AttachmentPart): string | null {
+  if (!a.mimeType.startsWith("image/")) return null;
+  if (a.inline) return "inline embedded image (signature/logo)";
+  if (a.contentId) return "embedded image with Content-ID (signature/logo)";
+  if (!a.filename) return "inline image with no filename";
+  if (LOGO_RE.test(a.filename)) return `logo/social/icon image by filename (${a.filename})`;
+  if (a.size > 0 && a.size < TINY_IMAGE_BYTES) return `tiny image (${a.size} bytes) — likely an icon`;
+  return null;
+}
+
 export function isJunkAttachment(a: AttachmentPart): boolean {
-  if (!a.mimeType.startsWith("image/")) return false;
-  if (a.inline) return true; // embedded body image = signature/logo
-  if (a.contentId) return true;
-  if (!a.filename) return true;
-  if (LOGO_RE.test(a.filename)) return true;
-  if (a.size > 0 && a.size < TINY_IMAGE_BYTES) return true; // tiny image = icon
-  return false;
+  return junkReason(a) !== null;
 }
 
 /** Attachment parts worth capturing (junk removed). */
 export function keepableAttachments(payload: any): AttachmentPart[] {
-  return extractAttachmentParts(payload).filter((a) => !isJunkAttachment(a));
+  return extractAttachmentParts(payload).filter((a) => junkReason(a) === null);
 }

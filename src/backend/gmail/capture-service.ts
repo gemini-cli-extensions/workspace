@@ -6,7 +6,7 @@
  * messages already stored (by id PK) are skipped. Attachments and embedding are
  * later slices; ragUuid stays null for now.
  */
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, or, isNotNull } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { gmailLabels, gmailThreads, gmailMessages, gmailMessageBodies, gmailMessageContacts, gmailMessageAttachments } from "@db/schemas";
@@ -15,8 +15,8 @@ import { GmailService } from "@/backend/mcp/services/gmail";
 import { ingestDocument } from "@/backend/ai/rag";
 
 import { parseRawMessage } from "./parse-message";
-import { keepableAttachments } from "./attachments";
-import { storeAttachment } from "./attachment-store";
+import { extractAttachmentParts, junkReason } from "./attachments";
+import { storeAttachment, decodeAttachment, hashBytes } from "./attachment-store";
 import { ocrAttachment } from "./ocr-service";
 import { listCaptureAccounts } from "./sync-service";
 
@@ -132,18 +132,48 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
         }
       }
 
-      // Attachments (junk-filtered), when the label opts in.
+      // Attachments — record EVERY part; mark junk/dupe instead of dropping.
       if (lbl.captureAttachments) {
-        for (const part of keepableAttachments((raw as any).payload)) {
-          try {
-            const { data } = await gmail.getAttachment(p.id, part.attachmentId);
-            const stored = await storeAttachment(env, { account: email, messageId: p.id, part, data, store: lbl.attachmentStore });
-            const attId = crypto.randomUUID();
+        for (const part of extractAttachmentParts((raw as any).payload)) {
+          const attId = crypto.randomUUID();
 
-            // OCR (hash-deduped) + embed the extracted text on vectorize labels.
+          // Junk (signature/logo images): record, don't fetch or store.
+          const reason = junkReason(part);
+          if (reason) {
+            await db.insert(gmailMessageAttachments).values({
+              id: attId, messageId: p.id, filename: part.filename || null, mimetype: part.mimeType, size: part.size,
+              isJunk: true, skippedRationale: reason, createdAt: now,
+            });
+            attachments++;
+            continue;
+          }
+
+          try {
+            const bytes = decodeAttachment((await gmail.getAttachment(p.id, part.attachmentId)).data);
+            const hash = hashBytes(bytes);
+
+            // Dupe: identical bytes already fully processed → record + point at parent.
+            const parent = (
+              await db
+                .select({ id: gmailMessageAttachments.id })
+                .from(gmailMessageAttachments)
+                .where(and(eq(gmailMessageAttachments.md5, hash), or(isNotNull(gmailMessageAttachments.r2Key), isNotNull(gmailMessageAttachments.driveId))))
+                .limit(1)
+            )[0];
+            if (parent) {
+              await db.insert(gmailMessageAttachments).values({
+                id: attId, messageId: p.id, filename: part.filename || null, mimetype: part.mimeType, size: part.size, md5: hash,
+                isDupe: true, dupeRationale: "identical bytes already stored", dupeParentId: parent.id, createdAt: now,
+              });
+              attachments++;
+              continue;
+            }
+
+            // Full process: store → OCR → embed (vectorize labels).
+            const stored = await storeAttachment(env, { account: email, messageId: p.id, part, bytes, store: lbl.attachmentStore });
             let ocrText: string | null = null;
             try {
-              ocrText = await ocrAttachment(env, { bytes: stored.bytes, mimeType: part.mimeType, hash: stored.md5, filename: part.filename || undefined });
+              ocrText = await ocrAttachment(env, { bytes, mimeType: part.mimeType, hash, filename: part.filename || undefined });
             } catch (err) {
               console.error(`[capture] ocr ${part.filename}:`, err instanceof Error ? err.message : err);
             }
@@ -158,17 +188,8 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
             }
 
             await db.insert(gmailMessageAttachments).values({
-              id: attId,
-              messageId: p.id,
-              filename: part.filename || null,
-              mimetype: part.mimeType,
-              md5: stored.md5,
-              r2Key: stored.r2Key,
-              driveId: stored.driveId,
-              driveUrl: stored.driveUrl,
-              ocrText,
-              ragUuid: attRag,
-              createdAt: now,
+              id: attId, messageId: p.id, filename: part.filename || null, mimetype: part.mimeType, size: part.size, md5: hash,
+              r2Key: stored.r2Key, driveId: stored.driveId, driveUrl: stored.driveUrl, ocrText, ragUuid: attRag, createdAt: now,
             });
             attachments++;
           } catch (err) {

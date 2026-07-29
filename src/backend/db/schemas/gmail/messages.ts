@@ -79,12 +79,20 @@ export const gmailMessageContacts = sqliteTable("gmail_message_contacts", {
   type: text("type").notNull(),
 });
 
-/** One row per captured (non-junk) attachment. */
+/**
+ * One row per attachment — EVERY attachment is recorded, even skipped ones.
+ * Junk (signature/logo images) is stored with `isJunk=1` + a rationale and no
+ * bytes/OCR. Duplicates (identical md5 already fully processed) get `isDupe=1`,
+ * a rationale, and `dupeParentId` pointing at the processed attachment, so the
+ * message can reference it as if it had been processed.
+ */
 export const gmailMessageAttachments = sqliteTable("gmail_message_attachments", {
   id: text("id").primaryKey(),
   messageId: text("message_id").notNull(),
   filename: text("filename"),
   mimetype: text("mimetype"),
+  /** Reported byte size of the attachment part. */
+  size: integer("size"),
   /** MD5 of the attachment bytes (dedupe / integrity). */
   md5: text("md5"),
   /** R2 object key when stored in R2. */
@@ -96,6 +104,14 @@ export const gmailMessageAttachments = sqliteTable("gmail_message_attachments", 
   ocrText: text("ocr_text"),
   /** Vectorize record id for the attachment text. */
   ragUuid: text("rag_uuid"),
+  /** Skipped as junk (not fetched/stored). */
+  isJunk: integer("is_junk", { mode: "boolean" }).notNull().default(false),
+  skippedRationale: text("skipped_rationale"),
+  /** Skipped as a duplicate of an already-processed attachment. */
+  isDupe: integer("is_dupe", { mode: "boolean" }).notNull().default(false),
+  dupeRationale: text("dupe_rationale"),
+  /** The fully-processed attachment this dupe mirrors (same bytes). */
+  dupeParentId: text("dupe_parent_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
