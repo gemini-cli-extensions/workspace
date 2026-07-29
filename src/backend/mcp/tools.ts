@@ -20,6 +20,7 @@ import { getDb } from "@/db";
 import { templateArtifacts, driveNotifications, brailleArtifacts, gmailLabels } from "@db/schemas";
 import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/braille/deconstruct";
 import { syncLabels, syncLabelsForAllAccounts, listCaptureAccounts } from "@/backend/gmail/sync-service";
+import { captureAccount, captureAllAccounts } from "@/backend/gmail/capture-service";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1190,6 +1191,23 @@ export const TOOLS: ToolDef[] = [
       await db.update(gmailLabels).set(patch).where(eq(gmailLabels.id, a.labelId));
       const row = await db.select().from(gmailLabels).where(eq(gmailLabels.id, a.labelId)).limit(1);
       return { result: { label: row[0] ?? null } };
+    },
+  },
+  {
+    name: "gmail_capture_run",
+    description:
+      "Ingest messages for capture-enabled labels (captureMode != none) into the relational store: gmail_threads, gmail_messages, gmail_message_bodies, gmail_message_contacts (from/to/cc/bcc). Runs weekly via cron after label sync; call to ingest on demand. Idempotent — already-stored messages are skipped. All active accounts, or one via `account`.",
+    inputSchema: z.object({
+      account: z.string().email().optional(),
+      perLabel: z.number().int().min(1).max(100).optional(),
+    }),
+    async run({ env }, a) {
+      if (a.account) {
+        const target = (await listCaptureAccounts(env)).find((x) => x.email === a.account!.toLowerCase());
+        if (!target) throw new Error(`Account ${a.account} is not active/available.`);
+        return { result: { captured: [await captureAccount(env, target.ref, target.email, a.perLabel ?? 25)] } };
+      }
+      return { result: { captured: await captureAllAccounts(env) } };
     },
   },
 ];
