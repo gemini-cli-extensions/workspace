@@ -22,6 +22,9 @@ import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/brail
 import { syncLabels, syncLabelsForAllAccounts, listCaptureAccounts } from "@/backend/gmail/sync-service";
 import { captureAccount, captureAllAccounts } from "@/backend/gmail/capture-service";
 import { searchGmail } from "@/backend/gmail/search-service";
+import { buildCodeTextRequests, CODE_THEMES } from "@/backend/docs/code-format";
+import { findLastTable } from "@/backend/docs/locate";
+import { buildFillRequests, buildTableStyleRequests } from "@/backend/docs/table-format";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1106,6 +1109,79 @@ export const TOOLS: ToolDef[] = [
       const account = a.as_user ? acct(sub, a) : "sa";
       const result = await new DocsService(env, account).batchUpdate(a.documentId, a.requests);
       return { result, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { requests: a.requests.length } } };
+    },
+  },
+  {
+    name: "table_factory",
+    description:
+      "Insert a themed table into a Google Doc from a 2D array (first row = header). Header row gets a dark-blue fill with white bold centered text; every cell gets a 1pt border. Handles the index math (fills bottom-up, styles after re-fetch). Defaults to the SA identity.",
+    inputSchema: z.object({
+      documentId: z.string(),
+      data: z.array(z.array(z.string())),
+      theme: z.string().optional(),
+      tabId: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const docs = new DocsService(env, account);
+      const rows = a.data.length;
+      const cols = Math.max(0, ...a.data.map((r: string[]) => r.length));
+      if (!rows || !cols) throw new Error("data must be a non-empty 2D array");
+
+      await docs.batchUpdate(a.documentId, [{ insertTable: { rows, columns: cols, endOfSegmentLocation: a.tabId ? { tabId: a.tabId } : {} } }]);
+      let table = findLastTable(await docs.getRaw(a.documentId), a.tabId);
+      if (!table) throw new Error("Could not locate the inserted table.");
+      await docs.batchUpdate(a.documentId, buildFillRequests(table, a.data, a.tabId));
+      table = findLastTable(await docs.getRaw(a.documentId), a.tabId);
+      if (!table) throw new Error("Table not found after fill.");
+      await docs.batchUpdate(a.documentId, buildTableStyleRequests(table, a.data, a.theme ?? "default", a.tabId));
+
+      return { result: { documentId: a.documentId, rows, cols }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { table: `${rows}x${cols}` } } };
+    },
+  },
+  {
+    name: "code_block_factory",
+    description:
+      "Insert a syntax-highlighted code block (shaded 1x1 container) into a Google Doc. Tokenizes by language (sql, javascript, typescript, python, bash…) and colors by theme (dracula | github). Defaults to the SA identity.",
+    inputSchema: z.object({
+      documentId: z.string(),
+      code: z.string(),
+      language: z.string().optional(),
+      theme: z.enum(["dracula", "github"]).optional(),
+      tabId: z.string().optional(),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const docs = new DocsService(env, account);
+      const theme = a.theme ?? "github";
+
+      await docs.batchUpdate(a.documentId, [{ insertTable: { rows: 1, columns: 1, endOfSegmentLocation: a.tabId ? { tabId: a.tabId } : {} } }]);
+      const table = findLastTable(await docs.getRaw(a.documentId), a.tabId);
+      if (!table?.cells[0]) throw new Error("Could not locate the inserted code container.");
+      const cellIndex = table.cells[0].startIndex;
+      const start = a.tabId ? { index: table.tableStartIndex, tabId: a.tabId } : { index: table.tableStartIndex };
+      const bg = (CODE_THEMES[theme] ?? CODE_THEMES.github).background;
+
+      const requests = [
+        {
+          updateTableCellStyle: {
+            tableRange: { tableCellLocation: { tableStartLocation: start, rowIndex: 0, columnIndex: 0 }, rowSpan: 1, columnSpan: 1 },
+            tableCellStyle: {
+              backgroundColor: { color: { rgbColor: bg } },
+              paddingTop: { magnitude: 8, unit: "PT" },
+              paddingBottom: { magnitude: 8, unit: "PT" },
+              paddingLeft: { magnitude: 10, unit: "PT" },
+              paddingRight: { magnitude: 10, unit: "PT" },
+            },
+            fields: "backgroundColor,paddingTop,paddingBottom,paddingLeft,paddingRight",
+          },
+        },
+        ...buildCodeTextRequests(cellIndex, a.code, a.language ?? "text", theme, a.tabId),
+      ];
+      await docs.batchUpdate(a.documentId, requests);
+      return { result: { documentId: a.documentId, language: a.language ?? "text", theme }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { codeBlock: a.language ?? "text" } } };
     },
   },
   // ---- Gmail label registry ---------------------------------------------
