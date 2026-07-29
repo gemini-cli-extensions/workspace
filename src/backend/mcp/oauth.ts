@@ -23,8 +23,8 @@ import { toBase64Url } from "../lib/crypto";
 import { getSecret } from "../utils/secrets";
 import { SCOPES as SCOPES_SUPPORTED } from "./scopes";
 
-const ACCESS_TTL = 3600; // 1 hour
-const REFRESH_TTL = 60 * 60 * 24 * 30; // 30 days
+const ACCESS_TTL = 60 * 60 * 24 * 365; // 1 year — MCP clients shouldn't re-auth often
+const REFRESH_TTL = 60 * 60 * 24 * 400; // ~13 months — outlives the access token
 const CODE_TTL = 300; // 5 minutes
 const REQ_TTL = 600; // 10 minutes
 

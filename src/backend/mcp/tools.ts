@@ -1082,6 +1082,32 @@ export const TOOLS: ToolDef[] = [
       return { result: { folderId, filesIndexed: results.length, skipped, results } };
     },
   },
+  // ---- Docs batchUpdate engine (braille replay) -------------------------
+  {
+    name: "docs_get_json",
+    description:
+      "Return a Google Doc's raw structure JSON (the 'braille'), tab-aware (includeTabsContent=true). This is the exact shape docs_batch_update replays. Defaults to the service-account identity; as_user overrides.",
+    inputSchema: z.object({ documentId: z.string(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      return { result: await new DocsService(env, account).getRaw(a.documentId) };
+    },
+  },
+  {
+    name: "docs_batch_update",
+    description:
+      "Apply an array of native Google Docs API requests to a document atomically — the full grammar: headings, tables, colors, spacing, page/section breaks, tabs (addDocumentTab), landscape (updateSectionStyle flipPageOrientation), styled tables. Each request carries its own tabId/location. This is how stored braille is replayed into docs. Defaults to the service-account identity; as_user overrides.",
+    inputSchema: z.object({
+      documentId: z.string(),
+      requests: z.array(z.record(z.string(), z.unknown())),
+      ...asUser,
+    }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const result = await new DocsService(env, account).batchUpdate(a.documentId, a.requests);
+      return { result, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { requests: a.requests.length } } };
+    },
+  },
   // ---- Gmail label registry ---------------------------------------------
   {
     name: "gmail_labels_sync",
