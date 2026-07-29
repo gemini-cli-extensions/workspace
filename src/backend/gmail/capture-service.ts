@@ -12,6 +12,8 @@ import { getDb } from "@/db";
 import { gmailLabels, gmailThreads, gmailMessages, gmailMessageBodies, gmailMessageContacts, gmailMessageAttachments } from "@db/schemas";
 import { GmailService } from "@/backend/mcp/services/gmail";
 
+import { ingestDocument } from "@/backend/ai/rag";
+
 import { parseRawMessage } from "./parse-message";
 import { keepableAttachments } from "./attachments";
 import { storeAttachment } from "./attachment-store";
@@ -23,6 +25,7 @@ export interface CaptureResult {
   messages: number;
   contacts: number;
   attachments: number;
+  embedded: number;
   skipped: number;
 }
 
@@ -32,6 +35,7 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
   const labels = await db
     .select({
       id: gmailLabels.id,
+      captureMode: gmailLabels.captureMode,
       captureAttachments: gmailLabels.captureAttachments,
       attachmentStore: gmailLabels.attachmentStore,
     })
@@ -42,6 +46,7 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
   let messages = 0;
   let contacts = 0;
   let attachments = 0;
+  let embedded = 0;
   let skipped = 0;
 
   for (const lbl of labels) {
@@ -108,6 +113,24 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
       messages++;
       contacts += contactRows.length;
 
+      // Embed the body when the label is set to "vectorize".
+      if (lbl.captureMode === "vectorize" && p.bodyText.trim()) {
+        try {
+          const ids = await ingestDocument(env, "emails", {
+            id: p.id,
+            account: email,
+            title: p.subject ?? undefined,
+            text: p.bodyText,
+          });
+          if (ids.length) {
+            await db.update(gmailMessages).set({ ragUuid: p.id }).where(eq(gmailMessages.id, p.id));
+            embedded++;
+          }
+        } catch (err) {
+          console.error(`[capture] embed ${p.id}:`, err instanceof Error ? err.message : err);
+        }
+      }
+
       // Attachments (junk-filtered), when the label opts in.
       if (lbl.captureAttachments) {
         for (const part of keepableAttachments((raw as any).payload)) {
@@ -136,7 +159,7 @@ export async function captureAccount(env: Env, ref: string, email: string, perLa
     }
   }
 
-  return { account: email, labels: labels.length, messages, contacts, attachments, skipped };
+  return { account: email, labels: labels.length, messages, contacts, attachments, embedded, skipped };
 }
 
 /** Capture across every active account. Errors on one don't abort the rest. */

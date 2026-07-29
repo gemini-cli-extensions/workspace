@@ -21,6 +21,7 @@ import { templateArtifacts, driveNotifications, brailleArtifacts, gmailLabels } 
 import { deconstruct, detectSurface, type BrailleSurface } from "@/backend/braille/deconstruct";
 import { syncLabels, syncLabelsForAllAccounts, listCaptureAccounts } from "@/backend/gmail/sync-service";
 import { captureAccount, captureAllAccounts } from "@/backend/gmail/capture-service";
+import { searchGmail } from "@/backend/gmail/search-service";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1208,6 +1209,19 @@ export const TOOLS: ToolDef[] = [
         return { result: { captured: [await captureAccount(env, target.ref, target.email, a.perLabel ?? 25)] } };
       }
       return { result: { captured: await captureAllAccounts(env) } };
+    },
+  },
+  {
+    name: "gmail_rag_search",
+    description:
+      "Semantic search over captured mail (labels set to captureMode=vectorize). Returns the best-matching messages with subject, sender, snippet, and a matched-text preview. Optionally scope to one account.",
+    inputSchema: z.object({
+      query: z.string(),
+      account: z.string().email().optional(),
+      topK: z.number().int().min(1).max(25).optional(),
+    }),
+    async run({ env }, a) {
+      return { result: { hits: await searchGmail(env, a.query, { account: a.account, topK: a.topK }) } };
     },
   },
 ];
