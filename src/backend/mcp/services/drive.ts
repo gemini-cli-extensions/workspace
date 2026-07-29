@@ -61,6 +61,22 @@ export class DriveService {
     return (await this.createFolder(name)).id;
   }
 
+  /** Convert an Office file (docx/xlsx/pptx) to its Google-native equivalent via copy. */
+  async convertToGoogle(fileId: string, name?: string): Promise<DriveFile> {
+    const meta = await this.get(fileId);
+    const target: Record<string, string> = {
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "application/vnd.google-apps.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "application/vnd.google-apps.spreadsheet",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation": "application/vnd.google-apps.presentation",
+    };
+    const mimeType = target[meta.mimeType ?? ""];
+    if (!mimeType) throw new Error(`Not a convertible Office file (mimeType: ${meta.mimeType ?? "unknown"}).`);
+    return googleJson<DriveFile>(this.env, this.sub, `${BASE}/files/${fileId}/copy?fields=id,name,mimeType,webViewLink`, {
+      method: "POST",
+      body: JSON.stringify({ name: name ?? meta.name, mimeType }),
+    });
+  }
+
   /** Upload raw bytes as a Drive file (metadata create + media PATCH). */
   async uploadBinary(name: string, mimeType: string, bytes: Uint8Array, parentId?: string): Promise<DriveFile> {
     const meta = await googleJson<DriveFile>(this.env, this.sub, `${BASE}/files?fields=id,name,webViewLink`, {

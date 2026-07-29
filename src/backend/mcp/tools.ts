@@ -27,6 +27,7 @@ import { findLastTable } from "@/backend/docs/locate";
 import { buildFillRequests, buildTableStyleRequests } from "@/backend/docs/table-format";
 import { lintDoc, buildQcFixRequests } from "@/backend/docs/qc";
 import { RECIPES, getRequestTypes, type SchemaSurface } from "@/backend/docs/schema";
+import { htmlToRequests } from "@/backend/docs/html-to-braille";
 import { DriveService } from "./services/drive";
 import { DocsService } from "./services/docs";
 import { SheetsService } from "./services/sheets";
@@ -1227,6 +1228,30 @@ export const TOOLS: ToolDef[] = [
       const surface = a.surface as SchemaSurface;
       const requestTypes = await getRequestTypes(env, surface).catch(() => [] as string[]);
       return { result: { surface, recipes: RECIPES[surface], requestTypes, discoveryUrl: `/api/schema/${surface}` } };
+    },
+  },
+  {
+    name: "html_to_doc",
+    description:
+      "Convert an HTML string into a Google Doc via native batchUpdate (NOT Google's importer) — headings, bold/italic/underline/code, and bullet/numbered lists come out clean. WE control the mapping, so no <hr>-around-heading junk. Inserts at index 1 (use a fresh/scratch doc). Tables/images not yet mapped — use table_factory. Defaults to the SA identity.",
+    inputSchema: z.object({ documentId: z.string(), html: z.string(), tabId: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const requests = htmlToRequests(a.html, 1, a.tabId);
+      if (!requests.length) throw new Error("No renderable content parsed from the HTML.");
+      await new DocsService(env, account).batchUpdate(a.documentId, requests);
+      return { result: { documentId: a.documentId, blocks: requests.length }, asset: { assetType: "doc", googleId: a.documentId, action: "modify", detail: { htmlImport: true } } };
+    },
+  },
+  {
+    name: "office_to_google",
+    description:
+      "Convert an Office file already in Drive (.docx/.xlsx/.pptx) to its Google-native equivalent (Doc/Sheet/Slides) via Drive's converter — far higher fidelity than parsing OpenXML. Returns the new file id + url; then deconstruct_to_braille it. Defaults to the SA identity.",
+    inputSchema: z.object({ fileId: z.string(), name: z.string().optional(), ...asUser }),
+    async run({ env, sub }, a) {
+      const account = a.as_user ? acct(sub, a) : "sa";
+      const f = await new DriveService(env, account).convertToGoogle(a.fileId, a.name);
+      return { result: { id: f.id, name: f.name, mimeType: f.mimeType, url: f.webViewLink }, asset: { assetType: "drive", googleId: f.id, title: f.name, url: f.webViewLink, action: "create", detail: { convertedFrom: a.fileId } } };
     },
   },
   // ---- Scratch sandbox ---------------------------------------------------

@@ -67,6 +67,7 @@
     "lucide-react": "^0.575.0",
     "mind-elixir": "5.13.0",
     "mustache": "^4.2.0",
+    "node-html-parser": "^9.0.1",
     "notebooklm-sdk": "^0.3.4",
     "platejs": "53.2.4",
     "react": "^19.2.5",
