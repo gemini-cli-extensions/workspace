@@ -15,8 +15,8 @@
  *   oauthclient:<client_id>   registered client (long-lived)
  *   oauthreq:<req_id>         pending /authorize awaiting Google login (10 min)
  *   oauthcode:<code>          issued authorization code (5 min, single-use)
- *   oauthtok:<access_token>   access token → { sub, scope, clientId } (1 h)
- *   oauthrt:<refresh_token>   refresh token → { sub, scope, clientId } (30 d)
+ *   oauthtok:<access_token>   access token → { sub, scope, clientId } (1 y)
+ *   oauthrt:<refresh_token>   refresh token → { sub, scope, clientId } (~13 mo)
  */
 
 import { toBase64Url } from "../lib/crypto";
