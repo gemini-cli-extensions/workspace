@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
-    "@google-cloud/functions-framework": "^3.0.0",
+    "@google-cloud/functions-framework": "^5.0.5",
     "@google-cloud/secret-manager": "^5.0.0",
     "axios": "^1.16.0"
   }
