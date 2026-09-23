@@ -85,6 +85,14 @@ describe('resolveFeatures', () => {
     }
   });
 
+  it('enables safe structural Docs tools by default', () => {
+    const { enabledTools } = resolveFeatures();
+
+    expect(enabledTools.has('docs.getStructure')).toBe(true);
+    expect(enabledTools.has('docs.previewReplaceSection')).toBe(true);
+    expect(enabledTools.has('docs.replaceSection')).toBe(true);
+  });
+
   it('should compute scopes only for enabled groups', () => {
     const { requiredScopes } = resolveFeatures();
 

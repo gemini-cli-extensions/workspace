@@ -61,7 +61,12 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
     service: 'docs',
     group: 'read',
     scopes: scopes('documents'),
-    tools: ['docs.getSuggestions', 'docs.getText'],
+    tools: [
+      'docs.getSuggestions',
+      'docs.getText',
+      'docs.getStructure',
+      'docs.previewReplaceSection',
+    ],
     defaultEnabled: true,
   },
   {
@@ -72,6 +77,7 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
       'docs.create',
       'docs.writeText',
       'docs.replaceText',
+      'docs.replaceSection',
       'docs.formatText',
     ],
     defaultEnabled: true,

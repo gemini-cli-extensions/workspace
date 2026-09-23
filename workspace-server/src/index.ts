@@ -380,10 +380,114 @@ async function main() {
   );
 
   registerTool(
+    'docs.getStructure',
+    {
+      description:
+        'Retrieves tab-aware paragraph text, styles, exact Google Docs indexes, and the current revision ID for safe editing.',
+      inputSchema: {
+        documentId: z.string().describe('The ID or URL of the document.'),
+        tabId: z
+          .string()
+          .optional()
+          .describe('The tab to inspect. If omitted, returns every tab.'),
+      },
+      ...readOnlyToolProps,
+    },
+    docsService.getStructure,
+  );
+
+  registerTool(
+    'docs.previewReplaceSection',
+    {
+      description:
+        'Resolves a uniquely headed section and returns its exact range, text, and revision without writing.',
+      inputSchema: {
+        documentId: z.string().describe('The ID or URL of the document.'),
+        tabId: z.string().describe('The tab containing the section.'),
+        startHeading: z
+          .string()
+          .trim()
+          .min(1)
+          .describe('Exact heading text at the start of the replacement.'),
+        endHeading: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            'Exact heading after the section. If omitted, replaces through the end of the tab.',
+          ),
+      },
+      ...readOnlyToolProps,
+    },
+    docsService.previewReplaceSection,
+  );
+
+  registerTool(
+    'docs.replaceSection',
+    {
+      description:
+        'Atomically replaces one uniquely headed section using the revision returned by previewReplaceSection.',
+      inputSchema: {
+        documentId: z.string().describe('The ID or URL of the document.'),
+        tabId: z.string().describe('The tab containing the section.'),
+        startHeading: z
+          .string()
+          .trim()
+          .min(1)
+          .describe('Exact heading text at the start of the replacement.'),
+        endHeading: z
+          .string()
+          .trim()
+          .min(1)
+          .optional()
+          .describe(
+            'Exact heading after the section. If omitted, replaces through the end of the tab.',
+          ),
+        expectedRevisionId: z
+          .string()
+          .min(1)
+          .describe('Revision ID returned by the preview operation.'),
+        expectedText: z
+          .string()
+          .describe('Exact currentText returned by the preview operation.'),
+        blocks: z
+          .array(
+            z.object({
+              text: z.string().describe('Paragraph text.'),
+              style: z
+                .enum([
+                  'heading1',
+                  'heading2',
+                  'heading3',
+                  'heading4',
+                  'heading5',
+                  'heading6',
+                  'normalText',
+                  'HEADING_1',
+                  'HEADING_2',
+                  'HEADING_3',
+                  'HEADING_4',
+                  'HEADING_5',
+                  'HEADING_6',
+                  'NORMAL_TEXT',
+                ])
+                .optional()
+                .describe('Optional Google Docs paragraph style.'),
+            }),
+          )
+          .min(1)
+          .describe('Replacement paragraphs in document order.'),
+      },
+    },
+    docsService.replaceSection,
+  );
+
+  registerTool(
     'docs.replaceText',
     {
       description:
-        'Replaces all occurrences of a given text with new text in a Google Doc.',
+        'Safely replaces text using real Docs indexes and revision locking. Returns the number of matches.',
       inputSchema: {
         documentId: z.string().describe('The ID of the document to modify.'),
         findText: z.string().describe('The text to find in the document.'),

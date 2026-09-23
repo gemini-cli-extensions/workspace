@@ -189,8 +189,24 @@ docs.writeText({
 
 ## Find and Replace
 
-Use `docs.replaceText` to find all occurrences of a string and replace them.
-This works across all tabs by default, or in a specific tab with `tabId`.
+Use `docs.replaceText` only for literal replacements. It resolves actual Google
+Docs indexes, edits from the highest index downward, and locks the current
+revision so concurrent changes fail instead of shifting ranges.
+
+For section rewrites:
+
+1. Call `docs.previewReplaceSection` with a tab ID and unique heading anchors.
+2. Review its `currentText`, `range`, and `revisionId`.
+3. Call `docs.replaceSection` with that exact `expectedText` and
+   `expectedRevisionId`, plus replacement paragraph blocks.
+
+The write is rejected if headings are ambiguous or the document changed after
+preview. Never substitute `docs.writeText` plus manually calculated indexes for
+an existing rich document.
+
+Use `docs.getStructure` when exact paragraph ranges, heading styles, or the
+current revision are needed. Unlike `docs.getText`, it returns API indexes
+instead of rendered-text offsets.
 
 ## Tab Management
 

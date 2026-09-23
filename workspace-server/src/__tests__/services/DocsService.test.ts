@@ -12,7 +12,11 @@ import {
   beforeEach,
   afterEach,
 } from '@jest/globals';
-import { DocsService, TABS_FIELD_MASK } from '../../services/DocsService';
+import {
+  DocsService,
+  SAFE_DOCS_FIELD_MASK,
+  TABS_FIELD_MASK,
+} from '../../services/DocsService';
 import { AuthManager } from '../../auth/AuthManager';
 import { google } from 'googleapis';
 
@@ -816,6 +820,7 @@ describe('DocsService', () => {
       // Mock the document get call that finds occurrences
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
+          revisionId: 'rev-1',
           tabs: [
             {
               documentTab: {
@@ -851,7 +856,7 @@ describe('DocsService', () => {
 
       expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
-        fields: TABS_FIELD_MASK,
+        fields: SAFE_DOCS_FIELD_MASK,
         includeTabsContent: true,
       });
 
@@ -878,17 +883,21 @@ describe('DocsService', () => {
               },
             }),
           ]),
+          writeControl: { requiredRevisionId: 'rev-1' },
         },
       });
-      expect(result.content[0].text).toBe(
-        'Successfully replaced text in document test-doc-id',
-      );
+      expect(JSON.parse(result.content[0].text)).toMatchObject({
+        documentId: 'test-doc-id',
+        revisionId: 'rev-1',
+        matchCount: 2,
+      });
     });
 
     it('should replace text with literal content (no markdown parsing)', async () => {
       // Mock the document get call that finds occurrences
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
+          revisionId: 'rev-1',
           tabs: [
             {
               documentTab: {
@@ -928,7 +937,7 @@ describe('DocsService', () => {
 
       expect(mockDocsAPI.documents.get).toHaveBeenCalledWith({
         documentId: 'test-doc-id',
-        fields: TABS_FIELD_MASK,
+        fields: SAFE_DOCS_FIELD_MASK,
         includeTabsContent: true,
       });
 
@@ -937,7 +946,25 @@ describe('DocsService', () => {
         documentId: 'test-doc-id',
         requestBody: {
           requests: [
-            // First occurrence
+            // Highest index first, so earlier ranges do not move.
+            {
+              deleteContentRange: {
+                range: {
+                  tabId: undefined,
+                  startIndex: 23,
+                  endIndex: 32,
+                },
+              },
+            },
+            {
+              insertText: {
+                location: {
+                  tabId: undefined,
+                  index: 23,
+                },
+                text: '**bold text**',
+              },
+            },
             {
               deleteContentRange: {
                 range: {
@@ -956,37 +983,18 @@ describe('DocsService', () => {
                 text: '**bold text**',
               },
             },
-            // Second occurrence (offset by length diff: 13 - 9 = +4)
-            {
-              deleteContentRange: {
-                range: {
-                  tabId: undefined,
-                  startIndex: 27,
-                  endIndex: 36,
-                },
-              },
-            },
-            {
-              insertText: {
-                location: {
-                  tabId: undefined,
-                  index: 27,
-                },
-                text: '**bold text**',
-              },
-            },
           ],
+          writeControl: { requiredRevisionId: 'rev-1' },
         },
       });
-      expect(result.content[0].text).toBe(
-        'Successfully replaced text in document test-doc-id',
-      );
+      expect(JSON.parse(result.content[0].text).matchCount).toBe(2);
     });
 
     it('should handle errors during replaceText', async () => {
       // Mock the document get call
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
+          revisionId: 'rev-1',
           tabs: [
             {
               documentTab: {
@@ -1022,6 +1030,7 @@ describe('DocsService', () => {
     it('should replace text in a specific tab using delete/insert', async () => {
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
+          revisionId: 'rev-1',
           tabs: [
             {
               tabProperties: { tabId: 'tab-1' },
@@ -1076,6 +1085,7 @@ describe('DocsService', () => {
               },
             }),
           ]),
+          writeControl: { requiredRevisionId: 'rev-1' },
         },
       });
     });
@@ -1083,6 +1093,7 @@ describe('DocsService', () => {
     it('should replace text in a nested child tab by tabId', async () => {
       mockDocsAPI.documents.get.mockResolvedValue({
         data: {
+          revisionId: 'rev-1',
           tabs: [
             {
               tabProperties: { tabId: 'parent-tab' },
@@ -1154,8 +1165,533 @@ describe('DocsService', () => {
               },
             }),
           ]),
+          writeControl: { requiredRevisionId: 'rev-1' },
         },
       });
+    });
+
+    it('uses API indexes after a rich link and locks the document revision', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          revisionId: 'rev-1',
+          tabs: [
+            {
+              tabProperties: { tabId: 'tab-1' },
+              documentTab: {
+                body: {
+                  content: [
+                    {
+                      startIndex: 1,
+                      endIndex: 25,
+                      paragraph: {
+                        elements: [
+                          {
+                            startIndex: 1,
+                            endIndex: 2,
+                            richLink: {
+                              richLinkProperties: {
+                                title: 'Link',
+                                uri: 'https://example.com',
+                              },
+                            },
+                          },
+                          {
+                            startIndex: 10,
+                            endIndex: 25,
+                            textRun: { content: 'Replace target\n' },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.replaceText({
+        documentId: 'test-doc-id',
+        findText: 'target',
+        replaceText: 'value',
+        tabId: 'tab-1',
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              deleteContentRange: {
+                range: {
+                  tabId: 'tab-1',
+                  startIndex: 18,
+                  endIndex: 24,
+                },
+              },
+            },
+            {
+              insertText: {
+                location: { tabId: 'tab-1', index: 18 },
+                text: 'value',
+              },
+            },
+          ],
+          writeControl: { requiredRevisionId: 'rev-1' },
+        },
+      });
+      expect(JSON.parse(result.content[0].text)).toMatchObject({
+        matchCount: 1,
+        revisionId: 'rev-1',
+      });
+    });
+
+    it('matches text split across contiguous text runs', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          revisionId: 'rev-1',
+          tabs: [
+            {
+              tabProperties: { tabId: 'tab-1' },
+              documentTab: {
+                body: {
+                  content: [
+                    {
+                      startIndex: 100,
+                      endIndex: 107,
+                      paragraph: {
+                        elements: [
+                          {
+                            startIndex: 100,
+                            endIndex: 103,
+                            textRun: { content: 'tar' },
+                          },
+                          {
+                            startIndex: 103,
+                            endIndex: 107,
+                            textRun: { content: 'get\n' },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.replaceText({
+        documentId: 'test-doc-id',
+        findText: 'target',
+        replaceText: 'value',
+        tabId: 'tab-1',
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              deleteContentRange: {
+                range: {
+                  tabId: 'tab-1',
+                  startIndex: 100,
+                  endIndex: 106,
+                },
+              },
+            },
+            {
+              insertText: {
+                location: { tabId: 'tab-1', index: 100 },
+                text: 'value',
+              },
+            },
+          ],
+          writeControl: { requiredRevisionId: 'rev-1' },
+        },
+      });
+      expect(JSON.parse(result.content[0].text).matchCount).toBe(1);
+    });
+
+    it('uses actual indexes for text inside a table', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          revisionId: 'rev-1',
+          tabs: [
+            {
+              tabProperties: { tabId: 'tab-1' },
+              documentTab: {
+                body: {
+                  content: [
+                    {
+                      startIndex: 1,
+                      endIndex: 80,
+                      table: {
+                        tableRows: [
+                          {
+                            tableCells: [
+                              {
+                                content: [
+                                  {
+                                    startIndex: 50,
+                                    endIndex: 57,
+                                    paragraph: {
+                                      elements: [
+                                        {
+                                          startIndex: 50,
+                                          endIndex: 57,
+                                          textRun: { content: 'target\n' },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      await docsService.replaceText({
+        documentId: 'test-doc-id',
+        findText: 'target',
+        replaceText: 'value',
+        tabId: 'tab-1',
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestBody: expect.objectContaining({
+            requests: expect.arrayContaining([
+              {
+                deleteContentRange: {
+                  range: {
+                    tabId: 'tab-1',
+                    startIndex: 50,
+                    endIndex: 56,
+                  },
+                },
+              },
+            ]),
+          }),
+        }),
+      );
+    });
+
+    it('returns an explicit no-op when text is absent', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          revisionId: 'rev-1',
+          tabs: [
+            {
+              tabProperties: { tabId: 'tab-1' },
+              documentTab: {
+                body: {
+                  content: [
+                    {
+                      startIndex: 1,
+                      endIndex: 6,
+                      paragraph: {
+                        elements: [
+                          {
+                            startIndex: 1,
+                            endIndex: 6,
+                            textRun: { content: 'other' },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await docsService.replaceText({
+        documentId: 'test-doc-id',
+        findText: 'target',
+        replaceText: 'value',
+        tabId: 'tab-1',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toMatchObject({
+        revisionId: 'rev-1',
+        matchCount: 0,
+      });
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('safe structural editing', () => {
+    const structuredDocument = {
+      data: {
+        title: 'Quota RFC',
+        revisionId: 'rev-1',
+        tabs: [
+          {
+            tabProperties: { tabId: 'tab-1', title: 'Quota spec' },
+            documentTab: {
+              body: {
+                content: [
+                  {
+                    startIndex: 20,
+                    endIndex: 29,
+                    paragraph: {
+                      paragraphStyle: { namedStyleType: 'HEADING_2' },
+                      elements: [
+                        {
+                          startIndex: 20,
+                          endIndex: 29,
+                          textRun: { content: 'Concepts\n' },
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    startIndex: 29,
+                    endIndex: 33,
+                    paragraph: {
+                      paragraphStyle: { namedStyleType: 'NORMAL_TEXT' },
+                      elements: [
+                        {
+                          startIndex: 29,
+                          endIndex: 33,
+                          textRun: { content: 'Old\n' },
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    startIndex: 33,
+                    endIndex: 50,
+                    paragraph: {
+                      paragraphStyle: { namedStyleType: 'HEADING_2' },
+                      elements: [
+                        {
+                          startIndex: 33,
+                          endIndex: 50,
+                          textRun: { content: 'Growth scenarios\n' },
+                        },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    it('returns tab-aware paragraph ranges and revision ID', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(structuredDocument);
+
+      const result = await docsService.getStructure({
+        documentId: 'test-doc-id',
+        tabId: 'tab-1',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        documentId: 'test-doc-id',
+        title: 'Quota RFC',
+        revisionId: 'rev-1',
+        tabs: [
+          {
+            tabId: 'tab-1',
+            title: 'Quota spec',
+            paragraphs: [
+              {
+                startIndex: 20,
+                endIndex: 29,
+                style: 'HEADING_2',
+                text: 'Concepts\n',
+              },
+              {
+                startIndex: 29,
+                endIndex: 33,
+                style: 'NORMAL_TEXT',
+                text: 'Old\n',
+              },
+              {
+                startIndex: 33,
+                endIndex: 50,
+                style: 'HEADING_2',
+                text: 'Growth scenarios\n',
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    it('previews a uniquely anchored section without writing', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(structuredDocument);
+
+      const result = await docsService.previewReplaceSection({
+        documentId: 'test-doc-id',
+        tabId: 'tab-1',
+        startHeading: 'Concepts',
+        endHeading: 'Growth scenarios',
+      });
+
+      expect(JSON.parse(result.content[0].text)).toMatchObject({
+        revisionId: 'rev-1',
+        range: { tabId: 'tab-1', startIndex: 20, endIndex: 33 },
+        currentText: 'Concepts\nOld\n',
+      });
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('replaces a previewed section atomically with revision locking', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(structuredDocument);
+      mockDocsAPI.documents.batchUpdate.mockResolvedValue({ data: {} });
+
+      const result = await docsService.replaceSection({
+        documentId: 'test-doc-id',
+        tabId: 'tab-1',
+        startHeading: 'Concepts',
+        endHeading: 'Growth scenarios',
+        expectedRevisionId: 'rev-1',
+        expectedText: 'Concepts\nOld\n',
+        blocks: [
+          { text: 'Concepts', style: 'HEADING_2' },
+          { text: 'New body' },
+        ],
+      });
+
+      expect(mockDocsAPI.documents.batchUpdate).toHaveBeenCalledWith({
+        documentId: 'test-doc-id',
+        requestBody: {
+          requests: [
+            {
+              deleteContentRange: {
+                range: {
+                  tabId: 'tab-1',
+                  startIndex: 20,
+                  endIndex: 33,
+                },
+              },
+            },
+            {
+              insertText: {
+                location: { tabId: 'tab-1', index: 20 },
+                text: 'Concepts\nNew body\n',
+              },
+            },
+            {
+              updateParagraphStyle: {
+                range: {
+                  tabId: 'tab-1',
+                  startIndex: 20,
+                  endIndex: 29,
+                },
+                paragraphStyle: { namedStyleType: 'HEADING_2' },
+                fields: 'namedStyleType',
+              },
+            },
+          ],
+          writeControl: { requiredRevisionId: 'rev-1' },
+        },
+      });
+      expect(JSON.parse(result.content[0].text)).toMatchObject({
+        replaced: true,
+        revisionId: 'rev-1',
+        range: { tabId: 'tab-1', startIndex: 20, endIndex: 33 },
+      });
+    });
+
+    it('refuses replacement when the preview revision is stale', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue({
+        ...structuredDocument,
+        data: { ...structuredDocument.data, revisionId: 'rev-2' },
+      });
+
+      const result = await docsService.replaceSection({
+        documentId: 'test-doc-id',
+        tabId: 'tab-1',
+        startHeading: 'Concepts',
+        endHeading: 'Growth scenarios',
+        expectedRevisionId: 'rev-1',
+        expectedText: 'Concepts\nOld\n',
+        blocks: [{ text: 'Concepts', style: 'HEADING_2' }],
+      });
+
+      expect(JSON.parse(result.content[0].text).error).toContain(
+        'revision changed',
+      );
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('refuses replacement when the section text differs from the preview', async () => {
+      mockDocsAPI.documents.get.mockResolvedValue(structuredDocument);
+
+      const result = await docsService.replaceSection({
+        documentId: 'test-doc-id',
+        tabId: 'tab-1',
+        startHeading: 'Concepts',
+        endHeading: 'Growth scenarios',
+        expectedRevisionId: 'rev-1',
+        expectedText: 'Concepts\nDifferent body\n',
+        blocks: [{ text: 'Concepts', style: 'HEADING_2' }],
+      });
+
+      expect(JSON.parse(result.content[0].text).error).toContain(
+        'section text changed',
+      );
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('refuses ambiguous section headings', async () => {
+      const duplicateHeading =
+        structuredDocument.data.tabs[0].documentTab.body.content[0];
+      mockDocsAPI.documents.get.mockResolvedValue({
+        data: {
+          ...structuredDocument.data,
+          tabs: [
+            {
+              ...structuredDocument.data.tabs[0],
+              documentTab: {
+                body: {
+                  content: [
+                    ...structuredDocument.data.tabs[0].documentTab.body.content,
+                    {
+                      ...duplicateHeading,
+                      startIndex: 60,
+                      endIndex: 69,
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await docsService.previewReplaceSection({
+        documentId: 'test-doc-id',
+        tabId: 'tab-1',
+        startHeading: 'Concepts',
+        endHeading: 'Growth scenarios',
+      });
+
+      expect(JSON.parse(result.content[0].text).error).toContain('found 2');
+      expect(mockDocsAPI.documents.batchUpdate).not.toHaveBeenCalled();
     });
   });
 });

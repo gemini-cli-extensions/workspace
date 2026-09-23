@@ -16,6 +16,7 @@ import { extractDocumentId as validateAndExtractDocId } from '../utils/validatio
 // "comment-specific fields" errors when combined with includeTabsContent.
 export const TABS_FIELD_MASK =
   'tabs(tabProperties,documentTab(body,headers,footers,footnotes))';
+export const SAFE_DOCS_FIELD_MASK = `title,revisionId,${TABS_FIELD_MASK}`;
 
 interface BaseDocsSuggestion {
   text: string;
@@ -50,6 +51,27 @@ type DocsSuggestion =
   | DocsDeletionSuggestion
   | DocsStyleChangeSuggestion
   | DocsParagraphStyleChangeSuggestion;
+
+interface DocsReplacementBlock {
+  text: string;
+  style?: string;
+}
+
+interface StructuredParagraph {
+  startIndex: number;
+  endIndex: number;
+  style: string;
+  text: string;
+}
+
+interface SectionLocation {
+  range: {
+    tabId: string;
+    startIndex: number;
+    endIndex: number;
+  };
+  currentText: string;
+}
 
 export class DocsService {
   /**
@@ -722,6 +744,173 @@ export class DocsService {
     return displayText || timestamp || '';
   }
 
+  public getStructure = async ({
+    documentId,
+    tabId,
+  }: {
+    documentId: string;
+    tabId?: string;
+  }) => {
+    try {
+      const id = validateAndExtractDocId(documentId);
+      const docs = await this.getDocsClient();
+      const response = await docs.documents.get({
+        documentId: id,
+        fields: SAFE_DOCS_FIELD_MASK,
+        includeTabsContent: true,
+        suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
+      });
+      const revisionId = response.data.revisionId;
+      if (!revisionId) {
+        throw new Error('Google Docs response did not include a revision ID.');
+      }
+
+      let tabs = this._flattenTabs(response.data.tabs || []);
+      if (tabId) {
+        tabs = tabs.filter((tab) => tab.tabProperties?.tabId === tabId);
+        if (tabs.length === 0) {
+          throw new Error(`Tab with ID ${tabId} not found.`);
+        }
+      }
+
+      const result = {
+        documentId: id,
+        title: response.data.title,
+        revisionId,
+        tabs: tabs.map((tab) => ({
+          tabId: tab.tabProperties?.tabId,
+          title: tab.tabProperties?.title,
+          paragraphs: this._collectParagraphs(tab.documentTab?.body?.content),
+        })),
+      };
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+      };
+    } catch (error) {
+      return this._docsError('docs.getStructure', error);
+    }
+  };
+
+  public previewReplaceSection = async ({
+    documentId,
+    tabId,
+    startHeading,
+    endHeading,
+  }: {
+    documentId: string;
+    tabId: string;
+    startHeading: string;
+    endHeading?: string;
+  }) => {
+    try {
+      const loaded = await this._loadStructuredDocument(documentId);
+      const section = this._resolveSection(
+        loaded.tabs,
+        tabId,
+        startHeading,
+        endHeading,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              documentId: loaded.id,
+              revisionId: loaded.revisionId,
+              ...section,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      return this._docsError('docs.previewReplaceSection', error);
+    }
+  };
+
+  public replaceSection = async ({
+    documentId,
+    tabId,
+    startHeading,
+    endHeading,
+    expectedRevisionId,
+    expectedText,
+    blocks,
+  }: {
+    documentId: string;
+    tabId: string;
+    startHeading: string;
+    endHeading?: string;
+    expectedRevisionId: string;
+    expectedText: string;
+    blocks: DocsReplacementBlock[];
+  }) => {
+    try {
+      if (blocks.length === 0) {
+        throw new Error('At least one replacement block is required.');
+      }
+      const loaded = await this._loadStructuredDocument(documentId);
+      if (loaded.revisionId !== expectedRevisionId) {
+        throw new Error(
+          `Document revision changed from ${expectedRevisionId} to ${loaded.revisionId}; preview the section again.`,
+        );
+      }
+      const section = this._resolveSection(
+        loaded.tabs,
+        tabId,
+        startHeading,
+        endHeading,
+      );
+      if (section.currentText !== expectedText) {
+        throw new Error(
+          'The section text changed after preview; preview the section again.',
+        );
+      }
+      const rendered = this._renderBlocks(
+        blocks,
+        section.range.startIndex,
+        tabId,
+      );
+      const requests: docs_v1.Schema$Request[] = [
+        { deleteContentRange: { range: section.range } },
+        {
+          insertText: {
+            location: {
+              tabId,
+              index: section.range.startIndex,
+            },
+            text: rendered.text,
+          },
+        },
+        ...rendered.styleRequests.map((styleRequest) => ({
+          updateParagraphStyle: styleRequest,
+        })),
+      ];
+
+      await loaded.docs.documents.batchUpdate({
+        documentId: loaded.id,
+        requestBody: {
+          requests,
+          writeControl: { requiredRevisionId: expectedRevisionId },
+        },
+      });
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              replaced: true,
+              documentId: loaded.id,
+              revisionId: expectedRevisionId,
+              range: section.range,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      return this._docsError('docs.replaceSection', error);
+    }
+  };
+
   public replaceText = async ({
     documentId,
     findText,
@@ -743,9 +932,13 @@ export class DocsService {
       // Get the document to find where the text will be replaced
       const docBefore = await docs.documents.get({
         documentId: id,
-        fields: TABS_FIELD_MASK,
+        fields: SAFE_DOCS_FIELD_MASK,
         includeTabsContent: true,
       });
+      const revisionId = docBefore.data.revisionId;
+      if (!revisionId) {
+        throw new Error('Google Docs response did not include a revision ID.');
+      }
 
       const tabs = this._flattenTabs(docBefore.data.tabs || []);
 
@@ -785,6 +978,7 @@ export class DocsService {
           documentId: id,
           requestBody: {
             requests,
+            writeControl: { requiredRevisionId: revisionId },
           },
         });
       }
@@ -794,7 +988,11 @@ export class DocsService {
         content: [
           {
             type: 'text' as const,
-            text: `Successfully replaced text in document ${id}`,
+            text: JSON.stringify({
+              documentId: id,
+              revisionId,
+              matchCount: requests.length / 2,
+            }),
           },
         ],
       };
@@ -819,58 +1017,242 @@ export class DocsService {
     findText: string,
     newText: string,
   ): docs_v1.Schema$Request[] {
-    const requests: docs_v1.Schema$Request[] = [];
-    const documentText = this._getFullDocumentText(content);
-    const occurrences: number[] = [];
-    let searchIndex = 0;
-    while ((searchIndex = documentText.indexOf(findText, searchIndex)) !== -1) {
-      occurrences.push(searchIndex + 1);
-      searchIndex += findText.length;
+    if (!findText) {
+      throw new Error('findText must not be empty.');
     }
-
-    const lengthDiff = newText.length - findText.length;
-    let cumulativeOffset = 0;
-
-    for (let i = 0; i < occurrences.length; i++) {
-      const occurrence = occurrences[i];
-      const adjustedPosition = occurrence + cumulativeOffset;
-
-      // Delete old text
+    const matches = this._findTextMatches(content, findText).sort(
+      (left, right) => right.startIndex - left.startIndex,
+    );
+    const requests: docs_v1.Schema$Request[] = [];
+    for (const match of matches) {
       requests.push({
         deleteContentRange: {
           range: {
             tabId: tabId,
-            startIndex: adjustedPosition,
-            endIndex: adjustedPosition + findText.length,
+            startIndex: match.startIndex,
+            endIndex: match.endIndex,
           },
         },
       });
-
-      // Insert new text
       requests.push({
         insertText: {
           location: {
             tabId: tabId,
-            index: adjustedPosition,
+            index: match.startIndex,
           },
           text: newText,
         },
       });
-
-      cumulativeOffset += lengthDiff;
     }
     return requests;
   }
 
-  private _getFullDocumentText(
+  private _findTextMatches(
     content: docs_v1.Schema$StructuralElement[] | undefined,
-  ): string {
-    let text = '';
-    if (content) {
-      content.forEach((element) => {
-        text += this._readStructuralElement(element);
-      });
+    findText: string,
+  ): { startIndex: number; endIndex: number }[] {
+    const matches: { startIndex: number; endIndex: number }[] = [];
+    for (const element of content || []) {
+      if (element.paragraph) {
+        const chunks: { startIndex: number; endIndex: number; text: string }[] =
+          [];
+        let fallbackIndex = element.startIndex ?? 1;
+        for (const paragraphElement of element.paragraph.elements || []) {
+          const runText = paragraphElement.textRun?.content;
+          if (runText === undefined) {
+            fallbackIndex = paragraphElement.endIndex ?? fallbackIndex;
+            continue;
+          }
+          const startIndex = paragraphElement.startIndex ?? fallbackIndex;
+          const endIndex =
+            paragraphElement.endIndex ?? startIndex + runText.length;
+          const previous = chunks[chunks.length - 1];
+          if (previous && previous.endIndex === startIndex) {
+            previous.text += runText;
+            previous.endIndex = endIndex;
+          } else {
+            chunks.push({ startIndex, endIndex, text: runText });
+          }
+          fallbackIndex = endIndex;
+        }
+        for (const chunk of chunks) {
+          let offset = 0;
+          while ((offset = chunk.text.indexOf(findText, offset)) !== -1) {
+            matches.push({
+              startIndex: chunk.startIndex + offset,
+              endIndex: chunk.startIndex + offset + findText.length,
+            });
+            offset += findText.length;
+          }
+        }
+      } else if (element.table) {
+        for (const row of element.table.tableRows || []) {
+          for (const cell of row.tableCells || []) {
+            matches.push(...this._findTextMatches(cell.content, findText));
+          }
+        }
+      }
     }
-    return text;
+    return matches;
+  }
+
+  private _collectParagraphs(
+    content: docs_v1.Schema$StructuralElement[] | undefined,
+  ): StructuredParagraph[] {
+    const paragraphs: StructuredParagraph[] = [];
+    for (const element of content || []) {
+      if (
+        element.paragraph &&
+        element.startIndex !== undefined &&
+        element.endIndex !== undefined
+      ) {
+        paragraphs.push({
+          startIndex: element.startIndex,
+          endIndex: element.endIndex,
+          style:
+            element.paragraph.paragraphStyle?.namedStyleType || 'NORMAL_TEXT',
+          text: this._readStructuralElement(element),
+        });
+      } else if (element.table) {
+        for (const row of element.table.tableRows || []) {
+          for (const cell of row.tableCells || []) {
+            paragraphs.push(...this._collectParagraphs(cell.content));
+          }
+        }
+      }
+    }
+    return paragraphs;
+  }
+
+  private async _loadStructuredDocument(documentId: string) {
+    const id = validateAndExtractDocId(documentId);
+    const docs = await this.getDocsClient();
+    const response = await docs.documents.get({
+      documentId: id,
+      fields: SAFE_DOCS_FIELD_MASK,
+      includeTabsContent: true,
+      suggestionsViewMode: 'PREVIEW_WITHOUT_SUGGESTIONS',
+    });
+    const revisionId = response.data.revisionId;
+    if (!revisionId) {
+      throw new Error('Google Docs response did not include a revision ID.');
+    }
+    return {
+      id,
+      docs,
+      revisionId,
+      tabs: this._flattenTabs(response.data.tabs || []),
+    };
+  }
+
+  private _resolveSection(
+    tabs: docs_v1.Schema$Tab[],
+    tabId: string,
+    startHeading: string,
+    endHeading?: string,
+  ): SectionLocation {
+    const tab = tabs.find(
+      (candidate) => candidate.tabProperties?.tabId === tabId,
+    );
+    if (!tab) {
+      throw new Error(`Tab with ID ${tabId} not found.`);
+    }
+    const content = tab.documentTab?.body?.content || [];
+    const headings = content.filter((element) => {
+      const style = element.paragraph?.paragraphStyle?.namedStyleType || '';
+      return element.paragraph && style.startsWith('HEADING_');
+    });
+    const startMatches = headings.filter(
+      (element) => this._readStructuralElement(element).trim() === startHeading,
+    );
+    if (startMatches.length !== 1) {
+      throw new Error(
+        `Expected exactly one heading "${startHeading}" in tab ${tabId}; found ${startMatches.length}.`,
+      );
+    }
+    const startIndex = startMatches[0].startIndex;
+    if (startIndex === undefined) {
+      throw new Error(`Heading "${startHeading}" has no start index.`);
+    }
+
+    let endIndex: number;
+    if (endHeading) {
+      const endMatches = headings.filter(
+        (element) =>
+          (element.startIndex ?? 0) > startIndex &&
+          this._readStructuralElement(element).trim() === endHeading,
+      );
+      if (endMatches.length !== 1 || endMatches[0].startIndex === undefined) {
+        throw new Error(
+          `Expected exactly one heading "${endHeading}" after "${startHeading}" in tab ${tabId}; found ${endMatches.length}.`,
+        );
+      }
+      endIndex = endMatches[0].startIndex;
+    } else {
+      const finalEndIndex = content[content.length - 1]?.endIndex;
+      if (finalEndIndex === undefined) {
+        throw new Error(`Tab ${tabId} has no editable body content.`);
+      }
+      endIndex = Math.max(startIndex, finalEndIndex - 1);
+    }
+    const currentText = content
+      .filter(
+        (element) =>
+          (element.startIndex ?? -1) >= startIndex &&
+          (element.startIndex ?? endIndex) < endIndex,
+      )
+      .map((element) => this._readStructuralElement(element))
+      .join('');
+    return {
+      range: { tabId, startIndex, endIndex },
+      currentText,
+    };
+  }
+
+  private _renderBlocks(
+    blocks: DocsReplacementBlock[],
+    startIndex: number,
+    tabId: string,
+  ) {
+    let text = '';
+    const styleRequests: docs_v1.Schema$UpdateParagraphStyleRequest[] = [];
+    for (const block of blocks) {
+      const blockText = block.text.endsWith('\n')
+        ? block.text
+        : `${block.text}\n`;
+      const blockStart = startIndex + text.length;
+      text += blockText;
+      if (block.style) {
+        const namedStyleType =
+          DocsService.HEADING_STYLES[block.style.toLowerCase()] || block.style;
+        if (
+          !/^HEADING_[1-6]$/.test(namedStyleType) &&
+          namedStyleType !== 'NORMAL_TEXT'
+        ) {
+          throw new Error(`Unsupported paragraph style: ${block.style}`);
+        }
+        styleRequests.push({
+          range: {
+            tabId,
+            startIndex: blockStart,
+            endIndex: blockStart + blockText.length,
+          },
+          paragraphStyle: { namedStyleType },
+          fields: 'namedStyleType',
+        });
+      }
+    }
+    return { text, styleRequests };
+  }
+
+  private _docsError(tool: string, error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logToFile(`[DocsService] Error during ${tool}: ${message}`);
+    return {
+      isError: true,
+      content: [
+        { type: 'text' as const, text: JSON.stringify({ error: message }) },
+      ],
+    };
   }
 }
