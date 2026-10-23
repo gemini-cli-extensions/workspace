@@ -246,4 +246,66 @@ export class SheetsService {
       };
     }
   };
+
+  public batchUpdate = async ({
+    spreadsheetId,
+    requests,
+  }: {
+    spreadsheetId: string;
+    requests: string;
+  }) => {
+    logToFile(
+      `[SheetsService] Starting batchUpdate for spreadsheet: ${spreadsheetId}`,
+    );
+    try {
+      const id = extractDocId(spreadsheetId) || spreadsheetId;
+
+      let parsedRequests: sheets_v4.Schema$Request[];
+      try {
+        parsedRequests = JSON.parse(requests);
+      } catch (parseError) {
+        const message =
+          parseError instanceof Error ? parseError.message : String(parseError);
+        throw new Error(`"requests" must be a valid JSON array: ${message}`);
+      }
+      if (!Array.isArray(parsedRequests)) {
+        throw new Error('"requests" must be a JSON array of Request objects.');
+      }
+
+      const sheets = await this.getSheetsClient();
+      const response = await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: id,
+        requestBody: { requests: parsedRequests },
+      });
+
+      logToFile(
+        `[SheetsService] Finished batchUpdate for spreadsheet: ${id} (${parsedRequests.length} request(s))`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({
+              spreadsheetId: response.data.spreadsheetId,
+              repliesCount: response.data.replies?.length ?? 0,
+            }),
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToFile(
+        `[SheetsService] Error during sheets.batchUpdate: ${errorMessage}`,
+      );
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: JSON.stringify({ error: errorMessage }),
+          },
+        ],
+      };
+    }
+  };
 }

@@ -244,10 +244,14 @@ describe('resolveFeatures', () => {
       expect(requiredScopes).toContain(fullUrl('userinfo.profile'));
     });
 
-    it('should still include readonly scopes for default-OFF write groups (slides, sheets)', () => {
+    it('should still include readonly scopes for default-OFF write groups (slides)', () => {
       const { requiredScopes } = resolveFeatures();
       expect(requiredScopes).toContain(fullUrl('presentations.readonly'));
-      expect(requiredScopes).toContain(fullUrl('spreadsheets.readonly'));
+    });
+
+    it('should request the write scope for default-ON sheets.write', () => {
+      const { requiredScopes } = resolveFeatures();
+      expect(requiredScopes).toContain(fullUrl('spreadsheets'));
     });
   });
 });

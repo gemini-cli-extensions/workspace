@@ -38,6 +38,7 @@ describe('SheetsService', () => {
     mockSheetsAPI = {
       spreadsheets: {
         get: jest.fn(),
+        batchUpdate: jest.fn(),
         values: {
           get: jest.fn(),
         },
@@ -368,6 +369,76 @@ describe('SheetsService', () => {
       const response = JSON.parse(result.content[0].text);
 
       expect(response.error).toBe('Metadata Error');
+    });
+  });
+
+  describe('batchUpdate', () => {
+    it('should apply formatting requests via spreadsheets.batchUpdate', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockResolvedValue({
+        data: {
+          spreadsheetId: 'test-id',
+          replies: [{}],
+        },
+      });
+
+      const requests = JSON.stringify([
+        {
+          repeatCell: {
+            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 },
+            cell: { userEnteredFormat: { textFormat: { bold: true } } },
+            fields: 'userEnteredFormat.textFormat.bold',
+          },
+        },
+      ]);
+
+      const result = await sheetsService.batchUpdate({
+        spreadsheetId: 'test-id',
+        requests,
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(mockSheetsAPI.spreadsheets.batchUpdate).toHaveBeenCalledWith({
+        spreadsheetId: 'test-id',
+        requestBody: { requests: JSON.parse(requests) },
+      });
+      expect(response.spreadsheetId).toBe('test-id');
+      expect(response.repliesCount).toBe(1);
+    });
+
+    it('should return an error when requests is not valid JSON', async () => {
+      const result = await sheetsService.batchUpdate({
+        spreadsheetId: 'test-id',
+        requests: 'not json',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('must be a valid JSON array');
+      expect(mockSheetsAPI.spreadsheets.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should return an error when requests is not a JSON array', async () => {
+      const result = await sheetsService.batchUpdate({
+        spreadsheetId: 'test-id',
+        requests: '{"repeatCell":{}}',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toContain('must be a JSON array');
+      expect(mockSheetsAPI.spreadsheets.batchUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should handle API errors gracefully', async () => {
+      mockSheetsAPI.spreadsheets.batchUpdate.mockRejectedValue(
+        new Error('BatchUpdate Error'),
+      );
+
+      const result = await sheetsService.batchUpdate({
+        spreadsheetId: 'error-id',
+        requests: '[]',
+      });
+      const response = JSON.parse(result.content[0].text);
+
+      expect(response.error).toBe('BatchUpdate Error');
     });
   });
 });

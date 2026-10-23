@@ -242,8 +242,8 @@ export const FEATURE_GROUPS: readonly FeatureGroup[] = [
     service: 'sheets',
     group: 'write',
     scopes: scopes('spreadsheets'),
-    tools: [],
-    defaultEnabled: false,
+    tools: ['sheets.batchUpdate'],
+    defaultEnabled: true,
   },
 
   // Time (no scopes needed)

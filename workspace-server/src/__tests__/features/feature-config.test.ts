@@ -32,14 +32,20 @@ describe('feature-config', () => {
     expect(duplicates).toEqual([]);
   });
 
-  it('should have slides.write, sheets.write, tasks.read, and tasks.write defaulted to OFF', () => {
+  it('should have slides.write, tasks.read, and tasks.write defaulted to OFF', () => {
     const offByDefault = FEATURE_GROUPS.filter((fg) => !fg.defaultEnabled).map(
       featureGroupKey,
     );
     expect(offByDefault).toContain('slides.write');
-    expect(offByDefault).toContain('sheets.write');
     expect(offByDefault).toContain('tasks.read');
     expect(offByDefault).toContain('tasks.write');
+  });
+
+  it('should have sheets.write defaulted to ON', () => {
+    const onByDefault = FEATURE_GROUPS.filter((fg) => fg.defaultEnabled).map(
+      featureGroupKey,
+    );
+    expect(onByDefault).toContain('sheets.write');
   });
 
   it('should have all default-ON services with at least one tool', () => {

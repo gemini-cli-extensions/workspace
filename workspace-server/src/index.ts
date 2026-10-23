@@ -941,6 +941,23 @@ async function main() {
   );
 
   registerTool(
+    'sheets.batchUpdate',
+    {
+      description:
+        'Applies one or more batchUpdate requests to a Google Sheets spreadsheet. This is the general-purpose write operation for everything beyond cell values: cell/text formatting (bold, colors, number formats, borders), column widths, wrapping, frozen rows, conditional formatting, merges, and sheet properties. Use sheets.getMetadata first to obtain the numeric sheetId that most requests target.',
+      inputSchema: {
+        spreadsheetId: z.string().describe('The ID or URL of the spreadsheet.'),
+        requests: z
+          .string()
+          .describe(
+            'A JSON string containing an array of Request objects conforming to the Google Sheets batchUpdate schema (https://developers.google.com/workspace/sheets/api/reference/rest/v4/spreadsheets/request#Request). Example (bold A1 on sheetId 0): \'[{"repeatCell":{"range":{"sheetId":0,"startRowIndex":0,"endRowIndex":1,"startColumnIndex":0,"endColumnIndex":1},"cell":{"userEnteredFormat":{"textFormat":{"bold":true}}},"fields":"userEnteredFormat.textFormat.bold"}}]\'.',
+          ),
+      },
+    },
+    sheetsService.batchUpdate,
+  );
+
+  registerTool(
     'drive.search',
     {
       description:
