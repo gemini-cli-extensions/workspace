@@ -5,16 +5,20 @@
  */
 
 const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
-function runCommand(command, args, options) {
+function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
+    // Hide subprocess console windows on Windows to prevent popup flickering
+    const opts = { windowsHide: true, ...options };
+
     // On Windows, npm is a batch file and needs a shell
     if (process.platform === 'win32' && command === 'npm') {
       command = `${command}.cmd`;
-      options = { ...options, shell: true };
+      opts.shell = true;
     }
-    const child = spawn(command, args, options);
+    const child = spawn(command, args, opts);
 
     // Pipe stderr to the parent process's stderr if it's available.
     // This is more efficient than listening for 'data' events.
@@ -41,18 +45,23 @@ function runCommand(command, args, options) {
 
 async function main() {
   try {
-    await runCommand('npm', ['install'], {
-      stdio: ['ignore', 'ignore', 'pipe'],
-    });
-
-    const SERVER_PATH = path.join(
-      __dirname,
-      '..',
+    const rootDir = path.join(__dirname, '..');
+    const nodeModulesPath = path.join(rootDir, 'node_modules');
+    const serverPath = path.join(
+      rootDir,
       'workspace-server',
       'dist',
       'index.js',
     );
-    await runCommand('node', [SERVER_PATH, '--debug', '--use-dot-names'], {
+
+    // Only run npm install on initial setup if node_modules or build output are missing
+    if (!fs.existsSync(nodeModulesPath) || !fs.existsSync(serverPath)) {
+      await runCommand('npm', ['install'], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+    }
+
+    await runCommand('node', [serverPath, '--debug', '--use-dot-names'], {
       stdio: 'inherit',
     });
   } catch (error) {
